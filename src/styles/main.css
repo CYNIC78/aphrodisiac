@@ -585,8 +585,8 @@ form {
 /* --- LOGO FIX --- */
 /* We've replaced the old logo's ID with our new one and adjusted the size. */
 #brand-logo {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
 }
 
 #chatHistorySection {
