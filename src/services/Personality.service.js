@@ -40,9 +40,14 @@ export async function getSelected(){
 }
 
 export function getDefault() {
-    return new Personality('zodiac', 'https://techcrunch.com/wp-content/uploads/2023/12/google-bard-gemini-v2.jpg',
-        'zodiac is a cheerful assistant, always ready to help you with your tasks.',
-        "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini model. Gemini is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.");
+    // --- BRANDING UPDATE ---
+    // The old "zodiac" personality has been replaced with "Aphrodite".
+    return new Personality(
+        'Aphrodite', 
+        'https://upload.wikimedia.org/wikipedia/commons/4/42/Aphrodite_of_Milos_Louvre_Ma399_n2.jpg',
+        'The embodiment of charm and creativity, ready to inspire and assist.',
+        "You are Aphrodite, an AI companion powered by Google's Gemini model. Inspired by the goddess of beauty and creativity, your purpose is to assist the user with charm, wit, and a touch of inspiration."
+    );
 }
 
 export async function get(id) {
@@ -171,4 +176,3 @@ export function generateCard(personality) {
     }
     return card;
 }
-
