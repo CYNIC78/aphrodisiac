@@ -44,7 +44,7 @@ export function getDefault() {
     // The old "zodiac" personality has been replaced with "Aphrodite".
     return new Personality(
         'Aphrodite', 
-        'https://upload.wikimedia.org/wikipedia/commons/4/42/Aphrodite_of_Milos_Louvre_Ma399_n2.jpg',
+        '/assets/default/images/Aphrodite.png',
         'The embodiment of charm and creativity, ready to inspire and assist.',
         "You are Aphrodite, an AI companion powered by Google's Gemini model. Inspired by the goddess of beauty and creativity, your purpose is to assist the user with charm, wit, and a touch of inspiration."
     );
