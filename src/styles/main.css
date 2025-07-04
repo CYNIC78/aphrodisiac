@@ -1,6 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
-
 @import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
+
+/* --- SIDEBAR V2: CSS Variable for dynamic width --- */
+:root {
+    --sidebar-width: 400px;
+    --sidebar-collapsed-width: 0px;
+}
 
 @font-face {
     font-family: 'Material Symbols Outlined';
@@ -55,7 +60,6 @@ h1 {
     margin-bottom: 0.5rem;
 }
 
-
 a {
     color: #3b82f6;
 }
@@ -87,8 +91,6 @@ form {
     max-height: 100%;
 }
 
-
-
 #form-add-personality {
     display: none;
     width: 28rem;
@@ -106,7 +108,6 @@ form {
     box-sizing: border-box;
 }
 
-/* all but the first sidebarcontet */
 .sidebar-section:not(:first-child) {
     display: none;
 }
@@ -152,8 +153,6 @@ form {
     display: block;
 }
 
-
-
 .stepper-content {
     flex-grow: 1;
     overflow: auto;
@@ -196,8 +195,6 @@ form {
     justify-content: center;
 }
 
-
-
 .backButton {
     position: absolute;
     top: 1rem;
@@ -207,11 +204,13 @@ form {
     font-size: 1.5rem;
     font-weight: 600;
     transition: all 0.2s;
-
 }
 
+/* --- SIDEBAR V2: Button logic updated --- */
+/* This button will now handle collapsing the sidebar on desktop. */
 #btn-hide-sidebar {
-    display: none;
+    /* Kept visible on desktop now. */
+    display: flex;
 }
 
 .message-container {
@@ -228,7 +227,6 @@ form {
 }
 
 .message {
-
     padding: 1rem;
 }
 
@@ -288,88 +286,10 @@ form {
     padding: 0.5rem;
     border-radius: 0.5rem;
     cursor: pointer;
-
 }
 
 .label-currentchat * {
     cursor: inherit;
-}
-
-
-
-@font-face {
-    font-family: 'gt-america';
-    src: url("./gt-america-standard-regular.ttf");
-}
-
-@font-face {
-    font-family: 'ubuntu-webfont';
-    src: url("./ubuntu-bold-italic-webfont.ttf");
-}
-
-@font-face {
-    font-family: 'paypal-sans';
-    src: url("./PayPalSansBig-Medium.ttf")
-}
-
-.card {
-    box-sizing: border-box;
-    border-radius: 0.5rem;
-    text-align: center;
-    text-decoration: none;
-    padding: 1rem;
-    transition: background-color 0.25s ease-out;
-}
-
-.card-patreon {
-    background: #f96854;
-    color: #69160b;
-}
-
-.card-patreon:hover {
-    background: #d35747;
-}
-
-.patreon-logo {
-    font-family: 'gt-america';
-    font-weight: bolder;
-    color: #052d49;
-}
-
-.card-paypal {
-    background: white;
-    color: rgb(87, 87, 87);
-    gap: 0;
-}
-
-.card-paypal:hover {
-    background: rgb(231, 231, 231);
-}
-
-.paypal-logo1 {
-    font-family: 'paypal-sans';
-    font-style: italic;
-    color: #003087;
-}
-
-.paypal-logo2 {
-    font-family: 'paypal-sans';
-    font-style: italic;
-    color: #009cde;
-}
-
-.card-liberapay {
-    background: #f6c915;
-    color: #816908;
-}
-
-.card-liberapay:hover {
-    background: #dab213;
-}
-
-.liberapay-logo {
-    font-family: 'ubuntu-webfont';
-    color: #1a171b;
 }
 
 [contenteditable]:empty:before {
@@ -400,18 +320,13 @@ form {
     0% {
         border-color: #85e0fb;
     }
-
     50% {
         border-color: #253a5c;
     }
-
     100% {
         border-color: #85e0fb;
     }
 }
-
-
-
 
 .badge {
     justify-self: end;
@@ -448,13 +363,11 @@ form {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-
-    * {
-        flex-grow: 1;
-    }
 }
 
-
+.btn-array-vertical * {
+    flex-grow: 1;
+}
 
 .personality-prompt {
     display: none;
@@ -465,32 +378,62 @@ form {
     height: 7rem;
 }
 
+/* --- SIDEBAR V2: Container now uses a flexible layout --- */
 .container {
     box-sizing: border-box;
-    display: flex;
-    gap: 0.5rem;
+    display: flex; /* Changed from grid to flex for simpler resizing */
+    /* gap removed, resizer will handle spacing */
     padding: 1rem;
-
-
     width: 100dvw;
     height: 100dvh;
-
 }
 
+/* --- SIDEBAR V2: The new resizer handle --- */
+#sidebar-resizer {
+    width: 5px;
+    cursor: col-resize;
+    background-color: transparent; /* Invisible by default */
+    flex-shrink: 0;
+    transition: background-color 0.2s ease-in-out;
+}
+#sidebar-resizer:hover {
+    background-color: #5f96c8; /* Visible on hover */
+}
+body.resizing, body.resizing * {
+    cursor: col-resize !important; /* Force cursor during resize */
+    user-select: none;
+}
+
+/* --- SIDEBAR V2: The sidebar is now dynamic --- */
 .sidebar {
-    position: sticky;
-    top: 1rem;
+    position: relative; /* Changed from sticky */
+    top: 0; /* Sticky position no longer needed with flex container */
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    width: 25rem;
+    width: var(--sidebar-width); /* Uses our dynamic variable */
     border-radius: 1rem;
-    scrollbar-width: thin;
-    height: calc(100dvh - 4rem);
+    height: calc(100dvh - 2rem);
     z-index: 1;
+    overflow: hidden; /* Hide content that overflows during resize/collapse */
+    transition: width 0.3s ease, padding 0.3s ease; /* Smooth animations */
 }
+
+/* --- SIDEBAR V2: The collapsed state --- */
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed-width); /* Shrink to almost nothing */
+    padding: 0; /* Remove padding when collapsed */
+    gap: 0;
+}
+.sidebar.collapsed > * {
+    display: none; /* Hide all direct children when collapsed */
+}
+.sidebar.collapsed #btn-hide-sidebar {
+    display: none; /* The collapse button should not be visible when collapsed */
+}
+
 
 .sidebar-section {
     overflow-y: auto;
@@ -505,7 +448,6 @@ form {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-
 }
 
 #sidebar-content {
@@ -513,9 +455,15 @@ form {
     padding: 0.5rem;
 }
 
+/* --- SIDEBAR V2: Show sidebar button logic updated --- */
+/* This button will now be visible on desktop to expand the sidebar */
 #btn-show-sidebar {
-    display: none;
+    display: none; /* Hidden by default */
 }
+.sidebar.collapsed + #sidebar-resizer + #mainContent #btn-show-sidebar {
+    display: block; /* Only show when sidebar is collapsed */
+}
+
 
 .header {
     display: flex;
@@ -525,6 +473,7 @@ form {
     font-weight: 800;
     gap: 0.5rem;
     width: 100%;
+    flex-shrink: 0; /* Prevent header from shrinking */
 }
 
 .navbar {
@@ -536,6 +485,7 @@ form {
     margin-bottom: 1rem;
     z-index: 0;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .separator-vertical {
@@ -556,10 +506,10 @@ form {
 
 .message-header {
     display: flex;
+}
 
-    h3 {
-        flex-grow: 1;
-    }
+.message-header h3 {
+    flex-grow: 1;
 }
 
 #navbar-tab-highlight {
@@ -570,7 +520,6 @@ form {
     transition: all 0.2s;
     height: 100%;
     z-index: 1;
-    /* glow */
     box-shadow: 0 0 1rem 0.05rem #29292a3f;
 }
 
@@ -582,8 +531,6 @@ form {
     width: max-content;
 }
 
-/* --- LOGO FIX --- */
-/* We've replaced the old logo's ID with our new one and adjusted the size. */
 #brand-logo {
     width: 2.5rem;
     height: 2.5rem;
@@ -600,12 +547,11 @@ form {
     margin-top: auto;
     display: flex;
     padding: 0rem 1rem 0 1rem;
-
     font-size: 0.75rem;
     color: #7c8a9c;
-
     justify-content: space-between;
     align-items: center;
+    flex-shrink: 0;
 }
 
 button {
@@ -617,15 +563,28 @@ button {
     transition: background-color 0.2s;
 }
 
+/* --- SIDEBAR V2: Main content is now flexible --- */
 #mainContent {
     display: flex;
-    flex-shrink: 0;
     flex-direction: column;
-    padding: 2rem;
-    margin-left: auto;
-    margin-right: auto;
-    width: 32rem;
+    padding: 0 2rem; /* Vertical padding removed, horizontal kept */
+    flex-grow: 1; /* Allows it to take up remaining space */
+    min-width: 0; /* Important for flex items to shrink properly */
 }
+
+/* We will re-constrain the chat content inside the flexible container */
+.message-container {
+    max-width: 48rem; /* Equivalent to old 32rem width + padding */
+    width: 100%;
+    margin: 0 auto; /* Center the chat content */
+}
+
+#message-box {
+    max-width: 48rem;
+    width: 100%;
+    margin: 0 auto; /* Center the input box */
+}
+
 
 .btn-array-personalityactions {
     display: flex;
@@ -650,7 +609,6 @@ button {
     min-height: 3.5rem;
     text-wrap: nowrap;
     padding: 1rem;
-
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
 }
@@ -669,7 +627,6 @@ button {
     object-fit: cover;
     object-position: center;
     z-index: 0;
-
 }
 
 .card-personality:hover:not(:has(input[name="personality"]:checked)) .background-img {
@@ -678,7 +635,6 @@ button {
 
 .personality-info {
     overflow: hidden;
-
     text-shadow: 0 0 10px #000000, 0 0 5px #181818;
 }
 
@@ -697,16 +653,10 @@ button {
 }
 
 .card-personality * {
-    /* unselectable */
     -webkit-user-select: none;
-    /* Safari */
     -moz-user-select: none;
-    /* Firefox */
     -ms-user-select: none;
-    /* IE10+/Edge */
     user-select: none;
-    /* Standard */
-
 }
 
 .card-personality input {
@@ -721,7 +671,6 @@ button {
 #btn-hide-overlay {
     padding: 2rem;
 }
-
 
 .label-currentchat:not(:hover) {
     opacity: 0.7;
@@ -743,8 +692,6 @@ button {
     flex-direction: column;
 }
 
-
-
 .card-personality:has(input[name="personality"]:checked) .personality-description {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -764,8 +711,6 @@ input[name="currentChat"][value="none"] {
     margin-left: auto;
 }
 
-
-
 .generation-settings {
     display: flex;
     flex-direction: column;
@@ -777,10 +722,10 @@ input[name="currentChat"][value="none"] {
     flex-direction: column;
     justify-content: center;
     gap: 4px;
+}
 
-    .material-symbols-outlined {
-        font-size: 1.2rem;
-    }
+.generation-settings .material-symbols-outlined {
+    font-size: 1.2rem;
 }
 
 .setting-label {
@@ -789,66 +734,61 @@ input[name="currentChat"][value="none"] {
     align-items: center;
 }
 
-@media (min-width: 1032px) {
-    .sidebar {
-        display: flex;
-        opacity: 1;
-    }
-}
-
+/* Media query logic is updated for the new sidebar behavior */
 @media (max-width: 1032px) {
     body {
         margin: 0;
         padding: 0;
     }
 
-
     .container {
         padding: 0;
-
     }
 
     .message-container {
         padding-left: 1rem;
         padding-right: 1rem;
     }
-
+    
+    /* --- SIDEBAR V2: Mobile Overlay Behavior --- */
     .sidebar {
-        top: 0;
-        height: calc(100dvh - 2rem);
+        position: fixed; /* Becomes an overlay on mobile */
+        left: -100%; /* Start off-screen */
+        width: calc(100dvw - 4rem); /* Take most of the screen width */
+        height: 100dvh;
         margin: 0;
-        width: calc(100dvw - 2rem);
-        position: fixed;
         border-radius: 0;
+        transition: left 0.3s ease-in-out; /* Animate sliding in/out */
+    }
+
+    .sidebar.mobile-visible {
+        left: 0; /* Slide into view */
+    }
+    
+    /* Hide resizer on mobile, not needed */
+    #sidebar-resizer {
         display: none;
-    }
-
-    .navbar {
-        position: relative;
-    }
-
-
-    #btn-hide-sidebar {
-        display: block;
     }
 
     #mainContent {
         padding: 0;
         margin: 0;
         width: 100%;
+        height: 100dvh;
     }
 
     #mainContent .header {
-        padding: 2rem;
+        padding: 1rem;
         border-bottom: 1px solid #aaaaaa45;
     }
 
     #message-box {
         margin: 1rem;
+        max-width: calc(100% - 2rem);
     }
-
+    
     #btn-show-sidebar {
-        display: block;
+        display: block; /* Always show the hamburger menu on mobile */
     }
 }
 
@@ -934,7 +874,6 @@ input[name="currentChat"][value="none"] {
     }
 
     .label-currentchat:hover {
-
         background-color: #9dbeea3f;
     }
 
@@ -971,7 +910,6 @@ input[name="currentChat"][value="none"] {
         border: 1px solid #8f9eb3;
         outline: none;
     }
-
 
     body {
         background-color: #151e24;
@@ -1034,7 +972,6 @@ input[name="currentChat"][value="none"] {
         color: #849caf;
     }
 
-
     .message-model {
         background-color: #1a2733;
     }
@@ -1076,5 +1013,4 @@ input[name="currentChat"][value="none"] {
         background-color: #0c0c0c8a;
         outline: 1px solid #000000ab;
     }
-
 }
