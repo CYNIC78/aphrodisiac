@@ -582,9 +582,11 @@ form {
     width: max-content;
 }
 
-#gemin-pro-logo {
-    width: 2rem;
-    height: 2rem;
+/* --- LOGO FIX --- */
+/* We've replaced the old logo's ID with our new one and adjusted the size. */
+#brand-logo {
+    width: 2.5rem;
+    height: 2.5rem;
 }
 
 #chatHistorySection {
