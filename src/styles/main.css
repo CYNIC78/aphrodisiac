@@ -2,10 +2,10 @@
 /* This file only imports our modular stylesheets. Do not add rules here. */
 
 /* 1. Theme Variables (Colors, etc.) */
-@import "_themes.css";
+@import url("_themes.css");
 
 /* 2. Core Layout & Responsive Grid */
-@import "_layout.css";
+@import url("_layout.css");
 
 /* 3. Component & Element Styles */
-@import "_components.css";
+@import url("_components.css");
