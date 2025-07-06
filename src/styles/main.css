@@ -100,9 +100,9 @@ form {
 /* === MODIFIED RULE === */
 #form-add-personality {
     display: none;
-    width: 40rem; /* Increased width for a more spacious feel */
-    height: auto; /* Allow form to size itself naturally */
-    max-height: 85vh; /* Prevent form from overflowing on short screens */
+    width: 48rem; /* Even wider */
+    height: auto;
+    max-height: 85vh;
 }
 
 /* === MODIFIED RULE === */
@@ -114,15 +114,15 @@ form {
     flex-grow: 1;
     overflow: hidden;
     padding: 1rem;
-    padding-top: 5vh; /* Adds breathing room at the top */
+    padding-top: 3vh; /* Pushed even higher */
     box-sizing: border-box;
 }
 
-/* === NEW RULE === */
+/* === MODIFIED RULE === */
 /* Target the system prompt textarea specifically */
 #form-add-personality textarea[name="prompt"] {
-    min-height: 12rem; /* Significantly increased height */
-    resize: vertical; /* Retain user resizability */
+    min-height: 15rem; /* Even taller */
+    resize: vertical;
 }
 
 /* all but the first sidebarcontet */
