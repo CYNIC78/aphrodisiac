@@ -96,31 +96,26 @@ form {
 }
 
 
-
-/* === MODIFIED RULE === */
 #form-add-personality {
     display: none;
     width: 48rem;
-    max-height: 90vh; /* Increased max-height slightly for more room */
-    /* New rules for robust vertical layout */
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
 }
 
-/* === MODIFIED RULE === */
 .overlay-content {
     display: flex;
     width: 100%;
     justify-content: center;
-    align-items: flex-start; /* Aligns form to the top */
+    align-items: flex-start;
     flex-grow: 1;
     overflow: hidden;
     padding: 1rem;
-    padding-top: 3vh; /* Pushed even higher */
+    padding-top: 3vh;
     box-sizing: border-box;
 }
 
-/* === MODIFIED RULE === */
 #form-add-personality textarea[name="prompt"] {
     min-height: 15rem;
     resize: vertical;
@@ -146,14 +141,13 @@ form {
     }
 }
 
-/* === MODIFIED RULE === */
 .stepper {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     width: 100%;
-    flex-grow: 1; /* Allows stepper to fill parent form */
-    min-height: 0; /* Prevents flexbox overflow bugs */
+    flex-grow: 1;
+    min-height: 0;
 }
 
 #btn-stepper-submit {
@@ -167,9 +161,6 @@ form {
 .stepper:not(.first-step) .stepper-footer #btn-stepper-previous {
     visibility: visible;
 }
-
-/* === DELETED RULE === */
-/* .stepper-footer * { flex: 1; }  <-- This problematic rule is now gone. */
 
 .step {
     display: flex;
@@ -190,38 +181,41 @@ form {
 }
 
 
-/* === MODIFIED RULE === */
 .stepper-content {
     flex-grow: 1;
     overflow: auto;
-    padding-right: 0.5rem; /* Add padding for scrollbar */
+    padding-right: 0.5rem;
 }
 
-/* === NEW LAYOUT: STEPPER FOOTER === */
+
+/* === FINAL FOOTER SOLUTION === */
 .stepper-footer {
     display: grid;
-    grid-template-columns: 1fr auto 1fr; /* [Left Button Space] [Progress] [Right Button Space] */
+    grid-template-columns: 1fr auto 1fr; /* [Left Slot] [Center Slot] [Right Slot] */
     align-items: center;
     gap: 1rem;
-    padding-top: 1rem; /* Add space between content and footer */
+    padding-top: 1rem;
 }
 
-#btn-stepper-previous {
-    grid-column: 1 / 2; /* Occupy the first column */
-    justify-self: start; /* Align to the left */
+.footer-left {
+    justify-self: start; /* Pin the left slot to the start */
 }
 
 #stepper-progress {
-    grid-column: 2 / 3; /* Occupy the center column */
-    justify-self: center; /* Align to the center */
+    justify-self: center; /* Pin the progress indicator to the center */
 }
 
-#btn-stepper-next,
-#btn-stepper-submit {
-    grid-column: 3 / 4; /* Occupy the third column */
-    justify-self: end; /* Align to the right */
+.footer-right {
+    justify-self: end; /* Pin the right slot to the end */
 }
-/* === END NEW LAYOUT === */
+
+/* Uniform sizing and reverted size for all stepper nav buttons */
+.btn-stepper-nav {
+    min-width: 6rem; /* Ensures all buttons have the same width */
+    padding: 0.5rem 1rem; /* Reverted padding */
+}
+/* === END FINAL SOLUTION === */
+
 
 .slider {
     margin: 0;
