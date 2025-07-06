@@ -100,9 +100,11 @@ form {
 /* === MODIFIED RULE === */
 #form-add-personality {
     display: none;
-    width: 48rem; /* Even wider */
-    height: auto;
-    max-height: 85vh;
+    width: 48rem;
+    max-height: 90vh; /* Increased max-height slightly for more room */
+    /* New rules for robust vertical layout */
+    display: flex;
+    flex-direction: column;
 }
 
 /* === MODIFIED RULE === */
@@ -119,9 +121,8 @@ form {
 }
 
 /* === MODIFIED RULE === */
-/* Target the system prompt textarea specifically */
 #form-add-personality textarea[name="prompt"] {
-    min-height: 15rem; /* Even taller */
+    min-height: 15rem;
     resize: vertical;
 }
 
@@ -145,11 +146,14 @@ form {
     }
 }
 
+/* === MODIFIED RULE === */
 .stepper {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     width: 100%;
+    flex-grow: 1; /* Allows stepper to fill parent form */
+    min-height: 0; /* Prevents flexbox overflow bugs */
 }
 
 #btn-stepper-submit {
@@ -164,9 +168,8 @@ form {
     visibility: visible;
 }
 
-.stepper-footer * {
-    flex: 1;
-}
+/* === DELETED RULE === */
+/* .stepper-footer * { flex: 1; }  <-- This problematic rule is now gone. */
 
 .step {
     display: flex;
@@ -187,17 +190,38 @@ form {
 }
 
 
-
+/* === MODIFIED RULE === */
 .stepper-content {
     flex-grow: 1;
     overflow: auto;
+    padding-right: 0.5rem; /* Add padding for scrollbar */
 }
 
+/* === NEW LAYOUT: STEPPER FOOTER === */
 .stepper-footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr; /* [Left Button Space] [Progress] [Right Button Space] */
+    align-items: center;
+    gap: 1rem;
+    padding-top: 1rem; /* Add space between content and footer */
 }
+
+#btn-stepper-previous {
+    grid-column: 1 / 2; /* Occupy the first column */
+    justify-self: start; /* Align to the left */
+}
+
+#stepper-progress {
+    grid-column: 2 / 3; /* Occupy the center column */
+    justify-self: center; /* Align to the center */
+}
+
+#btn-stepper-next,
+#btn-stepper-submit {
+    grid-column: 3 / 4; /* Occupy the third column */
+    justify-self: end; /* Align to the right */
+}
+/* === END NEW LAYOUT === */
 
 .slider {
     margin: 0;
