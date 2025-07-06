@@ -188,33 +188,36 @@ form {
 }
 
 
-/* === FINAL FOOTER SOLUTION === */
+/* === CORRECTED FOOTER SOLUTION === */
 .stepper-footer {
     display: grid;
-    grid-template-columns: 1fr auto 1fr; /* [Left Slot] [Center Slot] [Right Slot] */
+    /* Define 3 columns with named areas. These are permanent slots. */
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-areas: "left-slot center-slot right-slot";
     align-items: center;
-    gap: 1rem;
     padding-top: 1rem;
 }
 
 .footer-left {
-    justify-self: start; /* Pin the left slot to the start */
+    grid-area: left-slot;  /* Assign this div to the 'left-slot'. */
+    justify-self: start;   /* Pin it to the start of its slot. */
 }
 
 #stepper-progress {
-    justify-self: center; /* Pin the progress indicator to the center */
+    grid-area: center-slot; /* Assign this div to the 'center-slot'. */
+    justify-self: center;
 }
 
 .footer-right {
-    justify-self: end; /* Pin the right slot to the end */
+    grid-area: right-slot; /* Assign this div to the 'right-slot'. */
+    justify-self: end;     /* Pin it to the end of its slot. */
 }
 
 /* Uniform sizing and reverted size for all stepper nav buttons */
 .btn-stepper-nav {
-    min-width: 6rem; /* Ensures all buttons have the same width */
-    padding: 0.5rem 1rem; /* Reverted padding */
+    width: 7rem; /* Use a fixed width for perfect uniformity */
 }
-/* === END FINAL SOLUTION === */
+/* === END CORRECTED SOLUTION === */
 
 
 .slider {
