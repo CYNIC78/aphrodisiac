@@ -1,295 +1,92 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zodiac, by faetalize</title>
-    <link rel="shortcut icon" href="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg"
-        type="image/x-icon">
-    <link rel="stylesheet" href="./styles/main.css">
-    <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.css">
-    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VCHJXFGB08"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-
-        gtag('config', 'G-VCHJXFGB08');
-    </script>
-
-</head>
-
-
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <div class="header">
-                <button class="material-symbols-outlined btn-textual" id="btn-hide-sidebar">
-                    arrow_back_ios_new
-                </button>
-                <img src="https://upload.wikimedia.org/wikipedia/commons/f/f0/Google_Bard_logo.svg" id="gemin-pro-logo">
-                <div id="title-div">
-                    <div id="zodiac-branding">zodiac </div>
-                    <div id="gemini-pro-branding">powered by Gemini 2.5</div>
-                </div>
-                <button class="badge" id="btn-whatsnew">
-                    <span id="badge-version"></span>
+    <!-- The main application container, now using a CSS Grid layout -->
+    <div id="app-container">
+
+        <!-- Left Sidebar: Unified, Collapsible Sections -->
+        <aside id="left-sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>Aphrodisiac</h3>
+                <button id="left-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">
+                    close_fullscreen
                 </button>
             </div>
-            <div class="navbar">
-                <div class="navbar-tab">Chats</div>
-                <div class="navbar-tab">Personalities</div>
-                <div class="navbar-tab">Settings</div>
-                <div id="navbar-tab-highlight"></div>
-            </div>
-            <div id="sidebar-content">
-                <div class="sidebar-section">
-                    <div class="btn-array">
-                        <button id="btn-new-chat">
-                            <span class="material-symbols-outlined">add</span> <span>New Chat</span>
-                        </button>
-                        <button id="btn-reset-chat">
-                            <span class="material-symbols-outlined">clear_all</span>Clear All
-                        </button>
-                    </div>
-
-                    <input type="radio" name="currentChat" value="none" checked>
-                    <div id="chatHistorySection">
-
-                    </div>
+            
+            <!-- Chats Section -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <h4>Chats</h4>
+                    <button id="btn-new-chat" class="material-symbols-outlined">add_comment</button>
                 </div>
-
-                <div class="sidebar-section" id="personalitySection">
-                    <div class="btn-array">
-                        <button id="btn-import-personality">
-                            <span class="material-symbols-outlined">upload</span>Import
-                        </button>
-                        <button id="btn-clearall-personality">
-                            <span class="material-symbols-outlined">clear_all</span>Clear All
-                        </button>
-                    </div>
-                    <div id="personalitiesDiv"></div>
-                </div>
-
-                <div class="sidebar-section">
-                    <h3>API Key</h3>
-                    <div class="api-key">
-                        <input type="password" autocomplete="off" placeholder="Paste API key here" id="apiKeyInput"
-                            class="input-field"></input>
-                        <button class="material-symbols-outlined btn-textual" onclick="window.open('https://aistudio.google.com/app/apikey', '_blank')">
-                            help
-                        </button>
-                    </div>
-                    <div class="api-key-error">
-                        <span class="material-symbols-outlined">error</span> Invalid API Key
-                    </div>
-                    <h3>Generation Settings</h3>
-                    <div class="generation-settings">
-                        <div>
-                            <label class="setting-label" for="selectedModel"><span class="material-symbols-outlined">neurology</span>Model
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="Pro model has a very low daily limit. It is recommmended to stick to Flash or Flash Lite, only falling back to pro for high priority requests.">
-                                    info
-                                </span> </label>
-                            <select id="selectedModel" class="input-field">
-                                <option value="gemini-2.0-flash-lite">Flash Lite</option>
-                                <option value="gemini-2.5-flash-preview-04-17" selected="true">Flash</option>
-                                <option value="gemini-2.5-pro-preview-05-06">Pro</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="maxTokens"><span class="material-symbols-outlined">generating_tokens</span><span>
-                                Max Output
-                                    Tokens
-                            </span>
-                            <span class="material-symbols-outlined tooltip" 
-                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                            info="Dictates the maximum length of the model's response. If responses get cut off, increase this value.">
-                                info
-                            </span> 
-                        </label>
-                            <input type="number" id="maxTokens" class="input-field" min="1" max="1000000" value="1000"></input>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="safetySettings"><span class="material-symbols-outlined">
-                                    health_and_safety
-                                </span>
-                                <span>Safety</span>
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="Controls the model's sensitivity to potentially harmful content.">
-                                    info
-                                </span> </label>
-                            <select id="safetySettings" class="input-field">
-                                <option value="safe">Safe</option>
-                                <option value="moderate">Moderate</option>
-                                <option value="risky" selected="true">Risky</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="setting-label" for="temperature">
-                                <span class="material-symbols-outlined">thermostat</span>
-                                <span>Temperature</span> 
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="Lower values are more deterministic, higher values are more creative. The recommended range is between 0.5 and 1.25.">
-                                    info
-                                </span> 
-                            </label>
-                            <div class="btn-array">
-                                <input type="range" min="20" max="200" id="temperature" class="slider">
-                                <label id="label-temperature">0</label>
-                            </div>
-                        </div>
-                    </div>
-                    <h3>User Experience</h3>
-                    <div>
-                        <!-- autoscroll toggle -->
-                         <div style="display: flex; gap: 0.25rem; align-items: center;">
-                            <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
-                            <label for="autoscroll">Autoscroll</label>
-                        </div>
-                    </div>
-                    <h3>Donate</h3>
-                    <div class="btn-array">
-                        <a href="https://patreon.com/faetalize" target="_blank" rel="noopener noreferrer"
-                            class="card card-patreon">
-                            <span class="patreon-logo">PATREON</span>
-                        </a>
-                        <a href="https://liberapay.com/faetalize" target="_blank" rel="noopener noreferrer"
-                            class="card card-liberapay">
-                            <span class="liberapay-logo">liberapay</span>
-                        </a>
-                        <a href="https://www.paypal.com/paypalme/alskdjaoiwdawwfq" target="_blank"
-                            rel="noopener noreferrer" class="card card-paypal">
-                            <span class="paypal-logo1">Pay</span><span class="paypal-logo2">Pal</span>
-                        </a>
-                    </div>
-
+                <div id="chat-list-container" class="section-content">
+                    <!-- Chat list will be dynamically inserted here by Chats.service.js -->
                 </div>
             </div>
 
-
-            <div class="credits">
-                Made by fætalize
-                <a href="https://github.com/faetalize/zodiac">Source Code</a>
+            <!-- Personalities Section -->
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <h4>Personalities</h4>
+                    <button id="btn-add-personality" class="material-symbols-outlined">person_add</button>
+                </div>
+                <div id="personality-list-container" class="section-content">
+                    <!-- Personality cards will be dynamically inserted here by Personality.service.js -->
+                </div>
             </div>
-        </div>
 
-        <div id="mainContent">
-            <div class="header">
-                <button class="material-symbols-outlined btn-textual" id="btn-show-sidebar">
-                    menu
+            <!-- Footer with Settings Button -->
+            <div class="sidebar-footer">
+                <button id="btn-show-settings" class="material-symbols-outlined">settings</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Asset Manager: Docked to the top of the main content area by default -->
+            <div id="asset-manager" class="docked-top">
+                <div class="asset-manager-header">
+                    <span>Asset Manager</span>
+                    <!-- Add other controls like undock, maximize, etc. here later -->
+                </div>
+                <div class="asset-manager-content">
+                    <!-- Character media (image, audio player) will go here -->
+                </div>
+            </div>
+
+            <!-- The container for all chat messages -->
+            <div id="message-container">
+                <!-- Messages will be dynamically inserted here by Message.service.js -->
+            </div>
+
+            <!-- The chat input form at the bottom -->
+            <div id="chat-input-container">
+                <span contenteditable="true" placeholder="Send a message..." id="message-input"></span>
+                <button id="btn-send-message" class="material-symbols-outlined">send</button>
+            </div>
+        </main>
+
+        <!-- Right "Inspector" Sidebar: For details and settings -->
+        <aside id="right-inspector" class="sidebar">
+            <div class="sidebar-header">
+                <h3 id="inspector-title">Inspector</h3>
+                <button id="right-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">
+                    close_fullscreen
                 </button>
             </div>
-            <div class="message-container"></div>
-            <div id="message-box">
-                <span contenteditable placeholder="Send a message" id="messageInput" class="input-field"></span>
-                <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
+            <div id="inspector-content" class="sidebar-content-container">
+                <!-- Content for Personality Details or Settings will be injected here -->
+                <p>Select a personality or click the settings icon.</p>
             </div>
+        </aside>
+
+    </div> <!-- end #app-container -->
+    
+    <!-- The Overlay remains for focused, full-screen tasks like the Asset Management "Workshop" -->
+    <div id="overlay-container" class="overlay">
+        <div id="overlay-content">
+            <!-- The new Asset Management Workshop will be loaded here -->
         </div>
     </div>
 
-    <div class="overlay">
-        <div class="header">
-            <button class="btn-textual" id="btn-hide-overlay">BACK</button>
-        </div>
-        <div class="overlay-content">
-            <form id="form-add-personality">
-                <div class="stepper first-step" id="stepper-add-personality">
-                    <div class="stepper-content">
-                        <div class="step active">
-                            <!-- we match the name property of each input to the corresponding key in our personality model (Personality.service.js) -->
-                            <h3>Basic Info</h3>
-                            <input style="display: none;" name="id">
-                            <label for="name">Name:</label>
-                            <input type="text" name="name" placeholder="Mario" list="name-list">
-                            <label for="description">Description:</label>
-                            <input type="text" name="description" placeholder="A  plumber with a shroom addiction.">
-                            <label for="image">Image URL:</label>
-                            <input type="text" name="image" placeholder="https://example.com/mario.png">
-                            <label for="prompt">System Prompt:</label>
-                            <textarea type="text" name="prompt"
-                                placeholder="You are to act as main character from the Mario video game series..."
-                                style="height: 5rem; resize:vertical"></textarea>
-                        </div>
-                        <div class="step">
-                            <h3>Personality</h3>
-                            <label for="aggressiveness">Aggressiveness:</label>
-                            <input type="range" name="aggressiveness" min="0" max="3" step="1"
-                                list="aggressiveness-steps">
-                            <datalist id="aggressiveness-steps">
-                                <option value="0">0</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                            </datalist>
-                            <label for="sensuality">Sensuality:</label>
-                            <input type="range" name="sensuality" min="0" max="3" step="1" list="sensuality-steps">
-                            <datalist id="sensuality-steps">
-                                <option value="0">0</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                            </datalist>
-                            <h3>Tweaks</h3>
-                            <!-- internet access toggle -->
-                            <div style="display: flex; gap: 0.25rem; align-items: center;">
-                                <input id="internet-access" type="checkbox" name="internetEnabled"></input>
-                                <label for="internet-access">Internet Access</label>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
-                            </div>
-                            <!-- roleplay toggle -->
-                            <div style="display: flex; gap: 0.25rem; align-items: center;">
-                                <input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
-                                <label for="roleplay">Roleplay</label>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="This attribute enhances your roleplay experience by enabling a new game-ified interface. Currently still in development.">info</span>
-                            </div>
-                        </div>
-                        <div class="step">
-                            <div>
-                                <h3 style="display:inline">Tone Examples</h3>
-                                <span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
-                            </div>
-                            <input type="text" name="tone-example-1" class="tone-example"
-                                placeholder="I'm a plumber, not a doctor. Lets-a go!">
-                            <button type="button" id="btn-add-tone-example"
-                                class="material-symbols-outlined">add_circle</button>
-                        </div>
-                    </div>
-                    <div class="stepper-footer">
-                        <button id="btn-stepper-previous" type="button">Previous</button>
-                        <div id="stepper-progress"></div>
-                        <button id="btn-stepper-next" type="button">Next</button>
-                        <button id="btn-stepper-submit" type="submit">Submit</button>
-                    </div>
-                </div>
-            </form>
-
-            <div id="whats-new">
-                <h1 id="header-version">What's New in </h1>
-                <ul id="changelog">
-                    <li>Warning: Pro model is currently disabled for free users. <br>
-                        This is a limitation set by Google and cannot be bypassed. 
-                        <a href="https://x.com/officiallogank/status/1922357621178200248">More info</a></li>
-                    
-                    <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
-                        questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
-
-                </ul>
-            </div>
-        </div>
-    </div>
+    <!-- The script tag that starts the application, unchanged -->
     <script type="module" src="main.js"></script>
 </body>
-
-</html>
