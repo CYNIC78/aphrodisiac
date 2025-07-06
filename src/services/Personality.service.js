@@ -1,25 +1,40 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
+import { Personality } from "../models/Personality";
 
-export class Personality {
-    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0, internetEnabled = false, roleplayEnabled = false, toneExamples = []) {
+// Move the migration logic to a separate function that can be called from main.js
+export async function migratePersonalities(database) {
+    const chats = await database.chats.toArray();
+    if (!chats) return;
 
-        this.name = name;
-        this.image = image;
-        this.description = description;
-        this.prompt = prompt;
-        this.aggressiveness = aggressiveness;
-        this.sensuality = sensuality;
-        this.internetEnabled = internetEnabled;
-        this.roleplayEnabled = roleplayEnabled;
-        this.toneExamples = toneExamples;
-    }
+    const migratedChats = await Promise.all([...chats].map(async chat => {
+        console.log('Migrating chat:', chat);
+        for (const message of chat.content) {
+            if (message.personality) {
+                const personality = await getByName(message.personality, database);
+                if (!personality) {
+                    // Personality was deleted, set to default personality
+                    const defaultPersonality = getDefault();
+                    message.personalityid = -1; // Default personality ID
+                    message.personality = defaultPersonality.name;
+                    console.log(`Personality "${message.personality}" not found, defaulting to ${defaultPersonality.name}`);
+                    continue;
+                }
+                message.personalityid = personality.id;
+            }
+            else {
+                delete message.personalityid;
+            }
+        }
+        return chat;
+    }));
+
+    await database.chats.bulkPut(migratedChats);
 }
 
 export async function initialize() {
     //default personality setup
     const defaultPersonalityCard = insert(getDefault());
-
     defaultPersonalityCard.querySelector("input").click();
 
     //load all personalities from local storage
@@ -29,25 +44,24 @@ export async function initialize() {
             insert(personality);
         }
     }
+    
+    // Add the "Create New" card at the end
+    const createCard = createAddPersonalityCard();
+    document.querySelector("#personalitiesDiv").appendChild(createCard);
 }
 
-export async function getSelected(){
+export async function getSelected() {
     const selectedID = document.querySelector("input[name='personality']:checked").parentElement.id.split("-")[1];
-    if(!selectedID){
+    if (!selectedID) {
         return getDefault();
     }
     return await get(parseInt(selectedID));
 }
 
 export function getDefault() {
-    // --- BRANDING UPDATE ---
-    // The old "zodiac" personality has been replaced with "Aphrodite".
-    return new Personality(
-        'Aphrodite', 
-        '/assets/media/images/Aphrodite.png',
-        'The embodiment of charm and creativity, ready to inspire and assist.',
-        "You are Aphrodite, an AI companion powered by Google's Gemini model. Inspired by the goddess of beauty and creativity, your purpose is to assist the user with charm, wit, and a touch of inspiration."
-    );
+    return new Personality('zodiac', 'https://techcrunch.com/wp-content/uploads/2023/12/google-bard-gemini-v2.jpg',
+        'zodiac is a cheerful assistant, always ready to help you with your tasks.',
+        "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini model. Gemini is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.");
 }
 
 export async function get(id) {
@@ -55,6 +69,38 @@ export async function get(id) {
         return getDefault();
     }
     return await db.personalities.get(id);
+}
+
+export async function getByName(name, database = null) {
+    if (!name) return null;
+    
+    // Handle default personality
+    if (name.toLowerCase() === "zodiac") {
+        return { ...getDefault(), id: -1 };
+    }
+
+    const dbToUse = database || db;
+    try {
+        // First try exact match
+        let personality = await dbToUse.personalities.where('name').equals(name).first();
+        
+        // If not found, try case-insensitive search
+        if (!personality) {
+            const allPersonalities = await dbToUse.personalities.toArray();
+            personality = allPersonalities.find(p => 
+                p.name.toLowerCase() === name.toLowerCase()
+            );
+        }
+
+        // Debug logging
+        console.log('Searching for personality:', name);
+        console.log('Found personality:', personality);
+
+        return personality || null;
+    } catch (error) {
+        console.error(`Error finding personality by name: ${name}`, error);
+        return null;
+    }
 }
 
 export async function getAll() {
@@ -80,7 +126,7 @@ function insert(personality) {
 }
 
 export function share(personality) {
-    const personalityCopy = {...personality}
+    const personalityCopy = { ...personality }
     delete personalityCopy.id
     //export personality to a string
     const personalityString = JSON.stringify(personalityCopy)
@@ -93,6 +139,23 @@ export function share(personality) {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+}
+
+export function createAddPersonalityCard() {
+    const card = document.createElement("div");
+    card.classList.add("card-personality", "card-add-personality");
+    card.id = "btn-add-personality";
+    card.innerHTML = `
+        <div class="add-personality-content">
+            <span class="material-symbols-outlined add-icon">add</span>
+        </div>
+    `;
+    
+    card.addEventListener("click", () => {
+        overlayService.showAddPersonalityForm();
+    });
+    
+    return card;
 }
 
 export async function removeAll() {
@@ -110,6 +173,12 @@ export async function add(personality) {
         id: id,
         ...personality
     });
+    
+    // Move the add card to be the last element
+    const addCard = document.querySelector("#btn-add-personality");
+    if (addCard) {
+        document.querySelector("#personalitiesDiv").appendChild(addCard);
+    }
 }
 
 export async function edit(id, personality) {
@@ -117,9 +186,9 @@ export async function edit(id, personality) {
     const input = element.querySelector("input");
 
     await db.personalities.update(id, personality);
-    
+
     //reselect the personality if it was selected prior
-    element.replaceWith(generateCard({id, ...personality}));
+    element.replaceWith(generateCard({ id, ...personality }));
     if (input.checked) {
         document.querySelector(`#personality-${id}`).querySelector("input").click();
     }
@@ -176,3 +245,4 @@ export function generateCard(personality) {
     }
     return card;
 }
+

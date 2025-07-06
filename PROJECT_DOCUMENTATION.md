@@ -400,51 +400,120 @@ We have a robust, well-engineered foundation. We know precisely where the core l
 ```
 
 
-The Aphrodisiac Roadmap (v3 - The Blueprint Mandate)
-	Our Guiding Principle: We do not port old code. We learn from it, then architect and build superior solutions from scratch. Every task will begin with consulting our Blueprint to ensure surgical precision.
-
-Phase 1: Foundation & Brand Identity
-(Goal: Establish our unique identity and create a polished, ergonomic user experience.)
-	Task 1: Establish Brand Identity.
-		Objective: Purge all "Zodiac" branding and replace it with "Aphrodisiac."
-		Action Plan:
-		Consult the Blueprint for index.html and Personality.service.js.
-		Modify index.html to change the <title>, header text, and any other visible branding.
-		Modify Personality.service.js to change the default personality's details.
-	Task 2: Engineer a Superior Flexible Sidebar.
-		Objective: Create a new, robust, and elegant collapsible sidebar.
-		Action Plan:
-		Consult the Blueprint for Sidebar.component.js, main.js, and main.css.
-		Write new JavaScript logic to handle the state (expanded, collapsed).
-		Write new CSS with smooth transitions to visually animate the collapse and expansion.
-	Task 3: Architect a Dynamic Theming Engine.
-		Objective: Go beyond the default light/dark themes by allowing the user to select custom colors.
-		Action Plan:
-		Consult index.html to add new color picker inputs in the settings panel.
-		Consult Settings.service.js to save and load these custom color choices.
-		Write new JavaScript logic that applies these colors to the root element as CSS variables.
-
-Phase 2: Advanced Logic & Power
-(Goal: Re-engineer the core features that give Aphrodisiac its intelligence and creativity.)
-	Task 4: Build the API Switchboard.
-		Objective: Create a clean, abstract system for switching between Google's API libraries.
-		Action Plan:
-		Create a new file: src/services/apiHandler.js. This will be the only file that imports Google's libraries.
-		Refactor Message.service.js and Settings.service.js to use this new handler, completely removing any direct API calls from them.
-	Task 5: Architect the Dynamic Scripting Engine V2.
-		Objective: Build a new scripting engine based on the lessons from our forensic analysis.
-		Action Plan:
-		Create a new CharacterScript.service.js from scratch.
-		It will be built around a secure, sandboxed AsyncFunction.
-		New Features: It will include robust UI error reporting for script bugs and timeout protection to prevent infinite loops, making it far superior to the original.
-Phase 3: The Ultimate Immersive Experience
-		(Goal: Design and build our "game-changer" feature, the Aphrodisiac Asset Manager.)
-	Task 6: Design & Build the Aphrodisiac Asset Manager.
-		Objective: Create a masterpiece of media management, learning from all the weaknesses of the old version.
-
+The Aphrodisiac Roadmap (v4 - The Immersion Mandate)
+Our Guiding Principle: We do not port old code. We learn from its strengths, then architect and build superior solutions from scratch, leveraging existing robust backend logic while completely reinventing the user experience.
+Overall Goal: To transform the "Zodiac" base into "Aphrodisiac," a cutting-edge, media-oriented AI companion application, delivering an unparalleled, customizable, and deeply immersive user experience.
+Phase 1: Foundational Transformation & Core Layout
+Objective: Establish the new brand identity and implement the revolutionary Character Immersion Window and redesigned sidebar structure, setting the stage for a truly media-centric application.
+Task 1: Brand Identity & Initial Cleanup
+Objective: Purge all "Zodiac" branding and replace it with "Aphrodisiac," while removing obsolete UI elements.
+Status: COMPLETE (already executed in index.html and Personality.service.js)
+Task 2: Flexible Left Sidebar Foundation
+Objective: Implement the underlying HTML and CSS structure for a flexible, resizable, and collapsible left sidebar.
+Status: COMPLETE (already executed in index.html, main.css, and Sidebar.component.js)
+Task 3: Architect the Character Immersion Hub
+Objective: Redesign the left sidebar to host the dockable/undockable, resizable, dynamic Character Immersion Window, alongside a compact Character Roster and Chat History, providing a fluid, media-centric workflow.
 Action Plan:
+3.1 HTML Layout Refactor (src/index.html):
+Restructure the left sidebar's content to eliminate tabs.
+Create distinct sections for Chat History and Character Roster.
+Add the HTML placeholder for the docked Character Immersion Window within the left sidebar.
+Introduce a global settings button (e.g., a gear icon) in the footer.
+3.2 CSS Styling for New Unified Layout (src/styles/main.css):
+Define styles for the new vertical section layout within the left sidebar.
+Create base styles for the Character Immersion Window in its default docked state.
+Adjust media queries for the new mobile behavior (left sidebar becomes a sliding overlay).
+3.3 Core Immersion Window Logic (src/components/CharacterImmersionWindow.component.js - NEW FILE):
+Create a dedicated JavaScript module (CharacterImmersionWindow.component.js).
+Implement logic for its dockable/undockable states, drag-and-drop functionality, resizing, and persistence (localStorage).
+Handle the dynamic loading and display of the active character's avatar based on selection.
+Include placeholders for future dynamic expressions and audio controls.
+3.4 Left Sidebar Control Refactor (src/components/Sidebar.component.js):
+Update existing sidebar JavaScript to manage the new content areas (Chat History, Character Roster).
+Integrate with the Character Immersion Window's logic (e.g., triggering its visibility/state on character selection).
+Handle the new global settings button to open the right-hand Inspector Panel (future task).
+3.5 Update Main Entry Point (src/main.js):
+Adjust main.js to correctly initialize the new Character Immersion Window component and the refactored sidebar components.
+Phase 2: Enhancements & Advanced Systems
+Objective: Implement core customization features and lay the groundwork for powerful backend integrations, building upon the new unified layout.
+Task 4: Dynamic Theming Engine
+Objective: Go beyond default light/dark themes by allowing the user to select and apply custom color palettes.
+Action Plan:
+Add new color picker inputs in the settings panel (which will eventually reside in the right-hand Inspector Panel).
+Modify Settings.service.js to save and load these custom color choices.
+Write new JavaScript logic that applies these colors to the root element as CSS variables.
+Task 5: Architect the Right-Hand Inspector Panel
+Objective: Create a new, collapsible and resizable right sidebar that serves as a dedicated, contextual space for character editing, application settings, and asset management.
+Action Plan:
+Add HTML structure for the right sidebar (src/index.html), including its own resizer.
+Add CSS for its appearance, resizing behavior, and mobile responsiveness.
+Create src/components/InspectorPanel.component.js to manage its state, resizing, and the dynamic content it displays (e.g., personality forms, settings forms).
+Crucially, move the form-add-personality (stepper) HTML entirely from the overlay into the new Inspector Panel.
+Refactor AddPersonalityForm.component.js to integrate with the Inspector Panel, removing its dependency on Overlay.service.js.
+Task 6: Build the API Switchboard
+Objective: Create a clean, abstract system for managing and switching between Google's API libraries, completely decoupling core logic from direct API calls.
+Action Plan:
+Create a new file: src/services/ApiHandler.service.js. This will be the only file that imports Google's generative AI libraries.
+Refactor Message.service.js and Settings.service.js to exclusively use this new handler, removing all direct API calls and @google/generative-ai imports from them.
+Task 7: Architect the Dynamic Scripting Engine V2
+Objective: Build a superior, secure, and robust scripting engine for complex character behaviors.
+Action Plan:
+Create a new file: src/services/CharacterScript.service.js from scratch.
+Implement the core logic around a secure, sandboxed AsyncFunction.
+Integrate robust UI error reporting for script bugs and timeout protection to prevent infinite loops.
+Phase 3: The Ultimate Immersive Experience
+Objective: Design and build our "game-changer" feature, the Aphrodisiac Asset Manager, seamlessly integrated within our new UI architecture.
+Task 8: Design & Build the Aphrodisiac Asset Manager
+Objective: Create a masterpiece of media management, learning from all the weaknesses of previous iterations.
+Action Plan:
+Modify the database schema in src/services/Db.service.js to support a new, flexible asset structure (e.g., images, audio files).
+Create a new file: src/services/AssetManager.service.js using a Class-based design to encapsulate state and avoid global variables. This service will be media-agnostic from the start.
+Create a new file: src/components/AssetManager.component.js to handle all UI rendering for asset management, keeping it decoupled from the data logic.
+Integrate the Asset Manager UI into the right-hand Inspector Panel.
+Integrate dynamic avatar loading and expression-swapping with the CharacterImmersionWindow.component.js.
+Implement the initial dynamic audio system (play/pause, volume control) within the CharacterImmersionWindow.component.js.
 
-Modify the database schema in Db.service.js to support a new, flexible asset structure.
-Create a new AssetManager.service.js using a Class-based design to encapsulate state and avoid global variables.
-This new service will be media-agnostic from the start, designed to handle both images and audio files.
-Create a new AssetManager.component.js to handle all UI rendering, keeping it decoupled from the data logic.
+
+
+### Visualization of the project:
+
++----------------------------------------------------------------------------------------------------------+
+|  [ TOP MAIN HEADER AREA (potential dock zone for Immersion Window) ]                                     |
+|  (e.g., Aphrodisiac branding, global settings icon)                                                      |
++----------------------------------------------------------------------------------------------------------+
+|                                                                                                          |
+| +-------------------------+----------------------------------------------------+-------------------------+
+| | < [ LEFT SIDEBAR ]      |                                                    | [ RIGHT SIDEBAR ]     > |
+| |       collapsible       |                                                    | (Inspector Panel)       |
+| | +---------------------+ |                                                    |       collapsible       |
+| | |                     | |                                                    |                         |
+| | |  DOCKED CHARACTER   | |                                                    | [ SELECTED CHAR. EDIT ] |
+| | |  MEDIA WINDOW       | |                                                    |  - Name                 |
+| | |  (ACTIVE CHARACTER) | |                                                    |  - Prompt               |
+| | |                     | |                                                    |  - Aggressiveness       |
+| | +---------------------+ |                                                    |  - Sensuality           |
+| | (Undock/Drag Handle)    |                                                    |  - Custom scripts       |
+| |-------------------------|                                                    | [ ASSET MANAGEMENT ]    |
+| | [ CHARACTER ROSTER ]    |                                                    |  - Upload Image         |
+| | (Compact list for       |                                                    |  - Manage Audio Files   |
+| | quick selection)        |                                                    |                         |
+| | - Aphrodite             |                                                    |                         |
+| | - Emily (Active)        |           [ MAIN CHAT CONTENT ]                    |                         |
+| | - Mario                 |                                                    |                         |
+| | - (+) Add New           |   (Chat messages and AI responses flow here)       |                         |
+| |                         |                                                    |                         |
+| |-------------------------|                                                    |                         |
+| | [ CHAT HISTORY ]        |                                                    |                         |
+| | (List of past chats)    |                                                    |                         |
+| | - Chat A                |                                                    |                         |
+| | - Chat B (Selected)     |                                                    |                         |
+| | - ...                   |                                                    |                         |
+| |                         |                                                    |                         |
+| | [ ⚙️ Global Settings ]  |                                                    |                         |
+| +-------------------------+----------------------------------------------------+-------------------------+
+|                                                                                                          |
+|  (FLOATING CHARACTER IMMERSION WINDOW: When undocked, it appears here, resizable, draggable,             |
+|   and can be dragged to re-dock at: top-left sidebar, top-right sidebar, or top of main chat area.)      |
+|                                                                                                          |
++----------------------------------------------------------------------------------------------------------+
+
