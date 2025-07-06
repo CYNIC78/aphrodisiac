@@ -1,25 +1,13 @@
 <body>
     <div id="app-container">
-
-        <!-- Left Sidebar -->
         <aside id="left-sidebar" class="sidebar"></aside>
-
-        <!-- Draggable handle between left sidebar and main content -->
-        <div class="resize-handle" id="left-resize-handle"></div>
-
-        <!-- Main Content Area -->
         <main id="main-content"></main>
-
-        <!-- Draggable handle between main content and right inspector -->
-        <div class="resize-handle" id="right-resize-handle"></div>
-
-        <!-- Right "Inspector" Sidebar -->
         <aside id="right-inspector" class="sidebar"></aside>
-
+    </div>
+    
+    <div id="overlay-container" class="overlay">
+        <div id="overlay-content"></div>
     </div>
 
-    <!-- We're temporarily removing the old content from the sidebars to simplify this step. -->
-    <!-- We will add it back programmatically with JS later. -->
-    
     <script type="module" src="main.js"></script>
 </body>

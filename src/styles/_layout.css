@@ -112,22 +112,17 @@ h1, h2, h3, h4, p, ul, ol {
 }
 
 
-/* --- Collapsed Sidebar States (REPAIRED) --- */
-/* These rules now correctly define all 5 columns for each state, fixing the layout bug. */
-
+/* --- Collapsed Sidebar States (Fixed Width) --- */
 #app-container.left-sidebar-collapsed {
-    /* Define all 5 columns: collapsed-left | handle | main | handle | right */
-    grid-template-columns: 60px 10px 1fr 10px 1fr;
+    grid-template-columns: 60px 1fr 320px;
 }
 
 #app-container.right-sidebar-collapsed {
-    /* Define all 5 columns: left | handle | main | handle | collapsed-right */
-    grid-template-columns: 1fr 10px 1fr 10px 60px;
+    grid-template-columns: 280px 1fr 60px;
 }
 
 #app-container.left-sidebar-collapsed.right-sidebar-collapsed {
-    /* Define all 5 columns for when BOTH are collapsed */
-    grid-template-columns: 60px 10px 1fr 10px 60px;
+    grid-template-columns: 60px 1fr 60px;
 }
 
 /* --- Visual Styles for Collapsed State --- */
@@ -148,18 +143,4 @@ h1, h2, h3, h4, p, ul, ol {
 .left-sidebar-collapsed .sidebar-header,
 .right-sidebar-collapsed .sidebar-header {
     justify-content: center;
-}
-
-
-
-/* --- Resize Handle Styles --- */
-
-.resize-handle {
-    cursor: col-resize; /* Changes the mouse pointer to indicate resizing */
-    transition: background-color 0.2s ease-in-out;
-    z-index: 10; /* Ensure it's on top */
-}
-
-.resize-handle:hover {
-    /* We'll define the color in the themes file later */
 }
