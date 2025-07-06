@@ -96,29 +96,22 @@ form {
 }
 
 
+
 #form-add-personality {
     display: none;
-    width: 48rem;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
+    width: 28rem;
+    height: 28rem;
 }
 
 .overlay-content {
     display: flex;
     width: 100%;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
     flex-grow: 1;
     overflow: hidden;
     padding: 1rem;
-    padding-top: 3vh;
     box-sizing: border-box;
-}
-
-#form-add-personality textarea[name="prompt"] {
-    min-height: 15rem;
-    resize: vertical;
 }
 
 /* all but the first sidebarcontet */
@@ -146,8 +139,6 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     width: 100%;
-    flex-grow: 1;
-    min-height: 0;
 }
 
 #btn-stepper-submit {
@@ -160,6 +151,10 @@ form {
 
 .stepper:not(.first-step) .stepper-footer #btn-stepper-previous {
     visibility: visible;
+}
+
+.stepper-footer * {
+    flex: 1;
 }
 
 .step {
@@ -181,44 +176,17 @@ form {
 }
 
 
+
 .stepper-content {
     flex-grow: 1;
     overflow: auto;
-    padding-right: 0.5rem;
 }
 
-
-/* === CORRECTED FOOTER SOLUTION === */
 .stepper-footer {
-    display: grid;
-    /* Define 3 columns with named areas. These are permanent slots. */
-    grid-template-columns: 1fr auto 1fr;
-    grid-template-areas: "left-slot center-slot right-slot";
-    align-items: center;
-    padding-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
 }
-
-.footer-left {
-    grid-area: left-slot;  /* Assign this div to the 'left-slot'. */
-    justify-self: start;   /* Pin it to the start of its slot. */
-}
-
-#stepper-progress {
-    grid-area: center-slot; /* Assign this div to the 'center-slot'. */
-    justify-self: center;
-}
-
-.footer-right {
-    grid-area: right-slot; /* Assign this div to the 'right-slot'. */
-    justify-self: end;     /* Pin it to the end of its slot. */
-}
-
-/* Uniform sizing and reverted size for all stepper nav buttons */
-.btn-stepper-nav {
-    width: 7rem; /* Use a fixed width for perfect uniformity */
-}
-/* === END CORRECTED SOLUTION === */
-
 
 .slider {
     margin: 0;
