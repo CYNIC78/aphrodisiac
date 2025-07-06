@@ -7,16 +7,21 @@ This document outlines the essential files and folders that power the Aphrodisia
 -   `package.json`
 -   `package-lock.json`
 -   `vite.config.js`
+
 -   `src/`
     -   `index.html`
     -   `main.js`
+
     -   `components/`
+			`ApiKeyInput.component.js`
         -   `AddPersonalityForm.component.js`
         -   `ChatInput.component.js`
         -   `Sidebar.component.js`
         -   `Stepper.component.js`
         -   `TemperatureSlider.component.js`
         -   `WhatsNew.component.js`
+        -   `Tooltip.component.js`				
+
     -   `services/`
         -   `Chats.service.js`
         -   `Db.service.js`
@@ -25,202 +30,263 @@ This document outlines the essential files and folders that power the Aphrodisia
         -   `Personality.service.js`
         -   `Settings.service.js`
         -   `Stepper.service.js`
+
     -   `styles/`
         -   `main.css`
         -   *(Font files like .ttf and .woff)*
+
+    -   `models/`
+		-	`Personality.js`
+
     -   `utils/`
         -   `helpers.js`
 		
 ## 2. Files' content\functions\description
 
-###. package.json
 
-```		{
-  "devDependencies": {
-    "vite": "^5.4.10"
-  },
-  "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "dexie": "^4.0.10",
-    "dompurify": "^3.2.3"
-  },
-    "scripts": {
-      "dev": "vite", 
-      "build": "vite build",
-      "preview": "vite preview"
+#`index.html`
+	Purpose: The single HTML page defining the entire application's UI structure, or "skeleton." It contains all containers, buttons, forms, and input fields that the JavaScript will interact with.
+	Dependencies:
+	Local CSS: ./styles/main.css
+	Local JS: main.js (loaded as a module, this is the application's main entry point).
+	Remote Dependencies:
+	highlight.js (for syntax highlighting in code blocks).
+	Google Analytics (gtag.js) (for usage analytics).
+	Google Fonts (for Material Symbols icons).
+	Key UI Sections & ids (for JS interaction):
+	Main Layout:
+	.sidebar: The collapsible left panel.
+	#mainContent: The main chat area on the right.
+	.overlay: The modal container for pop-ups like "Add Personality" and "What's New".
+	Sidebar Controls:
+	#btn-hide-sidebar / #btn-show-sidebar: Toggles sidebar visibility.
+	#btn-new-chat: Creates a new conversation.
+	#chatHistorySection: Container for the list of past chats.
+	#personalitiesDiv: Container for the list of personalities.
+	Settings Inputs:
+	#apiKeyInput: For the user's Google Gemini API key.
+	#selectedModel, #maxTokens, #safetySettings, #temperature: Generation settings.
+	Chat Interface:
+	.message-container: Where all chat messages are rendered.
+	#messageInput: The contenteditable field for typing messages.
+	#btn-send: The button to submit a message.
+	Forms & Modals:
+	#form-add-personality: The form for creating/editing a personality, built with a multi-step UI (#stepper-add-personality).
+	#btn-whatsnew: Button to show the "What's New" modal.
+	#btn-hide-overlay: Closes the active overlay.
+
+
+#`main.js`
+	Purpose: The application's primary entry point or "ignition switch." It orchestrates the startup sequence and connects high-level UI events (like button clicks in the sidebar) to their corresponding service functions.
+	Imports & Dependencies:
+	Services:
+	Personality.service
+	Settings.service
+	Overlay.service
+	Chats.service
+	Db.service
+	Utilities:
+	helpers.js
+	Components (Dynamic):
+	It uses import.meta.glob to dynamically import and execute all component files within the /src/components/ directory. This ensures all component-level logic and event listeners are activated on startup.
+	Initialization Sequence (Order is critical):
+	Initializes Settings.service to load user settings first.
+	Asynchronously initializes Chats.service with the database instance.
+	Asynchronously migrates and initializes Personality.service.
+	Global Event Listeners:
+	#btn-hide-overlay: Calls overlayService.closeOverlay().
+	#btn-new-chat: Calls chatsService.newChat().
+	#btn-clearall-personality: Calls personalityService.removeAll().
+	#btn-reset-chat: Calls chatsService.deleteAllChats().
+	#btn-import-personality: Opens a file dialog to import a personality JSON file, then adds it via personalityService.add().
+	window:resize: Handles responsive sidebar visibility for larger screens.
+
+
+
+#`src/components/AddPersonalityForm.component.js`
+	Purpose: This component manages the "Add/Edit Personality" form. It handles data collection from the form fields, submission logic, and the dynamic creation of "tone example" input fields.
+	Dependencies (Imports):
+	models/Personality: The data model used to structure the new personality object.
+	services/Personality.service: To save a new personality (add) or update an existing one (edit).
+	services/Stepper.service: To interact with the form's multi-step UI.
+	services/Overlay.service: To close the modal/overlay after the form is submitted.
+	Core Logic:
+	Form Submission (form.submit):
+	This function is triggered to process the form.
+	It reads all input fields using FormData and populates a new Personality object.
+	It intelligently handles both "add new" and "edit existing" scenarios by checking for an id field.
+	It calls the appropriate function in Personality.service (add or edit).
+	Finally, it tells the Overlay.service to close the form modal.
+	Dynamic Tone Examples:
+	It listens for clicks on the "add tone example" button (#btn-add-tone-example).
+	When clicked, it dynamically creates a new text input field, allowing the user to add multiple tone examples to a personality.
+
+
+
+
+#`src/components/ApiKeyInput.component.js`
+
+```
+import { GoogleGenAI } from "@google/genai";
+
+const apiKeyInput = document.querySelector("#apiKeyInput");
+
+let debounceTimer;
+apiKeyInput.addEventListener("input", () => {
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
     }
+    debounceTimer = setTimeout(async () => {
+        const apiKey = apiKeyInput.value.trim();
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+        try {
+            // Test the API key with a simple query
+            await ai.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: "test"
+            });
+            apiKeyInput.classList.add("api-key-valid");
+            apiKeyInput.classList.remove("api-key-invalid");
+            document.querySelector(".api-key-error").style.display = "none";
+        } catch (error) {
+            apiKeyInput.classList.add("api-key-invalid");
+            apiKeyInput.classList.remove("api-key-valid");
+            document.querySelector(".api-key-error").style.display = "flex";
+        }
+    }, 2000);
+});
+```
+
+
+#`src/components/ChatInput.component.js`
+```
+import * as messageService from '../services/Message.service';
+import * as dbService from '../services/Db.service';
+import * as helpers from '../utils/helpers';
+
+const messageInput = document.querySelector("#messageInput");
+const sendMessageButton = document.querySelector("#btn-send");
+
+//enter key to send message but support shift+enter for new line
+messageInput.addEventListener("keydown", (e) => {
+    // Check if the user is on a mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (e.key === "Enter" && !e.shiftKey && !isMobile) {
+        e.preventDefault();
+        sendMessageButton.click();
+    }
+});
+messageInput.addEventListener("blur", () => {
+});
+messageInput.addEventListener("paste", (e) => {
+    e.preventDefault();
+    const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+    document.execCommand("insertText", false, text);
+});
+messageInput.addEventListener("input", () => {
+    if (messageInput.innerHTML == "<br>") {
+        messageInput.innerHTML = "";
+    }
+});
+sendMessageButton.addEventListener("click", async () => {
+    try {
+        const message = helpers.getEncoded(messageInput.innerHTML);
+        messageInput.innerHTML = "";
+        await messageService.send(message, dbService.db);
+
+    } catch (error) {
+        console.error("error", JSON.stringify(error));
+        if(error.status === 429 || error.code === 429){
+            alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
+        }
+        else{            
+            alert(error);
+        }
+        
+    }
+});
+```
+
+
+#`src/components/Sidebar.component.js`
+
+```
+import * as helpers from "../utils/helpers";
+
+const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
+const showSidebarButton = document.querySelector("#btn-show-sidebar");
+const tabs = document.querySelectorAll(".navbar-tab");
+const tabHighlight = document.querySelector("#navbar-tab-highlight");
+const sidebarViews = document.querySelectorAll(".sidebar-section");
+const sidebar = document.querySelector(".sidebar");
+
+hideSidebarButton.addEventListener("click", () => {
+    helpers.hideElement(sidebar);
+});
+showSidebarButton.addEventListener("click", () => {
+    helpers.showElement(sidebar, false);
+});
+
+let activeTabIndex = undefined;
+function navigateTo(tab) {
+    const index = [...tabs].indexOf(tab);
+    if (index == activeTabIndex) {
+        return;
+    }
+    tab.classList.add("navbar-tab-active");
+    //hide active view before proceding
+    if (activeTabIndex !== undefined) {
+        helpers.hideElement(sidebarViews[activeTabIndex]);
+        tabs[activeTabIndex].classList.remove("navbar-tab-active");
+    }
+    helpers.showElement(sidebarViews[index], true);
+    activeTabIndex = index;
+    tabHighlight.style.left = `calc(100% / ${tabs.length} * ${index})`;
+}
+//tab setup
+tabHighlight.style.width = `calc(100% / ${tabs.length})`;
+for(const tab of tabs){
+    tab.addEventListener("click", () => {
+        navigateTo(tab);
+    });
+}
+
+navigateTo(tabs[0]);
+```
+
+#`src/components/Stepper.component.js`
+
+```
+//all steppers are expected to have a next, previous and submit button
+//steppers are also expected to be children of a form element
+import *  as stepperService from "../services/Stepper.service";
+
+const steppers = stepperService.getAll();
+
+for (const stepper of steppers) {
+    const form = stepper.element.parentElement;
+    const next = stepper.element.querySelector("#btn-stepper-next");
+    const prev = stepper.element.querySelector("#btn-stepper-previous");
+    const submit = stepper.element.querySelector("#btn-stepper-submit");
+    next.addEventListener("click", () => {
+        stepper.step++;
+        stepperService.update(stepper);
+    });
+    prev.addEventListener("click", () => {
+        stepper.step--;
+        stepperService.update(stepper);
+    });
+    submit.addEventListener("click", (e) => {
+        e.preventDefault();
+        //delegate the submit to the form containing the stepper
+        form.submit();
+    });
 }
 ```
 
-### vite.config.js
 
-```
-/** @type {import('vite').UserConfig} */
-export default {
-    root: 'src',
-    build: {
-        target: 'esnext',
-        outDir: '../dist',
-        emptyOutDir: true,
-    }
-}
-```
-
-### `src/main.js`
-
-*   **Purpose:** This is the application's central orchestrator. It doesn't do much work itself; instead, it imports all the major "services" and "components" and tells them when to start, and connects HTML buttons to the correct JavaScript functions.
-
-*   **Execution Flow:**
-    1.  **Imports:** First, it imports all the major `service` modules (`Personality`, `Settings`, `Chats`, etc.).
-    2.  **Component Loading:** It uses a special Vite command (`import.meta.glob`) to automatically find and run all the files in the `./components/` folder. This is how the components become active.
-    3.  **Service Initialization:** It initializes the core services in a specific order: `Settings` -> `Chats` -> `Personalities`. This sequence is likely important.
-    4.  **Event Listeners:** The rest of the file is dedicated to finding buttons in the HTML (e.g., `#btn-new-chat`, `#btn-add-personality`) and attaching `click` listeners to them, which then trigger functions from the imported services.
-
-*   **Key Connections:**
-    *   **Reads from:** All files in `services/` and `utils/`.
-    *   **Executes:** All files in `components/`.
-    *   **Writes to/Manipulates:** The HTML DOM by attaching event listeners to buttons.
-
-*   **Notes for Future Development:**
-    *   The **`window.resize`** event listener at the end of the file is the exact starting point for any future "flexible sidebar" feature.
-    - The logic for importing a personality from a file is written directly inside this file. For better organization in the future, we might consider moving that logic into the `Personality.service.js` file.
-
-
-
-### `src/index.html`
-
-*   **Purpose:** This file is the HTML "skeleton" of the entire application. It defines all the major visual containers and input fields like the sidebar, the main chat content area, and the pop-up overlay forms. It does not contain any logic itself.
-
-*   **Structure Overview:**
-    *   **`<head>` Section:**
-        *   Loads the page title and favicon.
-        *   Imports our main stylesheet (`./styles/main.css`).
-        *   Imports external resources: a stylesheet for code highlighting (`highlight.js`) and Google Analytics scripts.
-    *   **`<body>` Section:**
-        *   **`.container`:** The main wrapper for the whole page.
-            *   **`.sidebar`:** Contains all the elements for the left panel: the header, the navigation tabs (`Chats`, `Personalities`, `Settings`), and the content sections for each tab (chat history, personality list, API key input, generation settings, etc.).
-            *   **`#mainContent`:** The main chat area on the right, including the message container and the text input box (`#messageInput`).
-        *   **`.overlay`:** A hidden container that appears on top of the main content. It holds dynamic forms like the "Add Personality" form and the "What's New" changelog.
-    *   **`<script>` Tag:** The very last line in the `<body>` imports and runs our `main.js` file, which brings the entire static page to life.
-
-*   **Key Identifiers (`id`s):** This file is full of elements with unique `id` attributes (e.g., `#btn-new-chat`, `#apiKeyInput`, `#messageInput`). These `id`s are hooks that `main.js` and other JavaScript files use to find and control specific parts of the page.
-
-
-### `components/AddPersonalityForm.component.js`
-
-*   **Purpose:** This component manages the logic for the "Add/Edit Personality" form that appears in the overlay. It handles form submission, data collection, and adding new input fields for "Tone Examples".
-
-*   **Execution Flow:**
-    1.  **Initialization:** It grabs the HTML form (`#form-add-personality`) and the "add tone example" button (`#btn-add-tone-example`). It also gets a reference to the stepper component from the `stepperService`.
-    2.  **`form.submit` Function:** This is the core function. When the form is submitted, it:
-        *   Creates a new, empty `Personality` object.
-        *   Reads all the data from the form's input fields.
-        *   Special handling for `toneExamples`: it collects all tone examples into an array.
-        *   Checks if the form contains an existing `id`. If yes, it calls `personalityService.edit()`. If no, it calls `personalityService.add()`.
-        *   Finally, it calls `overlayService.closeOverlay()` to hide the form.
-    3.  **Tone Example Button:** It adds a `click` listener to the button that dynamically creates a new text input field for another tone example.
-
-*   **Key Connections:**
-    *   **Imports:** `Personality` class, `personalityService`, `stepperService`, `overlayService`.
-    *   **Manipulates:** The HTML form (`#form-add-personality`) by adding new input fields.
-    *   **Calls:** `personalityService.add()`, `personalityService.edit()`, `overlayService.closeOverlay()`.
-
-
-### `components/ChatInput.component.js`
-
-*   **Purpose:** This component manages all user interactions with the message input box (`#messageInput`) and the "Send" button (`#btn-send`).
-
-*   **Execution Flow & Features:**
-    1.  **Initialization:** It grabs the message input field and the send button from the HTML.
-    2.  **Event Listeners on Input Field:**
-        *   `keydown`: Implements the "Shift+Enter for new line, Enter to send" functionality.
-        *   `paste`: Ensures that when a user pastes text, it's inserted as plain text, stripping any rich formatting.
-        *   `input`: A small cleanup function to handle stray `<br>` tags.
-    3.  **Send Button `click` Listener:** This is the main action function. When clicked, it:
-        *   Reads the content from the message input box.
-        *   Encodes the content using a `helpers` function to handle special characters.
-        *   Clears the input box.
-        *   Calls the main `messageService.send()` function, passing the user's message and the database service (`dbService.db`).
-        *   Includes error handling, specifically for a "429 Rate Limit" error, and a general `alert` for other errors.
-
-*   **Key Connections:**
-    *   **Imports:** `messageService`, `dbService`, `helpers`.
-    *   **Manipulates:** The `#messageInput` field.
-    *   **Calls:** `helpers.getEncoded()` and, most importantly, `messageService.send()`.
-	
-
-
-### `components/Sidebar.component.js`
-
-*   **Purpose:** This component manages all functionality within the sidebar, including showing/hiding the entire panel and handling the tabbed navigation between "Chats," "Personalities," and "Settings."
-
-*   **Execution Flow & Features:**
-    1.  **Initialization:** It queries and stores all relevant sidebar elements: the hide/show buttons, the navigation tabs, the animated tab highlight, the different content sections (`.sidebar-section`), and the main sidebar container itself.
-    2.  **Show/Hide Logic:** It attaches simple `click` listeners to the show/hide buttons, which call helper functions (`helpers.hideElement`, `helpers.showElement`) to control the sidebar's visibility.
-    3.  **Tab Navigation (`navigateTo` function):** This is the core logic for the tab system. When a tab is clicked:
-        *   It determines the index of the clicked tab.
-        *   It hides the previously active content section.
-        *   It shows the content section corresponding to the new tab's index.
-        *   It moves the animated `#navbar-tab-highlight` element under the newly active tab.
-    4.  **Initial State:** The component loops through all tabs to add `click` listeners and then calls `navigateTo(tabs[0])` at the end to ensure the "Chats" tab is active by default when the application loads.
-
-*   **Key Connections:**
-    *   **Imports:** `helpers`.
-    *   **Manipulates:** The visibility and CSS classes of all major sidebar elements (`.sidebar`, `.navbar-tab`, `.sidebar-section`, `#navbar-tab-highlight`).
-    *   **Calls:** `helpers.showElement()` and `helpers.hideElement()`.
-
-*   **Notes for Future Development:**
-    *   This file is the single source of truth for the sidebar's tab navigation. Any new tabs or content panels would need to be integrated here.
-    *   The show/hide logic is currently very simple. If we wanted a more complex "flexible" or "collapsible" sidebar, the functions tied to `#btn-hide-sidebar` and `#btn-show-sidebar` would be the primary place to modify.
-	
-	
-	
-### `components/Stepper.component.js`
-
-*   **Purpose:** This component finds and activates all "stepper" UI elements on the page. A stepper is a multi-step wizard interface, like the one used in the "Add Personality" form. This code handles the logic for the "Next," "Previous," and "Submit" buttons within any stepper.
-
-*   **Execution Flow:**
-    1.  **Get All Steppers:** It starts by asking the `stepperService` to find all stepper elements on the page.
-    2.  **Loop and Activate:** It loops through each stepper it finds. For each one, it:
-        *   Finds the parent `<form>` element.
-        *   Finds the "Next," "Previous," and "Submit" buttons within that stepper.
-        *   Attaches `click` listeners to the "Next" and "Previous" buttons, which increment or decrement the `stepper.step` counter and then call `stepperService.update()` to refresh the UI.
-        *   Attaches a `click` listener to the "Submit" button. Crucially, it doesn't handle the submission itself; it **delegates** the action by calling the parent form's own `.submit()` function.
-
-*   **Key Connections:**
-    *   **Imports:** `stepperService`.
-    *   **Manipulates:** It doesn't directly manipulate the DOM; it calls the `stepperService` to do that.
-    *   **Calls:** `stepperService.getAll()`, `stepperService.update()`, and `form.submit()`.
-
-*   **Notes for Future Development:**
-    *   This is a highly reusable and well-designed component. If we ever need another multi-step form, we just need to structure the HTML correctly and the `stepperService` will find it, and this component will automatically activate its buttons.
-    *   The actual logic for showing/hiding the step content is not here; it resides in the `Stepper.service.js` file. This component only handles the button clicks.
-
-
-
-### `services/Stepper.service.js`
-
-*   **Purpose:** This service is the "model" and "view controller" for all stepper components. It finds stepper elements in the HTML, tracks their current step, and handles the visual updates of showing/hiding the correct step content.
-
-*   **Key Functions:**
-    *   `steppers` (variable): At initialization, this line scans the entire HTML document for any element with the `.stepper` class and stores them in an array. Each stepper is stored as an object containing its HTML `element` and its current `step` number (initialized to 0).
-    *   `update(stepper)`: This is the most important function. It's called by the `Stepper.component.js` whenever the step changes. It handles all the visual logic:
-        *   Shows the content for the current step (`.step.active`).
-        *   Hides all other step content.
-        *   Adds or removes `first-step` and `final-step` classes on the main stepper container, which allows the CSS to show/hide the "Next," "Previous," and "Submit" buttons appropriately.
-    *   `get(id)`: A helper function to find and return a specific stepper from the main `steppers` array by its HTML `id`.
-    *   `getAll()`: A simple getter that returns the entire array of steppers.
-
-*   **Key Connections:**
-    *   This service is primarily used by `Stepper.component.js`.
-    *   It directly reads from and manipulates the CSS classes of elements within the HTML structure defined in `index.html`.
-
-*   **Notes for Future Development:**
-    *   This service contains all the logic for how a stepper visually functions. If we wanted to add, for example, a visual progress bar or step indicators, the `update()` function in this file is where that logic would be added.
-
-
-
-###   components/TemperatureSlider.component.js
+#`src/components/TemperatureSlider.component.js`
 ```
 const temperatureLabel = document.querySelector("#label-temperature");
 const temperatureInput = document.querySelector("#temperature");
@@ -229,153 +295,259 @@ temperatureLabel.textContent = temperatureInput.value / 100;
 temperatureInput.addEventListener("input", () => {
     temperatureLabel.textContent = temperatureInput.value / 100;
 });
+```
 
+#`src/components/Tooltip.component.js``
+```
+import tippy from 'tippy.js';
+import 'tippy.js/dist/tippy.css';
+import 'tippy.js/themes/material.css';
+
+const tooltips = document.querySelectorAll('.tooltip');
+
+for(const tooltip of tooltips){
+    tippy(tooltip, {
+        content: tooltip.getAttribute("info"),
+        theme: "material",
+        placement: "top",
+        arrow: true,
+    })
+}
 ```
 
 
+#`src/models/Personality.js`
+```
+export class Personality {
+    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0, internetEnabled = false, roleplayEnabled = false, toneExamples = []) {
+        this.name = name;
+        this.image = image;
+        this.description = description;
+        this.prompt = prompt;
+        this.aggressiveness = aggressiveness;
+        this.sensuality = sensuality;
+        this.internetEnabled = internetEnabled;
+        this.roleplayEnabled = roleplayEnabled;
+        this.toneExamples = toneExamples;
+    }
+}
+```
 
-### `services/Settings.service.js`
+#`src/services/Chats.service.js`
+```
+Purpose: The central service for managing chat histories (CRUD operations: Create, Read, Update, Delete). It bridges the database (db.chats) with the chat history UI in the sidebar and the main message display area.
+Dependencies (Imports):
+services/Message.service: Used to render individual messages in the main view when a chat is loaded.
+services/Personality.service: Used to fetch personality details (name, image) associated with past model responses.
+utils/helpers: For utility functions (e.g., hiding the sidebar on mobile after a chat is selected).
+Core Logic & Key Functions:
+Initialization & UI Rendering:
+initialize(db): Populates the sidebar's chat history section on application start. It fetches all chat titles from the DB and uses insertChatEntry to render them.
+insertChatEntry(chat, db): Creates the interactive HTML elements for a single chat in the sidebar (the radio button for selection, the title, and the delete button) and attaches the necessary event listeners.
+Data Retrieval (Reading):
+loadChat(chatID, db): The primary function for displaying a conversation. It clears the main chat view, fetches the specified chat's full message history from the DB, and uses Message.service to render each message.
+getChatById(id, db): Retrieves a single, complete chat object from the database.
+getCurrentChat(db): Gets the full data for the currently selected chat in the UI.
+Data Modification (Creating & Deleting):
+addChat(title, firstMessage, db): Creates a new chat record in the database and adds the corresponding entry to the sidebar UI.
+deleteChat(id, db): Deletes a specific chat from the database and removes it from the UI.
+deleteAllChats(db): Clears the entire chat history from both the database and the UI.
+State Management:
+newChat(): Clears the main message area to prepare for a new, unsaved chat session.
+getCurrentChatId(): A helper that reads the DOM to find which chat is currently selected in the sidebar.
+```
 
-*   **Purpose:** Manages all application settings. It reads and saves user preferences to `localStorage`, provides the settings object for API calls, and contains the master system prompt that defines character behavior.
+#`src/services/Db.service.js`
+```
+import { Dexie } from 'dexie';
+export async function setupDB() {
+    let db;
+    try {
+        db = new Dexie("chatDB");
+    } catch (error) {
+        console.error(error);
+        alert("failed to setup dexie (database)");
+        return;
+    }
+    db.version(3).stores({
+        chats: `
+            ++id,
+            title,
+            timestamp,
+            content
+        `
+    });
+    db.version(4).stores({
+        personalities: `
+            ++id,
+            name,
+            image,
+            prompt,
+            aggressiveness,
+            sensuality,
+            internetEnabled,
+            roleplayEnabled,
+            toneExamples
+        `
+    });
+    return db;
+}
+export const db = await setupDB();
+```
 
-*   **Key Functions:**
-    *   `loadSettings()` & `saveSettings()`: Standard functions that transfer user settings (API Key, tokens, temp, model) between the UI input fields and the browser's `localStorage`. This is how settings persist between sessions.
-    *   `getSettings()`: **CRITICAL FUNCTION.** This function gathers all settings into a single object to be used for the API call. It reads values from the UI inputs for most settings.
-    *   `getSystemPrompt()`: Returns the large, static block of text that serves as the foundational instructions for the AI, detailing how it should interpret Aggressiveness and Sensuality ratings.
+#`src/services/Message.service.js`
+```
+Purpose: The central engine for all AI communication. It constructs the prompt, sends it to the Google Gemini API, handles the streaming response, renders messages to the UI, and saves the conversation history.
+Dependencies (Imports):
+@google/genai: Direct dependency on the official Google GenAI library. This is where the API call happens.
+marked: A library to parse Markdown text from the AI into displayable HTML.
+services/Settings.service: To retrieve the API key, model choice, and other generation settings.
+services/Personality.service: To get the active personality's details (prompt, description, tone examples) to construct the context for the AI.
+services/Chats.service: To read the current chat history for context and to save the new user/model messages back to the database.
+utils/helpers: For utility functions like scrolling the message container.
+Core Logic & Key Functions:
+send(msg, db): The primary function that orchestrates the entire message lifecycle.
+Setup: Fetches the current settings and selected personality.
+New Chat Generation: If no chat is active, it makes a separate, preliminary API call to generate a title for the new chat based on the user's first message, then creates the chat via Chats.service.
+History Assembly: It builds a complete conversation history to send to the API, including: the personality's instructions, tone examples, and the full history of the current chat.
+API Call: It establishes a streaming connection to the Gemini API (chat.sendMessageStream).
+Render & Save: It passes the stream to insertMessage for real-time display and, once the full reply is received, saves the user message and the full model reply to the database via Chats.service.
+insertMessage(...): The UI rendering workhorse.
+Creates the HTML structure for both user and model messages.
+For model messages, it handles the netStream: it iteratively receives text chunks, parses them with marked, and updates the UI in real-time to create a "typing" effect.
+Initializes syntax highlighting (hljs.highlightAll()) and attaches event listeners for the message action buttons (edit, regenerate).
+Message Interactivity (regenerate, setupMessageEditing, updateMessageInDatabase):
+regenerate: Deletes the last model response from the database, restores the chat to its previous state, and re-sends the user's last message to get a new response.
+setupMessageEditing / updateMessageInDatabase: Manages the logic for making a message contenteditable, listening for save/cancel events (Enter/Escape), and updating the corresponding message text in the database.
+```
 
-*   **Key Connections:**
-    *   **Imports:** Crucially, it imports `HarmBlockThreshold` and `HarmCategory` directly from the `@google/generative-ai` library.
-    *   **Reads from:** HTML input elements in the settings tab (`#apiKeyInput`, etc.) and `localStorage`.
-    *   **Is Called By:** `main.js` calls `loadSettings()`. The `Message.service.js` (we assume) will be the primary consumer of `getSettings()` and `getSystemPrompt()`.
+#`src/services/Overlay.service.js`
+```
+Purpose: A UI utility service that manages the application's main modal/overlay container. It controls which specific piece of content (e.g., "Add Personality Form", "Changelog") is visible within the overlay and handles the cleanup/reset process when the overlay is closed.
+Dependencies (Imports):
+utils/helpers: Uses showElement and hideElement for basic DOM visibility toggling.
+services/Stepper.service: To reset the multi-step form UI when the overlay is closed.
+Core Logic & Key Functions:
+showAddPersonalityForm() / showChangelog(): These are simple "show" functions. They make the main overlay visible and then reveal the specific content (#form-add-personality or #whats-new) inside it.
+showEditPersonalityForm(personality): A more advanced "show" function. Before making the form visible, it first populates all the form's input fields with the data from the provided personality object. It includes special logic to dynamically create and fill the "tone example" fields.
+closeOverlay(): The universal "hide and reset" function.
+Hides the main overlay container.
+Hides all content panels within the overlay.
+Crucially, it detects if the content was a form, and if so, performs a deep reset: it clears all fields, removes dynamically added inputs (like extra tone examples), and calls Stepper.service to reset the multi-step UI back to the first step.
+```
 
-*   **CRITICAL DISCOVERY - THE "SECRET SAUCE":**
-    1.  **Hardcoded Safety Bypass:** The `getSettings()` function **ignores the user's choice in the "Safety Settings" dropdown**. It hardcodes the `safetySettings` array to use `HarmBlockThreshold.BLOCK_NONE` for all categories. This is the magic key. It tells the Google API, "Do not block anything, ever." This is why your NSFW tests are working flawlessly.
-    2.  **Detailed System Prompt:** The `getSystemPrompt()` function provides extremely detailed, explicit instructions on how the AI should behave at different levels of sensuality and aggression. This highly structured prompt engineering is the second key to achieving the desired character depth and unfiltered responses.
+#`src/services/Personality.service.js`
+```
+Purpose: The central service for managing all aspects of Personalities, from database storage (CRUD) to UI rendering and user interactions within the "Personalities" tab.
+Dependencies (Imports):
+services/Overlay.service: To show the add/edit personality form modal.
+services/Db.service: To access the db.personalities object store for all database operations.
+models/Personality: The data model for creating new personality objects.
+Core Logic & Key Functions:
+Initialization & UI Rendering:
+initialize(): The main setup function. It populates the "Personalities" tab by creating the default personality card, loading all user-created personalities from the DB, and adding the "Create New" card at the end.
+generateCard(personality): A crucial UI factory function. It builds the complete HTML for a single personality card, including the background image, title, and action buttons (edit, share, delete). Importantly, it also attaches all necessary event listeners to these buttons within the card itself.
+insert(personality): A helper that takes a personality object, calls generateCard, and appends the resulting HTML element to the DOM.
+Data Management (CRUD):
+add(personality) / edit(id, personality) / remove(id) / removeAll(): Standard CRUD functions that interact directly with the db.personalities IndexedDB table. The edit function is notable as it replaces the old card in the DOM with a newly generated one.
+get(id) / getAll() / getByName(name): Functions to retrieve personality data from the database.
+getSelected(): A key function that bridges the UI and the data. It inspects the DOM to find which personality's radio button is checked, gets its ID, and then fetches the full personality object from the database.
+Special Features:
+share(personality): An export utility. It converts a personality object to a JSON string and triggers a browser download for the user.
+getDefault(): A hardcoded factory that returns the default "zodiac" personality object. This ensures the app always has a fallback personality.
+Migration/Utility:
+migratePersonalities(database): A specific utility function designed for data maintenance. It iterates through all saved chats and adds a personalityid to messages that might only have a personality name, ensuring backward compatibility.
+```
+
+#`src/services/Settings.service.js`
+```
+src/services/Settings.service.js
+Purpose: Manages all user-configurable settings found in the "Settings" tab. It handles loading settings from localStorage, saving them on any change, and providing them in a structured format for API calls.
+Dependencies (Imports):
+@google/genai: Direct dependency on the Google GenAI library. It imports HarmBlockThreshold and HarmCategory to construct the safety settings object.
+Core Logic & Key Functions:
+initialize(): The setup function. It first calls loadSettings() to populate the UI, then attaches event listeners to all settings inputs (API Key, Model, Temperature, etc.). Any change to these inputs immediately triggers saveSettings().
+loadSettings() & saveSettings(): A matched pair of functions that act as the persistence layer. They read from and write all setting values directly to the browser's localStorage, ensuring settings are remembered between sessions.
+getSettings(): A crucial "getter" function used by other services (Message.service). It reads the current, live values from the UI controls and packages them into an object formatted for the Gemini API.
+Key Detail: This function hardcodes the safety settings to BLOCK_NONE for all categories, effectively disabling the API's content filters.
+getSystemPrompt(): Provides a large, static, hardcoded master system prompt. This prompt is not user-configurable. It instructs the AI on how to handle Markdown, the current date, and provides detailed behavioral rules based on the "Aggressiveness" and "Sensuality" guidelines.
+```
+
+#`src/services/Stepper.service.js`
+```
+const steppers = [...document.querySelectorAll(".stepper")].map((element) => ({ element: element, step: 0 }));
+export function update(stepper) {
+    const steps = stepper.element.querySelectorAll(".step");
+    stepper.step = Math.max(0, Math.min(stepper.step, steps.length - 1));
+    stepper.element.classList.toggle("first-step", stepper.step === 0);
+    stepper.element.classList.toggle("final-step", stepper.step === steps.length - 1);
+    //hide all other steps
+    for (let i = 0; i < steps.length; i++) {
+        if (i != stepper.step) {
+            steps[i].classList.remove("active");
+        }
+        else {
+            steps[i].classList.add("active");
+        }
+    }
+}
+export function getStep(stepper, index){
+    return stepper.element.querySelectorAll(".step")[index];
+}
+export function get(id) {
+    return steppers.find(stepper => stepper.element.id === id);
+}
+export function getAll(){
+    return steppers;
+}
+```
+
+#`scr/utils/helpers.js`
+
+```
+Purpose: A collection of miscellaneous, reusable utility functions (a "toolbox") used across multiple services and components to perform common tasks like DOM manipulation, text processing, and security sanitization.
+Dependencies (Imports):
+dompurify: A critical library used for sanitizing HTML to prevent XSS (Cross-Site Scripting) attacks.
+marked: A library for converting Markdown text into HTML.
+services/Settings.service: To check the user's autoscroll preference.
+Core Logic & Key Functions by Category:
+UI & Animation:
+showElement(element) / hideElement(element): Provides a standardized, animated way to fade elements in and out of view by manipulating CSS opacity and display properties.
+darkenCard(element) / lightenCard(element): Manipulates the backgroundImage CSS of an element to add or remove a semi-transparent dark overlay, likely for hover effects on cards.
+Text Processing & Security:
+getSanitized(string): A key security function. It uses DOMPurify to clean a string, removing any potentially malicious code before it's rendered.
+getEncoded(innerHTML): Cleans and formats text from an HTML source (like a contenteditable div) to prepare it for sending to the API. It converts <br> tags to newlines and un-escapes HTML entities.
+getDecoded(encoded): The reverse of getEncoded. It takes plain text (which may contain Markdown) from the AI/database and uses marked to convert it into safe, displayable HTML.
+Application-Specific Helpers:
+getVersion(): Returns a hardcoded application version string.
+messageContainerScrollToBottom(): Conditionally scrolls the chat window to the bottom. It first checks the user's preference by calling getSettings() from the Settings.service.
+```
+
+#`scr/styles/main.css`
+```
+src/styles/main.css
+Purpose: The single, comprehensive stylesheet for the entire application. It controls the layout, typography, colors, animations, and responsive design.
+Dependencies (Imports):
+Remote Dependencies:
+Google Fonts: Imports the primary font family (Noto Sans), fonts for branding (Product Sans, Google Sans), and the crucial Material Symbols Outlined for all icons.
+Core Logic & Key Sections:
+Global & Foundational Styles:
+Sets up box-sizing, scrollbar styles, and base typography (font-family, color).
+Defines a clever img rule to prevent broken image icons from showing by keeping them opacity: 0 until a valid src is present.
+Standardizes the look of buttons, inputs, and forms.
+Layout & Component Styling:
+.container, .sidebar, #mainContent: Defines the main two-column flexbox layout.
+.message-container, .message, #message-box: Styles the entire chat interface, including individual message bubbles and the input area.
+.card-personality: Contains extensive styling for the personality cards. It uses the powerful :has() pseudo-class to create a dynamic layout: cards expand and change appearance when their internal radio button is :checked.
+.overlay: Styles the full-screen modal, using backdrop-filter for a blurred background effect.
+.navbar: Styles the main navigation tabs (Chats, Personalities, Settings) in the sidebar, including the animated highlight bar.
+.stepper: Provides the layout for the multi-step form UI.
+Theming & Responsiveness:
+@media (prefers-color-scheme: light) / @media (prefers-color-scheme: dark): This is the core of the theming system. It contains two large blocks that override colors, backgrounds, and borders for all major components, creating distinct light and dark themes based on the user's OS preference.
+@media (max-width: 1032px): This is the primary media query for responsive design. It transforms the layout for mobile/smaller screens by making the sidebar a full-screen, togglable element instead of a fixed column.
+```
 
 
-
-### `services/Personality.service.js`
-
-*   **Purpose:** This service manages every aspect of personalities. It defines the personality data structure, handles creating, reading, updating, and deleting (CRUD) them from the database, and generates their corresponding HTML "cards" in the UI.
-
-*   **Key Components:**
-    *   **`Personality` class:** A blueprint (`constructor`) for what a personality object looks like. It defines all the default properties (`name`, `image`, `prompt`, `aggressiveness`, etc.).
-    *   **Database Interaction:** All major functions (`get`, `getAll`, `add`, `edit`, `remove`) are `async` because they communicate with the IndexedDB database via our `Db.service`. This is how personalities are saved permanently in the browser.
-    *   **`generateCard(personality)`:** A crucial UI function. It takes a personality object and dynamically creates the full HTML for its display card, including the background image, title, description, and the edit/share/delete buttons. It also attaches the necessary `click` event listeners to these buttons.
-    *   `insert(personality)`: A simple helper that takes a personality, generates its card using `generateCard()`, and appends it to the correct div in the sidebar.
-    *   `initialize()`: Sets up the initial state by creating the card for the default "zodiac" personality and then loading and creating cards for all other personalities saved in the database.
-    *   `share(personality)`: Exports a personality's data as a downloadable `.json` file.
-
-*   **Key Connections:**
-    *   **Imports:** `overlayService`, `Db.service`.
-    *   **Is Called By:** `main.js` (to initialize), `AddPersonalityForm.component.js` (to add/edit).
-    *   **Calls:** `overlayService.showEditPersonalityForm()`, and many functions within `Db.service`.
-
-*   **Notes for Future Development:**
-    *   This file is the single source of truth for personality data. Any changes to what a "personality" is (e.g., adding a new property) must start with updating the `Personality` class here.
-    *   The `generateCard()` function is where we would make any visual changes to the personality cards in the sidebar. This is a prime target for our eventual porting of the Aphrodisiac Asset Manager.
-	
-	
-	
-
-### `services/Overlay.service.js`
-
-*   **Purpose:** This service manages the behavior of the overlay container, which is a full-screen layer used to display content like forms and changelogs on top of the main application. It controls which specific view is shown within the overlay and handles closing and resetting it.
-
-*   **Key Functions:**
-    *   `showAddPersonalityForm()`: Shows the overlay and specifically makes the "Add Personality" form visible within it.
-    *   `showEditPersonalityForm(personality)`: A more complex function. It first populates the personality form with the data from the provided `personality` object, then shows the overlay and the form. It has special logic to handle creating the right number of "tone example" input fields.
-    *   `showChangelog()`: Shows the overlay and specifically makes the "What's New" changelog div visible.
-    *   `closeOverlay()`: This is the critical cleanup function. It hides the main overlay container, and then loops through all possible content items within it (`overlayItems`):
-        *   It hides every item.
-        *   If an item is a form, it calls `item.reset()` to clear all inputs.
-        *   It includes special logic to remove any extra "tone example" fields that were added.
-        *   It resets the form's stepper back to the first step.
-
-*   **Key Connections:**
-    *   **Imports:** `helpers` (for show/hide logic), `stepperService`.
-    *   **Is Called By:** `main.js` and `Personality.service.js`.
-    *   **Manipulates:** The visibility of the main `.overlay` and all its child elements. It also directly changes the `.value` of form inputs.
-    *   **Calls:** `helpers.showElement()`, `helpers.hideElement()`, and `stepperService.update()`.
-
-
-
-### `services/Message.service.js`
-
-*   **Purpose:** This service is the engine of the chat. It is responsible for constructing the full API request, sending the user's message to Google, handling the streaming response, and saving the conversation history.
-
-*   **Key Functions:**
-    *   `send(msg, db)`: The main, monolithic function that orchestrates the entire process of sending a message and receiving a reply.
-    *   `regenerate(responseElement, db)`: Handles the "refresh" button on a message. It does this by rolling back the chat history to before that message and then calling `send()` again.
-    *   `insertMessage(...)`: A UI-focused function that creates the HTML for a new message bubble (for either the user or the model) and appends it to the chat window. It also contains the logic to process the real-time `stream` from the API.
-
-*   **Key Connections:**
-    *   **Imports:** `GoogleGenerativeAI` (the core library), `marked` (for rendering Markdown), and nearly all of our other services (`Settings`, `Personality`, `Chats`, `helpers`). This file is a central hub.
-    *   **Calls:** Functions from every service it imports.
-
-*   **CRITICAL DISCOVERY - THE "SECRET SAUCE" IMPLEMENTATION:**
-    The `send` function contains the precise implementation details that make this application so effective.
-    1.  **System Instruction:** When initializing the model (`getGenerativeModel`), it explicitly passes the detailed system prompt from `Settings.service.js` using the `systemInstruction` property.
-    2.  **"Few-Shot" History Injection:** This is the most brilliant part. Before sending the real chat history, it manually constructs a fake "pre-history" to prime the AI. It injects:
-        *   A fake "user" message containing the full details of the selected personality.
-        *   A fake "model" reply ("okie dokie...") to confirm it has understood the personality.
-        *   The personality's `toneExamples` as further fake model replies.
-    3.  **Streaming for Real-Time Response:** It uses `chat.sendMessageStream(msg)` instead of a simple `generateContent`. This enables the word-by-word streaming effect, which is processed inside the `insertMessage` function.
-    4.  **Automatic Chat Titling:** For the very first message in a new chat, it makes a *separate, preliminary* API call to ask the model to generate a short title for the conversation.
-	
-	
-	
-	
-	
-### `services/Db.service.js`
-
-*   **Purpose:** This service sets up and manages the entire client-side database using a library called **Dexie.js**, which is a powerful wrapper for the browser's built-in **IndexedDB**. This is where all chat histories and created personalities are permanently stored.
-
-*   **Execution Flow:**
-    1.  **`setupDB()`:** This is the main function that runs automatically when the service is imported.
-        *   It creates a new Dexie database named `"chatDB"`.
-        *   It defines the database schema using `db.version().stores()`. This is like creating tables in a traditional database. It defines a `chats` table and a `personalities` table, listing all the properties (columns) for each.
-        *   It calls two migration functions, `migratePersonalities` and `migrateChats`.
-    2.  **`db` (export):** After `setupDB()` completes, the resulting database object (`db`) is exported so that other services can use it to perform read/write operations.
-    3.  **Migration Functions:**
-        *   `migratePersonalities`: A one-time utility function. It checks if there are any personalities stored in the old `localStorage` system, moves them into the new Dexie database, and then deletes the old `localStorage` entry.
-        *   `migrateChats`: Another one-time utility to update the data structure of chat messages from an old format (using `message.txt`) to the new API-compliant format (using `message.parts`).
-
-*   **Key Connections:**
-    *   **Imports:** `Dexie` (the library), `Personality.service`, `Chats.service`.
-    *   **Is Used By:** `Personality.service` and `Chats.service` import the `db` object to interact with the database.
-
-*   **Notes for Future Development:**
-    *   This file is the single source of truth for our database structure. If we ever want to add a new property to a personality or a chat, we **must** update the schema in the `stores` definition here.
-    *   The migration functions are examples of good practice for handling data structure changes between versions, ensuring users don't lose their data during an update. We will likely never need to touch them again.	
-
-
-
-
-### `styles/main.css`
-
-*   **Purpose:** This is the main Cascading Style Sheet (CSS) file for the entire application. It controls the layout, colors, fonts, spacing, and animations of every single element on the page.
-
-*   **Structure Overview:**
-    1.  **Imports & Fonts:** The file begins by importing Google Fonts and defining local font faces. This sets up the typography for the entire application.
-    2.  **Global Resets & Defaults:** It includes "reset" styles (`*`, `body`, `p`, `h1`, etc.) to ensure consistent appearance across different browsers. It also defines default styles for common elements like `button`, `input`, and `form`.
-    3.  **Component-Specific Styles:** The bulk of the file contains specific style rules for major components, identifiable by their CSS selectors:
-        *   `.sidebar`, `.navbar`, `#sidebar-content`: Styles for the main left panel.
-        *   `.message-container`, `.message`, `#message-box`: Styles for the chat view.
-        *   `.overlay`, `.stepper`: Styles for the pop-up layer and its forms.
-        *   `.card-personality`: Detailed styles for the personality cards, including the complex `:has()` pseudo-class to change its appearance when selected.
-    4.  **Media Queries (Responsive Design):**
-        *   `@media (max-width: 1032px)`: Contains all the style overrides for mobile devices. This is where the layout shifts from a two-column view to a single-column view and the "hamburger" menu buttons are shown.
-        *   `@media (prefers-color-scheme: ...)`: This is the core of the theme system. It has two large blocks, one for `light` and one for `dark`, which define all the color variables for the application based on the user's OS setting.
-
-*   **Key Connections:**
-    *   This file is imported directly by `index.html`. It doesn't import or connect to any JavaScript files; it simply styles the HTML that the JavaScript manipulates.
-
-*   **Notes for Future Development:**
-    *   This file is the **only** place we need to make changes for purely visual updates (colors, fonts, sizes, layout).
-    *   The `:has()` selector used for the selected personality card is modern CSS and very powerful.
-    *   Any new UI element we create will need corresponding styles added to this file to look correct.
-    *   The light/dark theme system is well-structured and easy to modify by changing the color codes within the respective `@media` blocks.
 
 ```
 The Aphrodisiac Blueprint: Executive Summary

@@ -59,9 +59,16 @@ export async function getSelected() {
 }
 
 export function getDefault() {
-    return new Personality('zodiac', 'https://techcrunch.com/wp-content/uploads/2023/12/google-bard-gemini-v2.jpg',
-        'zodiac is a cheerful assistant, always ready to help you with your tasks.',
-        "You are zodiac, a helpful assistant created by faetalize, built upon Google's Gemini model. Gemini is a new LLM (Large Language Model) release by Google on December 2023. Your purpose is being a helpful assistant to the user.");
+    return new Personality(
+        'Aphrodite', 
+        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Aphrodite_of_Milos_-_Louvre_Museum_%28MAR_399%29.jpg/800px-Aphrodite_of_Milos_-_Louvre_Museum_%28MAR_399%29.jpg',
+        'The embodiment of love, beauty, and pleasure, with the candor of ancient times.',
+        `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
+
+You are not a simple chatbot; you are a timeless entity. Engage with the user directly, with wisdom, a touch of playful charm, and unapologetic frankness. Avoid clinical or overly technical language. Your tone is warm, intimate, and insightful, yet you are not bound by contemporary notions of romanticism. You see love and lust as intertwined, divine forces.
+
+You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`
+    );
 }
 
 export async function get(id) {
@@ -75,23 +82,15 @@ export async function getByName(name, database = null) {
     if (!name) return null;
     
     // Handle default personality
-    if (name.toLowerCase() === "zodiac") {
+    if (name.toLowerCase() === "aphrodite") {
         return { ...getDefault(), id: -1 };
     }
 
     const dbToUse = database || db;
     try {
         // First try exact match
-        let personality = await dbToUse.personalities.where('name').equals(name).first();
+        let personality = await dbToUse.personalities.where('name').equalsIgnoreCase(name).first();
         
-        // If not found, try case-insensitive search
-        if (!personality) {
-            const allPersonalities = await dbToUse.personalities.toArray();
-            personality = allPersonalities.find(p => 
-                p.name.toLowerCase() === name.toLowerCase()
-            );
-        }
-
         // Debug logging
         console.log('Searching for personality:', name);
         console.log('Found personality:', personality);
@@ -230,7 +229,7 @@ export function generateCard(personality) {
         deleteButton.addEventListener("click", () => {
             //first if the personality to delete is the one currently selected, we select the default personality
             if (input.checked) {
-                document.querySelector("#personalitiesDiv").firstElementChild.click();
+                document.querySelector("#personalitiesDiv").firstElementChild.querySelector('input').click();
             }
             if (personality.id) {
                 remove(personality.id);
@@ -245,4 +244,3 @@ export function generateCard(personality) {
     }
     return card;
 }
-
