@@ -61,7 +61,7 @@ export async function getSelected() {
 export function getDefault() {
     return new Personality(
         'Aphrodite', 
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Aphrodite_of_Milos_-_Louvre_Museum_%28MAR_399%29.jpg/800px-Aphrodite_of_Milos_-_Louvre_Museum_%28MAR_399%29.jpg',
+        'media/default/images/Aphrodite.png',
         'The embodiment of love, beauty, and pleasure, with the candor of ancient times.',
         `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
 
