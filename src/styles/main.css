@@ -434,7 +434,7 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    width: 22rem; /* CHANGED */
+    width: 25rem; /* CHANGED */
     border-radius: 1rem;
     scrollbar-width: thin;
     height: calc(100dvh - 4rem);
