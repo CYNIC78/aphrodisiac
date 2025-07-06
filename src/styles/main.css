@@ -97,21 +97,32 @@ form {
 
 
 
+/* === MODIFIED RULE === */
 #form-add-personality {
     display: none;
-    width: 28rem;
-    height: 28rem;
+    width: 40rem; /* Increased width for a more spacious feel */
+    height: auto; /* Allow form to size itself naturally */
+    max-height: 85vh; /* Prevent form from overflowing on short screens */
 }
 
+/* === MODIFIED RULE === */
 .overlay-content {
     display: flex;
     width: 100%;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* Aligns form to the top */
     flex-grow: 1;
     overflow: hidden;
     padding: 1rem;
+    padding-top: 5vh; /* Adds breathing room at the top */
     box-sizing: border-box;
+}
+
+/* === NEW RULE === */
+/* Target the system prompt textarea specifically */
+#form-add-personality textarea[name="prompt"] {
+    min-height: 12rem; /* Significantly increased height */
+    resize: vertical; /* Retain user resizability */
 }
 
 /* all but the first sidebarcontet */
