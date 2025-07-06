@@ -1,105 +1,130 @@
 /* Aphrodisiac v3 - main.js */
-/* This is the new, clean entry point for our application. */
+/* The fully repaired and upgraded entry point. */
 
-// Step 1: Import the new, master stylesheet.
-// Vite will see this and correctly bundle our entire CSS structure.
+// --- STAGE 1: INITIALIZE STYLES ---
 import './styles/main.css';
+console.log("Aphrodisiac v3 Initialized. CSS loaded.");
 
-
-// Step 2: We will re-add the service initializations and event listeners
-// one by one as we rebuild the functionality. For now, we just want to see the layout.
-
-console.log("Aphrodisiac v3 Initialized. CSS should be loaded.");
-
-// --- Sidebar Toggle Logic ---
-
-// 1. Get references to our primary elements
+// --- STAGE 2: GET REFERENCES TO ALL CORE ELEMENTS ---
+// By defining these here, all functions below can access them. This fixes the resize bug.
 const appContainer = document.getElementById('app-container');
-const leftToggleBtn = document.getElementById('left-sidebar-toggle');
-const rightToggleBtn = document.getElementById('right-sidebar-toggle');
+const leftSidebar = document.getElementById('left-sidebar');
+const rightInspector = document.getElementById('right-inspector');
+const mainContent = document.getElementById('main-content');
+const leftResizeHandle = document.getElementById('left-resize-handle');
+const rightResizeHandle = document.getElementById('right-resize-handle');
 
-/**
- * Toggles a sidebar's collapsed state and updates its button icon.
- * @param {'left' | 'right'} side - The sidebar to toggle.
- */
-function toggleSidebar(side) {
-    const isLeft = side === 'left';
-    // Determine the correct class name and button based on the side
-    const className = isLeft ? 'left-sidebar-collapsed' : 'right-sidebar-collapsed';
-    const button = isLeft ? leftToggleBtn : rightToggleBtn;
-    
-    // Add or remove the collapsed class on the main app container
-    appContainer.classList.toggle(className);
-    
-    // Check if the sidebar is now collapsed
-    const isCollapsed = appContainer.classList.contains(className);
-    
-    // Update the button's icon to reflect the new state
-    if (isCollapsed) {
-        button.textContent = 'open_fullscreen'; // Icon to show when collapsed
-    } else {
-        button.textContent = 'close_fullscreen'; // Icon to show when expanded
-    }
+// --- STAGE 3: DYNAMICALLY RENDER THE STATIC UI ---
+// This function fixes the "missing elements" problem.
+function renderStaticUI() {
+    // --- Render Left Sidebar Content ---
+    leftSidebar.innerHTML = `
+        <div class="sidebar-header">
+            <h3>Aphrodisiac</h3>
+            <button id="left-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">close_fullscreen</button>
+        </div>
+        <div class="sidebar-section">
+            <div class="section-header">
+                <h4>Chats</h4>
+                <button id="btn-new-chat" class="material-symbols-outlined">add_comment</button>
+            </div>
+            <div id="chat-list-container" class="section-content"></div>
+        </div>
+        <div class="sidebar-section">
+            <div class="section-header">
+                <h4>Personalities</h4>
+                <button id="btn-add-personality" class="material-symbols-outlined">person_add</button>
+            </div>
+            <div id="personality-list-container" class="section-content"></div>
+        </div>
+        <div class="sidebar-footer">
+            <button id="btn-show-settings" class="material-symbols-outlined">settings</button>
+        </div>
+    `;
+
+    // --- Render Main Content Area ---
+    mainContent.innerHTML = `
+        <div id="asset-manager" class="docked-top">
+            <div class="asset-manager-header"><span>Asset Manager</span></div>
+            <div class="asset-manager-content"></div>
+        </div>
+        <div id="message-container"></div>
+        <div id="chat-input-container">
+            <span contenteditable="true" placeholder="Send a message..." id="message-input"></span>
+            <button id="btn-send-message" class="material-symbols-outlined">send</button>
+        </div>
+    `;
+
+    // --- Render Right Inspector Content ---
+    rightInspector.innerHTML = `
+        <div class="sidebar-header">
+            <h3 id="inspector-title">Inspector</h3>
+            <button id="right-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">close_fullscreen</button>
+        </div>
+        <div id="inspector-content" class="sidebar-content-container">
+            <p>Select a personality or click the settings icon.</p>
+        </div>
+    `;
+
+    console.log("Static UI rendered successfully.");
 }
 
-// 3. Attach the toggle function to the click event of each button
-leftToggleBtn.addEventListener('click', () => toggleSidebar('left'));
-rightToggleBtn.addEventListener('click', () => toggleSidebar('right'));
 
-console.log('Sidebar toggle logic initialized.');
-
+// --- STAGE 4: INITIALIZE FUNCTIONALITY ---
 
 // --- Resizable Sidebar Logic ---
-
-function makeResizable(handleId, leftPanelId, rightPanelId) {
-    const handle = document.getElementById(handleId);
-    const leftPanel = document.getElementById(leftPanelId);
-    const rightPanel = document.getElementById(rightPanelId);
-
+function makeResizable(handle, side) {
     handle.addEventListener('mousedown', function(e) {
-        e.preventDefault(); // Prevent text selection during drag
-
-        // Add event listeners to the whole window
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
     });
 
     function onMouseMove(e) {
         const containerRect = appContainer.getBoundingClientRect();
-        const leftPanelRect = leftPanel.getBoundingClientRect();
-
-        // Calculate the new width of the left panel based on mouse position
-        let newLeftWidth = e.clientX - containerRect.left;
-
-        // Enforce a minimum width to prevent sidebars from disappearing
-        const minWidth = 100; // 100 pixels
-        if (newLeftWidth < minWidth) {
-            newLeftWidth = minWidth;
-        }
-
-        // Apply the new widths to the grid layout using pixel values
-        // This is more stable during the drag operation
-        appContainer.style.gridTemplateColumns = `${newLeftWidth}px 10px 1fr 10px 1fr`;
+        
+        if (side === 'left') {
+            const newLeftWidth = e.clientX - containerRect.left;
+            appContainer.style.gridTemplateColumns = `${newLeftWidth}px 10px 1fr 10px ${rightInspector.offsetWidth}px`;
+        } 
+        // We will add the 'right' side logic later
     }
 
     function onMouseUp() {
-        // IMPORTANT: When the drag is finished, convert pixel values back to flexible 'fr' units
-        // This makes the layout responsive again to window resizing.
-        const leftWidth = leftPanel.offsetWidth;
-        const rightWidth = rightPanel.offsetWidth;
-        const mainWidth = appContainer.offsetWidth - leftWidth - rightWidth - 20; // 20 for 2 handles
+        // When drag is finished, convert back to flexible 'fr' units
+        const leftWidth = leftSidebar.offsetWidth;
+        const rightWidth = rightInspector.offsetWidth;
+        const mainWidth = appContainer.offsetWidth - leftWidth - rightWidth - 20;
 
         appContainer.style.gridTemplateColumns = `${leftWidth}fr 10px ${mainWidth}fr 10px ${rightWidth}fr`;
-
-        // Clean up the event listeners
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
+        
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
     }
 }
 
-// Activate the resizable functionality
-// NOTE: We'll need to adapt this when we add the right handle
-makeResizable('left-resize-handle', 'left-sidebar', 'main-content');
-// We will add the logic for the right handle next. Let's test this one first.
+// --- Collapsible Sidebar Logic ---
+// We need to re-select the buttons now that they've been rendered.
+function initializeToggles() {
+    const leftToggleBtn = document.getElementById('left-sidebar-toggle');
+    const rightToggleBtn = document.getElementById('right-sidebar-toggle');
 
-console.log('Resizable sidebar logic initialized.');
+    leftToggleBtn.addEventListener('click', () => {
+        appContainer.classList.toggle('left-sidebar-collapsed');
+        leftToggleBtn.textContent = appContainer.classList.contains('left-sidebar-collapsed') ? 'open_fullscreen' : 'close_fullscreen';
+    });
+
+    rightToggleBtn.addEventListener('click', () => {
+        appContainer.classList.toggle('right-sidebar-collapsed');
+        rightToggleBtn.textContent = appContainer.classList.contains('right-sidebar-collapsed') ? 'open_fullscreen' : 'close_fullscreen';
+    });
+    console.log("Sidebar toggle logic initialized.");
+}
+
+
+// --- STAGE 5: EXECUTE EVERYTHING ---
+// Run the functions in the correct order.
+renderStaticUI();
+makeResizable(leftResizeHandle, 'left');
+// We will activate the right handle next.
+initializeToggles();
