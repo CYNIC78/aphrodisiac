@@ -1,92 +1,25 @@
 <body>
-    <!-- The main application container, now using a CSS Grid layout -->
     <div id="app-container">
 
-        <!-- Left Sidebar: Unified, Collapsible Sections -->
-        <aside id="left-sidebar" class="sidebar">
-            <div class="sidebar-header">
-                <h3>Aphrodisiac</h3>
-                <button id="left-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">
-                    close_fullscreen
-                </button>
-            </div>
-            
-            <!-- Chats Section -->
-            <div class="sidebar-section">
-                <div class="section-header">
-                    <h4>Chats</h4>
-                    <button id="btn-new-chat" class="material-symbols-outlined">add_comment</button>
-                </div>
-                <div id="chat-list-container" class="section-content">
-                    <!-- Chat list will be dynamically inserted here by Chats.service.js -->
-                </div>
-            </div>
+        <!-- Left Sidebar -->
+        <aside id="left-sidebar" class="sidebar"></aside>
 
-            <!-- Personalities Section -->
-            <div class="sidebar-section">
-                <div class="section-header">
-                    <h4>Personalities</h4>
-                    <button id="btn-add-personality" class="material-symbols-outlined">person_add</button>
-                </div>
-                <div id="personality-list-container" class="section-content">
-                    <!-- Personality cards will be dynamically inserted here by Personality.service.js -->
-                </div>
-            </div>
-
-            <!-- Footer with Settings Button -->
-            <div class="sidebar-footer">
-                <button id="btn-show-settings" class="material-symbols-outlined">settings</button>
-            </div>
-        </aside>
+        <!-- Draggable handle between left sidebar and main content -->
+        <div class="resize-handle" id="left-resize-handle"></div>
 
         <!-- Main Content Area -->
-        <main id="main-content">
-            <!-- Asset Manager: Docked to the top of the main content area by default -->
-            <div id="asset-manager" class="docked-top">
-                <div class="asset-manager-header">
-                    <span>Asset Manager</span>
-                    <!-- Add other controls like undock, maximize, etc. here later -->
-                </div>
-                <div class="asset-manager-content">
-                    <!-- Character media (image, audio player) will go here -->
-                </div>
-            </div>
+        <main id="main-content"></main>
 
-            <!-- The container for all chat messages -->
-            <div id="message-container">
-                <!-- Messages will be dynamically inserted here by Message.service.js -->
-            </div>
+        <!-- Draggable handle between main content and right inspector -->
+        <div class="resize-handle" id="right-resize-handle"></div>
 
-            <!-- The chat input form at the bottom -->
-            <div id="chat-input-container">
-                <span contenteditable="true" placeholder="Send a message..." id="message-input"></span>
-                <button id="btn-send-message" class="material-symbols-outlined">send</button>
-            </div>
-        </main>
+        <!-- Right "Inspector" Sidebar -->
+        <aside id="right-inspector" class="sidebar"></aside>
 
-        <!-- Right "Inspector" Sidebar: For details and settings -->
-        <aside id="right-inspector" class="sidebar">
-            <div class="sidebar-header">
-                <h3 id="inspector-title">Inspector</h3>
-                <button id="right-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">
-                    close_fullscreen
-                </button>
-            </div>
-            <div id="inspector-content" class="sidebar-content-container">
-                <!-- Content for Personality Details or Settings will be injected here -->
-                <p>Select a personality or click the settings icon.</p>
-            </div>
-        </aside>
-
-    </div> <!-- end #app-container -->
-    
-    <!-- The Overlay remains for focused, full-screen tasks like the Asset Management "Workshop" -->
-    <div id="overlay-container" class="overlay">
-        <div id="overlay-content">
-            <!-- The new Asset Management Workshop will be loaded here -->
-        </div>
     </div>
 
-    <!-- The script tag that starts the application, unchanged -->
+    <!-- We're temporarily removing the old content from the sidebars to simplify this step. -->
+    <!-- We will add it back programmatically with JS later. -->
+    
     <script type="module" src="main.js"></script>
 </body>

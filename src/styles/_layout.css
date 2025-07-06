@@ -38,11 +38,12 @@ h1, h2, h3, h4, p, ul, ol {
 
 #app-container {
     display: grid;
-    /* Define our 3 columns: left sidebar, main content, right inspector */
-    grid-template-columns: 280px 1fr 320px;
+    /* Define our NEW 5 columns: left-sidebar | handle | main | handle | right-inspector */
+    /* Using flexible 'fr' units allows for resizing. This is our default state. */
+    grid-template-columns: 0.8fr 10px 3fr 10px 1fr;
     height: 100vh;
     width: 100vw;
-    transition: grid-template-columns 0.3s ease-in-out;
+    overflow: hidden; /* Prevent handles from causing overflow */
 }
 
 /* --- Main Content Layout --- */
@@ -146,4 +147,19 @@ h1, h2, h3, h4, p, ul, ol {
 .left-sidebar-collapsed .sidebar-header,
 .right-sidebar-collapsed .sidebar-header {
     justify-content: center;
+}
+
+
+
+
+/* --- Resize Handle Styles --- */
+
+.resize-handle {
+    cursor: col-resize; /* Changes the mouse pointer to indicate resizing */
+    transition: background-color 0.2s ease-in-out;
+    z-index: 10; /* Ensure it's on top */
+}
+
+.resize-handle:hover {
+    /* We'll define the color in the themes file later */
 }
