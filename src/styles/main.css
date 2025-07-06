@@ -469,9 +469,9 @@ form {
     display: flex;
     box-sizing: border-box;
     align-items: center;
-    font-size: 1.7rem;
-    font-weight: 800;
-    gap: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    gap: 0.75rem;
     width: 100%;
 }
 
@@ -545,7 +545,7 @@ form {
 #cynic-branding { /* CHANGED */
     font-family: 'Noto Sans', sans-serif;
     color: #7c8a9c;
-    font-size: 1rem;
+    font-size: 0.8rem;
     font-weight: 400;
     width: max-content;
 }
