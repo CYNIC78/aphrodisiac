@@ -11,8 +11,6 @@ import './styles/main.css';
 
 console.log("Aphrodisiac v3 Initialized. CSS should be loaded.");
 
-// We will add logic for the sidebar toggles here next.
-
 // --- Sidebar Toggle Logic ---
 
 // 1. Get references to our primary elements

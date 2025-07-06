@@ -1,3 +1,116 @@
+/* _layout.css */
+/* Aphrodisiac v3 - Layout Engine */
+/* Defines the core 3-column grid, sidebar states, and overall app structure. */
+
+/* --- Font & Global Resets --- */
+/* (Carried over from our previous analysis) */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Product+Sans&family=Google+Sans+Display:ital@0;1&family=Google+Sans:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Google+Sans+Text:ital,wght@0,400;0,500;0,700;1,400;1,500;1,700&family=Material+Symbols+Outlined&family=Space+Mono&display=swap');
+
+@font-face {
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    font-weight: 100 700;
+    src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v232/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-width: thin;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans', sans-serif;
+    overflow: hidden; /* Prevent scrollbars on the body */
+    height: 100vh;
+}
+
+h1, h2, h3, h4, p, ul, ol {
+    margin: 0;
+    padding: 0;
+}
+
+/* --- Main Application Grid --- */
+
+#app-container {
+    display: grid;
+    /* Define our 3 columns: left sidebar, main content, right inspector */
+    grid-template-columns: 280px 1fr 320px;
+    height: 100vh;
+    width: 100vw;
+    transition: grid-template-columns 0.3s ease-in-out;
+}
+
+/* --- Main Content Layout --- */
+
+#main-content {
+    display: grid;
+    /* Define our 3 rows: asset manager, messages, input */
+    grid-template-rows: auto 1fr auto;
+    max-height: 100vh;
+    overflow: hidden;
+    position: relative; /* For positioning child elements */
+}
+
+/* --- Sidebar Layout & Structure --- */
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem;
+    gap: 1rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transition: padding 0.3s ease-in-out, width 0.3s ease-in-out;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem;
+    flex-shrink: 0;
+}
+
+.sidebar-header h3 {
+    font-weight: 800;
+}
+
+.sidebar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.25rem;
+}
+
+.section-header h4 {
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sidebar-footer {
+    margin-top: auto; /* Pushes footer to the bottom */
+    padding: 0.5rem 0.25rem;
+    flex-shrink: 0;
+}
+
+
 /* --- Collapsed Sidebar States --- */
 /* We toggle classes on the app-container to change the grid layout. */
 /* This handles all 4 possible states (both open, left closed, right closed, both closed). */
