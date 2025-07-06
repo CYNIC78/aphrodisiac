@@ -6,7 +6,6 @@ import './styles/main.css';
 console.log("Aphrodisiac v3 Initialized. CSS loaded.");
 
 // --- STAGE 2: GET REFERENCES TO ALL CORE ELEMENTS ---
-// By defining these here, all functions below can access them. This fixes the resize bug.
 const appContainer = document.getElementById('app-container');
 const leftSidebar = document.getElementById('left-sidebar');
 const rightInspector = document.getElementById('right-inspector');
@@ -15,34 +14,25 @@ const leftResizeHandle = document.getElementById('left-resize-handle');
 const rightResizeHandle = document.getElementById('right-resize-handle');
 
 // --- STAGE 3: DYNAMICALLY RENDER THE STATIC UI ---
-// This function fixes the "missing elements" problem.
 function renderStaticUI() {
-    // --- Render Left Sidebar Content ---
+    // Left Sidebar
     leftSidebar.innerHTML = `
         <div class="sidebar-header">
             <h3>Aphrodisiac</h3>
             <button id="left-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">close_fullscreen</button>
         </div>
         <div class="sidebar-section">
-            <div class="section-header">
-                <h4>Chats</h4>
-                <button id="btn-new-chat" class="material-symbols-outlined">add_comment</button>
-            </div>
+            <div class="section-header"><h4>Chats</h4><button id="btn-new-chat" class="material-symbols-outlined">add_comment</button></div>
             <div id="chat-list-container" class="section-content"></div>
         </div>
         <div class="sidebar-section">
-            <div class="section-header">
-                <h4>Personalities</h4>
-                <button id="btn-add-personality" class="material-symbols-outlined">person_add</button>
-            </div>
+            <div class="section-header"><h4>Personalities</h4><button id="btn-add-personality" class="material-symbols-outlined">person_add</button></div>
             <div id="personality-list-container" class="section-content"></div>
         </div>
-        <div class="sidebar-footer">
-            <button id="btn-show-settings" class="material-symbols-outlined">settings</button>
-        </div>
+        <div class="sidebar-footer"><button id="btn-show-settings" class="material-symbols-outlined">settings</button></div>
     `;
 
-    // --- Render Main Content Area ---
+    // Main Content
     mainContent.innerHTML = `
         <div id="asset-manager" class="docked-top">
             <div class="asset-manager-header"><span>Asset Manager</span></div>
@@ -55,15 +45,13 @@ function renderStaticUI() {
         </div>
     `;
 
-    // --- Render Right Inspector Content ---
+    // Right Inspector
     rightInspector.innerHTML = `
         <div class="sidebar-header">
             <h3 id="inspector-title">Inspector</h3>
             <button id="right-sidebar-toggle" class="sidebar-toggle-btn material-symbols-outlined">close_fullscreen</button>
         </div>
-        <div id="inspector-content" class="sidebar-content-container">
-            <p>Select a personality or click the settings icon.</p>
-        </div>
+        <div id="inspector-content" class="sidebar-content-container"><p>Select a personality or click the settings icon.</p></div>
     `;
 
     console.log("Static UI rendered successfully.");
@@ -72,7 +60,7 @@ function renderStaticUI() {
 
 // --- STAGE 4: INITIALIZE FUNCTIONALITY ---
 
-// --- Resizable Sidebar Logic ---
+// --- Resizable Sidebar Logic (Upgraded for both sides) ---
 function makeResizable(handle, side) {
     handle.addEventListener('mousedown', function(e) {
         e.preventDefault();
@@ -82,29 +70,37 @@ function makeResizable(handle, side) {
 
     function onMouseMove(e) {
         const containerRect = appContainer.getBoundingClientRect();
-        
+        const minWidth = 100; // Minimum width in pixels for sidebars
+
         if (side === 'left') {
-            const newLeftWidth = e.clientX - containerRect.left;
+            let newLeftWidth = e.clientX - containerRect.left;
+            if (newLeftWidth < minWidth) newLeftWidth = minWidth;
+            // Update the grid, keeping the right sidebar's width fixed during the drag
             appContainer.style.gridTemplateColumns = `${newLeftWidth}px 10px 1fr 10px ${rightInspector.offsetWidth}px`;
-        } 
-        // We will add the 'right' side logic later
+        } else if (side === 'right') {
+            let newRightWidth = containerRect.right - e.clientX;
+            if (newRightWidth < minWidth) newRightWidth = minWidth;
+            // Update the grid, keeping the left sidebar's width fixed during the drag
+            appContainer.style.gridTemplateColumns = `${leftSidebar.offsetWidth}px 10px 1fr 10px ${newRightWidth}px`;
+        }
     }
 
     function onMouseUp() {
-        // When drag is finished, convert back to flexible 'fr' units
+        // When drag is finished, convert all widths back to flexible 'fr' units
         const leftWidth = leftSidebar.offsetWidth;
         const rightWidth = rightInspector.offsetWidth;
-        const mainWidth = appContainer.offsetWidth - leftWidth - rightWidth - 20;
+        // Calculate the remaining space for the main content
+        const mainWidth = appContainer.offsetWidth - leftWidth - rightWidth - 20; // 20px for the two handles
 
         appContainer.style.gridTemplateColumns = `${leftWidth}fr 10px ${mainWidth}fr 10px ${rightWidth}fr`;
         
+        // Clean up the global event listeners
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
     }
 }
 
 // --- Collapsible Sidebar Logic ---
-// We need to re-select the buttons now that they've been rendered.
 function initializeToggles() {
     const leftToggleBtn = document.getElementById('left-sidebar-toggle');
     const rightToggleBtn = document.getElementById('right-sidebar-toggle');
@@ -123,8 +119,10 @@ function initializeToggles() {
 
 
 // --- STAGE 5: EXECUTE EVERYTHING ---
-// Run the functions in the correct order.
 renderStaticUI();
+// Activate the resizer for BOTH handles now
 makeResizable(leftResizeHandle, 'left');
-// We will activate the right handle next.
+makeResizable(rightResizeHandle, 'right');
 initializeToggles();
+
+console.log("All UI functionality initialized.");
