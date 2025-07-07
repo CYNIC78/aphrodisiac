@@ -1,179 +1,113 @@
-import * as messageService from "./Message.service"
-import * as helpers from "../utils/helpers"
-import * as personalityService from "./Personality.service";
-const messageContainer = document.querySelector(".message-container");
-const chatHistorySection = document.querySelector("#chatHistorySection");
-const sidebar = document.querySelector(".sidebar");
+// The db instance will be passed via initialize()
+// import { db } from './Db.service.js'; // REMOVED: no longer directly imported
+import * as messageService from "./Message.service.js"; // This imports the service, not the db directly.
+import * as personalityService from "./Personality.service.js";
+import * as helpers from "../utils/helpers.js";
+
+let _db; // Private variable to hold the db instance
+
+export async function initialize(dbInstance) {
+    _db = dbInstance;
+    await _db.chats.count(); // Await to ensure db is open and ready.
+    renderChatList(); // Now calls renderChatList without db arg, uses _db
+    if (getCurrentChatId()) {
+        loadChat(getCurrentChatId()); // Now calls loadChat without db arg, uses _db
+    }
+}
+
+export async function addChat(title, currentChatId = null) {
+    const existingChat = currentChatId ? await _db.chats.get(currentChatId) : null;
+    const newChatId = await _db.chats.add({
+        title: title,
+        timestamp: new Date(),
+        content: existingChat ? existingChat.content : [] // Keep old content if adding to existing chat (should be new chat usually)
+    });
+    renderChatList();
+    return newChatId;
+}
 
 export function getCurrentChatId() {
-    const currentChatElement = document.querySelector("input[name='currentChat']:checked");
-    if (currentChatElement) {
-        return parseInt(currentChatElement.value.replace("chat", ""), 10);
-    }
-    return null;
+    return localStorage.getItem("currentChatId");
 }
 
-export async function getAllChatIdentifiers(db) {
-    try {
-        let identifiers = [];
-        await db.chats.orderBy('timestamp').each(
-            chat => {
-                identifiers.push({ id: chat.id, title: chat.title });
-            }
-        )
-        return identifiers;
-    } catch (error) {
-        //to be implemented
-        console.error(error);
-    }
-}
-
-export async function initialize(db) {
-    const chatContainer = document.querySelector("#chatHistorySection");
-    chatContainer.innerHTML = "";
-    const chats = await getAllChatIdentifiers(db);
-    for (let chat of chats) {
-        insertChatEntry(chat, db);
-    }
-}
-
-function insertChatEntry(chat, db) {
-    //radio button
-    const chatRadioButton = document.createElement("input");
-    chatRadioButton.setAttribute("type", "radio");
-    chatRadioButton.setAttribute("name", "currentChat");
-    chatRadioButton.setAttribute("value", "chat" + chat.id);
-    chatRadioButton.id = "chat" + chat.id;
-    chatRadioButton.classList.add("input-radio-currentchat");
-
-    //label
-    const chatLabel = document.createElement("label",);
-    chatLabel.setAttribute("for", "chat" + chat.id);
-    chatLabel.classList.add("title-chat");
-    chatLabel.classList.add("label-currentchat");
-
-
-    //
-    const chatLabelText = document.createElement("span");
-    chatLabelText.style.overflow = "hidden";
-    chatLabelText.style.textOverflow = "ellipsis";
-    chatLabelText.textContent = chat.title;
-
-    //
-    const chatIcon = document.createElement("span");
-    chatIcon.classList.add("material-symbols-outlined");
-    chatIcon.textContent = "chat_bubble";
-
-    //
-    const deleteEntryButton = document.createElement("button");
-    deleteEntryButton.classList.add("btn-textual", "material-symbols-outlined");
-    deleteEntryButton.textContent = "delete";
-    deleteEntryButton.addEventListener("click", (e) => {
-        e.stopPropagation(); //so we don't activate the radio button
-        deleteChat(chat.id, db);
-    })
-
-    chatLabel.append(chatIcon);
-    chatLabel.append(chatLabelText);
-    chatLabel.append(deleteEntryButton);
-
-
-    chatRadioButton.addEventListener("change", async () => {
-        await loadChat(chat.id, db);
-        if (window.innerWidth < 1032) {
-            helpers.hideElement(sidebar);
-        }
-    });
-
-    chatHistorySection.prepend(chatRadioButton, chatLabel);
-
-
-}
-
-export async function addChat(title, firstMessage = null, db) {
-    const id = await db.chats.put({
-        title: title,
-        timestamp: Date.now(),
-        content: firstMessage ? [{ role: "user", parts: [{ text: firstMessage }] }] : []
-    });
-    insertChatEntry({ title, id }, db);
-    console.log("chat added with id: ", id);
-    return id;
-}
-
-export async function getCurrentChat(db) {
+export async function getCurrentChat() {
     const id = getCurrentChatId();
-    if (!id) {
-        return null;
+    return id ? await _db.chats.get(id) : null;
+}
+
+export async function newChat() {
+    localStorage.removeItem("currentChatId");
+    document.querySelector(".message-container").innerHTML = "";
+    document.querySelector("#messageInput").innerHTML = "";
+    document.querySelector("#chatHistorySection").innerHTML = "";
+    renderChatList();
+}
+
+export async function loadChat(id) {
+    localStorage.setItem("currentChatId", id);
+    const chat = await getCurrentChat();
+    document.querySelector(".message-container").innerHTML = "";
+    if (chat && chat.content) {
+        for (const msg of chat.content) {
+            // Pass the selected personality object for proper PFP and name display
+            const p = await personalityService.get(msg.personalityid); 
+            await messageService.insertMessage(msg.role, msg.parts[0].text, p, null, _db); // Pass _db to insertMessage
+        }
     }
-    return (await getChatById(id, db));
+    helpers.messageContainerScrollToBottom();
+    renderChatList();
 }
 
-export async function deleteAllChats(db) {
-    await db.chats.clear();
-    initialize(db);
+export async function deleteChat(id) {
+    await _db.chats.delete(id);
+    if (getCurrentChatId() === String(id)) {
+        newChat(); // If current chat is deleted, start a new one
+    }
+    renderChatList();
 }
 
-
-export async function deleteChat(id, db) {
-    await db.chats.delete(id);
-    if (getCurrentChatId() == id) {
+export async function deleteAllChats() {
+    if (confirm("Are you sure you want to delete all chats? This cannot be undone.")) {
+        await _db.chats.clear();
         newChat();
     }
-    initialize(db);
 }
 
-export function newChat() {
-    messageContainer.innerHTML = "";
-    document.querySelector("input[name='currentChat']:checked").checked = false;
-}
+export async function renderChatList() {
+    const chatHistorySection = document.querySelector("#chatHistorySection");
+    chatHistorySection.innerHTML = "";
+    const chats = await _db.chats.orderBy("timestamp").reverse().toArray();
 
-export async function loadChat(chatID, db) {
-    try {
-        if (!chatID) {
-            return;
-        }
-        messageContainer.innerHTML = "";
-        const chat = await getChatById(chatID, db);
-        for (const msg of chat.content) {
-            if (msg.role === "model") {
-                const personality = msg.personalityid ?
-                    await personalityService.get(msg.personalityid, db) :
-                    await personalityService.getByName(msg.personality, db);
-                await messageService.insertMessage(
-                    msg.role,
-                    msg.parts[0].text,
-                    personality.name,
-                    null,
-                    db,
-                    personality.image
-                );
-            }
-            else {
-                await messageService.insertMessage(msg.role, msg.parts[0].text, null, null, db);
-            }
+    const currentChatId = getCurrentChatId();
 
+    for (const chat of chats) {
+        const chatElement = document.createElement("label");
+        chatElement.htmlFor = `chat${chat.id}`;
+        chatElement.id = `chat${chat.id}`;
+        chatElement.classList.add("chat-history-item");
+        if (String(chat.id) === currentChatId) {
+            chatElement.classList.add("active");
         }
-        // Always scroll to bottom when loading a chat
-        messageContainer.scrollTo({
-            top: messageContainer.scrollHeight,
-            behavior: 'auto'
+
+        chatElement.innerHTML = `
+            <input type="radio" name="currentChat" value="${chat.id}" ${String(chat.id) === currentChatId ? 'checked' : ''} hidden>
+            <span class="chat-title">${helpers.getSanitized(chat.title)}</span>
+            <span class="chat-actions">
+                <button class="btn-textual material-symbols-outlined btn-delete-chat" data-chat-id="${chat.id}">delete</button>
+            </span>
+        `;
+        chatHistorySection.appendChild(chatElement);
+
+        chatElement.querySelector(".btn-delete-chat").addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteChat(parseInt(e.currentTarget.dataset.chatId));
+        });
+
+        chatElement.addEventListener("click", (e) => {
+            if (!e.target.classList.contains("btn-delete-chat")) {
+                loadChat(chat.id);
+            }
         });
     }
-    catch (error) {
-        alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
-        console.error(error);
-    }
 }
-
-export async function getAllChats(db) {
-    const chats = await db.chats.orderBy('timestamp').toArray(); // Get all objects
-    chats.reverse() //reverse in order to have the latest chat at the top
-    return chats;
-}
-
-export async function getChatById(id, db) {
-    const chat = await db.chats.get(id);
-    return chat;
-}
-
