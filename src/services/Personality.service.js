@@ -134,6 +134,25 @@ export async function remove(id) {
     console.log(`Deleted all assets for personality ID: ${id}`);
 }
 
+// <-- ADDED: New function to create a barebones personality draft and return its ID
+export async function createDraftPersonality() {
+    const newPersonality = new Personality('New Personality (Draft)', '', 'Draft personality being created...');
+    const id = await db.personalities.add(newPersonality);
+    console.log(`Created draft personality with ID: ${id}`);
+    return id;
+}
+
+// <-- ADDED: New function to delete a draft personality and its assets
+export async function deleteDraftPersonality(id) {
+    if (id === null || typeof id === 'undefined' || id === -1) { // Prevent deleting Aphrodite or invalid IDs
+        console.warn('Attempted to delete invalid draft personality ID:', id);
+        return;
+    }
+    console.log(`Deleting draft personality ID: ${id} and its assets.`);
+    // The existing 'remove' function already handles asset deletion and URL revocation
+    await remove(id);
+}
+
 function insert(personality) {
     const personalitiesDiv = document.querySelector("#personalitiesDiv");
     const card = generateCard(personality);
@@ -182,7 +201,7 @@ export async function removeAll() {
     personalityImageUrls.clear();
     console.log('Revoked all personality image object URLs.');
 
-    // <-- MODIFIED: Delete assets for all personalities before clearing personalities table
+    // Delete assets for all personalities before clearing personalities table
     // Get all personalities first, then delete their assets by ID
     const allPersonalities = await db.personalities.toArray();
     for (const p of allPersonalities) {
@@ -201,6 +220,9 @@ export async function removeAll() {
 }
 
 export async function add(personality) {
+    // This 'add' function will now effectively be used only for updating pre-existing drafts,
+    // or for initial creation if the draft system isn't fully in place yet.
+    // The previous implementation was for direct add. We'll adjust as the workflow refines.
     const id = await db.personalities.add(personality); // Insert in db
     const newPersonalityWithId = { id: id, ...personality }; // Create full object
     insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar and append card
@@ -210,7 +232,7 @@ export async function add(personality) {
     if (addCard) {
         document.querySelector("#personalitiesDiv").appendChild(addCard);
     }
-    return id; // <-- MODIFIED: Return the ID, not the card element
+    return id; // Return the ID, not the card element
 }
 
 export async function edit(id, personality) {
@@ -298,7 +320,6 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     // Ensure personality.id is a valid number (including -1 for Aphrodite)
     if (!imgElement || !personality || (typeof personality.id !== 'number' && personality.id !== -1)) {
         console.warn('loadAndApplyPersonalityAvatar: Missing required elements or personality data (ID:', personality?.id, 'Name:', personality?.name, ').');
-        // Ensure image still displays something in case of warnings if it was trying to load a custom avatar
         if (imgElement && personality) {
              imgElement.src = personality.image; // Fallback to personality's original image
         }
@@ -315,8 +336,9 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     try {
         let avatarUrl = null;
         
-        // Ensure characterId is valid before making service calls
-        const characterIdToUse = personality.id === -1 ? null : personality.id;
+        // Ensure characterId is valid before making service calls (not null for draft creation or -1 for Aphrodite)
+        // If personality.id is null (e.g., a new personality not yet saved/drafted), we can't query assets for it.
+        const characterIdToUse = (typeof personality.id === 'number' && personality.id !== -1) ? personality.id : null;
 
         // Priority 1: Character-specific avatar (e.g., ['avatar', 'test'])
         if (characterIdToUse !== null) {
@@ -326,17 +348,8 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
         if (avatarUrl) {
             console.log(`Applied character-specific avatar for ${personality.name} (ID: ${personality.id})`);
         } else {
-            // Priority 2: Global default avatar (e.g., ['default-avatar'])
-            // Only search for global default if there's no character-specific and it's not Aphrodite
-            if (characterIdToUse !== null) { // Only attempt global default if it's a personality that *could* have assets
-                // For a 'global default' asset within a per-character system, it would need to be assigned to a
-                // special 'global' character ID (e.g., 0 or a fixed negative ID like -2, excluding -1 for Aphrodite).
-                // If we want a global fallback, we will need a designated 'global asset' character ID.
-                // For now, if no character-specific avatar, fallback to the personality's original image.
-                console.log(`No character-specific avatar found for ${personality.name}.`); // Log for clarity
-            }
+            console.log(`No character-specific avatar found for ${personality.name}. Falling back to original image URL.`);
             imgElement.src = personality.image;
-            console.log(`Falling back to original image URL for ${personality.name}.`);
             return; // Exit early if we're using the original image URL
         }
         
@@ -346,7 +359,6 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
 
     } catch (error) {
         console.error(`Error loading avatar for ${personality.name} (ID: ${personality.id}):`, error);
-        // Ensure fallback to original image in case of any error during asset loading
         imgElement.src = personality.image;
     }
 }
