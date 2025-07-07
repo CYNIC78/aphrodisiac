@@ -1,10 +1,10 @@
+
 import * as personalityService from "./services/Personality.service";
 import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import { db } from './services/Db.service';
 import * as helpers from "./utils/helpers";
-import * as assetManagerService from './services/AssetManager.service';
 
 //load all component code
 const components = import.meta.glob('./components/*.js');
@@ -19,8 +19,6 @@ settingsService.initialize();
 await chatsService.initialize(db);
 await personalityService.migratePersonalities(db);
 await personalityService.initialize();
-assetManagerService.initialize();
-
 
 //event listeners
 const hideOverlayButton = document.querySelector("#btn-hide-overlay");
@@ -70,3 +68,5 @@ window.addEventListener("resize", () => {
         }
     }
 });
+
+

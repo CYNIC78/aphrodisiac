@@ -1,5 +1,9 @@
 import { showElement, hideElement } from '../utils/helpers';
 import * as stepperService from './Stepper.service';
+// Import the component initializers
+import { initializeAddPersonalityForm } from '../components/AddPersonalityForm.component.js';
+import { initializeAssetManagerComponent } from '../components/AssetManager.component.js';
+
 
 const overlay = document.querySelector(".overlay");
 const overlayItems = overlay.querySelector(".overlay-content").children;
@@ -8,6 +12,9 @@ const personalityForm = document.querySelector("#form-add-personality");
 export function showAddPersonalityForm() {
     showElement(overlay, false);
     showElement(personalityForm, false);
+    // Initialize the components now that their UI is visible
+    initializeAddPersonalityForm();
+    initializeAssetManagerComponent();
 }
 
 export function showEditPersonalityForm(personality) {
@@ -37,6 +44,9 @@ export function showEditPersonalityForm(personality) {
     }
     showElement(overlay, false);
     showElement(personalityForm, false);
+    // Initialize the components now that their UI is visible
+    initializeAddPersonalityForm();
+    initializeAssetManagerComponent();
 }
 
 export function showChangelog() {
