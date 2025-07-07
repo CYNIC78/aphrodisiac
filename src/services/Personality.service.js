@@ -183,11 +183,14 @@ export async function removeAll() {
     console.log('Revoked all personality image object URLs.');
 
     // <-- MODIFIED: Delete assets for all personalities before clearing personalities table
+    // Get all personalities first, then delete their assets by ID
     const allPersonalities = await db.personalities.toArray();
     for (const p of allPersonalities) {
-        await assetManagerService.deleteAssetsByCharacterId(p.id);
+        if (p.id !== -1) { // Don't try to delete assets for the hardcoded Aphrodite ID
+            await assetManagerService.deleteAssetsByCharacterId(p.id);
+        }
     }
-    console.log('Deleted all assets from all personalities.');
+    console.log('Deleted all assets from all personalities (excluding Aphrodite).');
 
     await db.personalities.clear();
     document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
@@ -233,7 +236,7 @@ export function generateCard(personality) {
     const card = document.createElement("label");
     card.classList.add("card-personality");
     // Ensure the card gets an ID based on personality.id for lookup and event handling
-    if (personality.id !== undefined && personality.id !== null) { // <-- MODIFIED: More robust check
+    if (personality.id !== undefined && personality.id !== null) {
         card.id = `personality-${personality.id}`;
     }
     card.innerHTML = `
@@ -268,7 +271,7 @@ export function generateCard(personality) {
             if (input.checked) {
                 document.querySelector("#personalitiesDiv").firstElementChild.querySelector('input').click();
             }
-            if (personality.id !== undefined && personality.id !== null) { // <-- MODIFIED: Robust ID check
+            if (personality.id !== undefined && personality.id !== null) {
                 remove(personality.id);
             }
             card.remove();
@@ -294,8 +297,11 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     
     // Ensure personality.id is a valid number (including -1 for Aphrodite)
     if (!imgElement || !personality || (typeof personality.id !== 'number' && personality.id !== -1)) {
-        // For debugging, we can log details about what's missing, but not error as it might be normal for Aphrodite placeholder
         console.warn('loadAndApplyPersonalityAvatar: Missing required elements or personality data (ID:', personality?.id, 'Name:', personality?.name, ').');
+        // Ensure image still displays something in case of warnings if it was trying to load a custom avatar
+        if (imgElement && personality) {
+             imgElement.src = personality.image; // Fallback to personality's original image
+        }
         return;
     }
 
@@ -310,32 +316,27 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
         let avatarUrl = null;
         
         // Ensure characterId is valid before making service calls
-        const characterIdToUse = personality.id === -1 ? null : personality.id; // Treat Aphrodite's ID as null for asset queries
+        const characterIdToUse = personality.id === -1 ? null : personality.id;
 
         // Priority 1: Character-specific avatar (e.g., ['avatar', 'test'])
-        // Only search for custom avatar if it's not Aphrodite (who won't have one)
-        if (characterIdToUse !== null) { // <-- ADDED: Only query if it's a real personality ID
-             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], characterIdToUse); // <-- MODIFIED
+        if (characterIdToUse !== null) {
+             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], characterIdToUse);
         }
        
         if (avatarUrl) {
             console.log(`Applied character-specific avatar for ${personality.name} (ID: ${personality.id})`);
         } else {
-            // Priority 2: Global default avatar (e.g., ['default-avatar']) - only if character-specific failed or if it's Aphrodite
-            // Global default also needs a characterId, so we'll pass a dummy one if no real one is available
-            // For now, if no character-specific avatar found, we can still fall back to the original image.
-            // A 'global' default avatar would technically belong to a dummy character or a special ID,
-            // which we haven't fully designed yet for the 'per-character' model.
-            // For now, let's keep it simple: if no character-specific, fallback to original image.
-            
-            // Re-evaluating: The original request for 'global default' was for ANY character without a specific avatar.
-            // This is actually still viable within the 'per-character' model if we define a 'global' personality (ID 0?)
-            // to hold universal assets.
-            // However, to keep this *minimal* and *fix the current error*, let's just use the character's own image property.
-            // We can add the 'global default' concept back when we refactor the personality creation flow.
-
-            imgElement.src = personality.image; // <-- MODIFIED: Direct fallback
-            console.log(`No custom avatar found for ${personality.name}, falling back to original image URL.`);
+            // Priority 2: Global default avatar (e.g., ['default-avatar'])
+            // Only search for global default if there's no character-specific and it's not Aphrodite
+            if (characterIdToUse !== null) { // Only attempt global default if it's a personality that *could* have assets
+                // For a 'global default' asset within a per-character system, it would need to be assigned to a
+                // special 'global' character ID (e.g., 0 or a fixed negative ID like -2, excluding -1 for Aphrodite).
+                // If we want a global fallback, we will need a designated 'global asset' character ID.
+                // For now, if no character-specific avatar, fallback to the personality's original image.
+                console.log(`No character-specific avatar found for ${personality.name}.`); // Log for clarity
+            }
+            imgElement.src = personality.image;
+            console.log(`Falling back to original image URL for ${personality.name}.`);
             return; // Exit early if we're using the original image URL
         }
         
