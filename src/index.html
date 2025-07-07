@@ -248,6 +248,24 @@
                             <button type="button" id="btn-add-tone-example"
                                 class="material-symbols-outlined">add_circle</button>
                         </div>
+                        <!-- NEW MEDIA STEP ADDED HERE -->
+                        <div class="step">
+                            <h3>Media Library</h3>
+                            <p style="opacity: 60%; font-size: 90%; font-style: italic;">
+                                Upload and tag images or audio files to use with your personality.
+                            </p>
+                            <div class="asset-manager-controls">
+                                <input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
+                                <button type="button" class="btn-with-icon" id="btn-upload-asset">
+                                    <span class="material-symbols-outlined">upload_file</span>
+                                    Upload
+                                </button>
+                                <input type="search" id="asset-search-input" placeholder="Search by tag..." class="input-field">
+                            </div>
+                            <div id="asset-manager-gallery">
+                                <!-- Asset cards will be injected here by JavaScript -->
+                            </div>
+                        </div>
                     </div>
                     <div class="stepper-footer">
                         <button id="btn-stepper-previous" type="button">Previous</button>

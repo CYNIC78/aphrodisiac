@@ -31,6 +31,19 @@ export async function setupDB() {
             toneExamples
         `
     });
+
+    // Version 5: Adding the Asset Manager table
+    db.version(5).stores({
+        assets: `
+            ++id,
+            name,
+            type,
+            *tags,
+            data,
+            timestamp
+        `
+    });
+    
     return db;
 }
 
