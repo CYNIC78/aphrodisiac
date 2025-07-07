@@ -1,7 +1,7 @@
 import { showElement, hideElement } from '../utils/helpers';
 import * as stepperService from './Stepper.service';
 // Import the component initializers
-import { initializeAddPersonalityForm, cleanupAddPersonalityForm } from '../components/AddPersonalityForm.component.js'; // <-- MODIFIED: Added cleanupAddPersonalityForm
+import { initializeAddPersonalityForm, cleanupAddPersonalityForm } from '../components/AddPersonalityForm.component.js';
 import { initializeAssetManagerComponent } from '../components/AssetManager.component.js';
 
 
@@ -12,18 +12,15 @@ const personalityForm = document.querySelector("#form-add-personality");
 export function showAddPersonalityForm() {
     showElement(overlay, false);
     showElement(personalityForm, false);
-    // Initialize the components with a null personality ID for a new form (draft)
     initializeAddPersonalityForm(null);
-    // initializeAssetManagerComponent(null); // This call is now handled by initializeAddPersonalityForm
 }
 
 export function showEditPersonalityForm(personality) {
     // Populate the form with the personality data
     for (const key in personality) {
         if (key === 'toneExamples') {
-            // Clear existing tone example inputs before populating
             personalityForm.querySelectorAll('.tone-example').forEach((element, index) => {
-                if (index !== 0) element.remove(); // Remove all except the first one
+                if (index !== 0) element.remove();
             });
 
             for (const [index, tone] of personality.toneExamples.entries()) {
@@ -54,9 +51,7 @@ export function showEditPersonalityForm(personality) {
     }
     showElement(overlay, false);
     showElement(personalityForm, false);
-    // Initialize the components with the personality's ID for editing
     initializeAddPersonalityForm(personality.id);
-    // initializeAssetManagerComponent(personality.id); // This call is now handled by initializeAddPersonalityForm
 }
 
 export function showChangelog() {
@@ -65,9 +60,10 @@ export function showChangelog() {
     showElement(whatsNew, false);
 }
 
-export async function closeOverlay() { // <-- MODIFIED: Made async
+export async function closeOverlay() {
     // Trigger cleanup logic in AddPersonalityForm BEFORE hiding everything
-    await cleanupAddPersonalityForm(); // <-- ADDED: Call cleanup
+    // This is crucial to ensure listeners are removed before DOM manipulation or stepper reset
+    await cleanupAddPersonalityForm();
 
     hideElement(overlay);
 
@@ -96,4 +92,9 @@ export async function closeOverlay() { // <-- MODIFIED: Made async
             }
         }
     }
+}
+
+// <-- ADDED: Helper to check if the overlay is currently visible
+export function isOverlayVisible() {
+    return overlay.style.display !== 'none' && overlay.style.opacity !== '0';
 }
