@@ -7,8 +7,6 @@ let isInitialized = false;
 let personalityForm, assetDetailView;
 let currentAssetId = null; // State to track the currently viewed asset
 
-// --- HELPER FUNCTIONS ---
-
 // A simple debounce helper to prevent excessive function calls
 function debounce(func, delay) {
     let timeout;
@@ -52,10 +50,7 @@ function renderTags(tags = []) {
     });
 }
 
-/**
- * Renders the main gallery. Can be filtered by a search term.
- * @param {string} [searchTerm] - An optional term to filter assets by.
- */
+// Renders the main gallery. Can be filtered by a search term.
 async function renderGallery(searchTerm = '') {
     const gallery = document.querySelector('#asset-manager-gallery');
     if (!gallery) return;
@@ -79,6 +74,7 @@ function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card';
     card.dataset.assetId = asset.id;
+    // THIS IS THE CRUCIAL LISTENER that opens the detail view
     card.addEventListener('click', () => showAssetDetailView(asset.id));
 
     if (asset.type === 'image') {
@@ -86,7 +82,7 @@ function createAssetCard(asset) {
         img.src = URL.createObjectURL(asset.data);
         img.alt = asset.name;
         card.appendChild(img);
-    } else {
+    } else if (asset.type === 'audio') {
         const icon = document.createElement('span');
         icon.className = 'material-symbols-outlined asset-icon';
         icon.textContent = 'music_note';
@@ -99,6 +95,34 @@ function createAssetCard(asset) {
     card.appendChild(name);
 
     return card;
+}
+
+// Show the detail view for a specific asset
+async function showAssetDetailView(assetId) {
+    currentAssetId = assetId;
+    const asset = await assetManagerService.getAssetById(assetId);
+    if (!asset) {
+        console.error(`Asset with ID ${assetId} not found.`);
+        return;
+    }
+
+    const previewEl = assetDetailView.querySelector('#asset-detail-preview');
+    const nameEl = assetDetailView.querySelector('#asset-detail-name');
+    
+    previewEl.innerHTML = '';
+    if (asset.type === 'image') {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(asset.data);
+        previewEl.appendChild(img);
+    } else {
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined asset-icon-large';
+        icon.textContent = 'music_note';
+        previewEl.appendChild(icon);
+    }
+    nameEl.textContent = asset.name;
+    renderTags(asset.tags);
+    showView(assetDetailView);
 }
 
 // --- EVENT HANDLERS ---
@@ -151,7 +175,7 @@ export function initializeAssetManagerComponent() {
     assetDetailView = document.querySelector('#asset-detail-view');
     const uploadButton = document.querySelector('#btn-upload-asset');
     const fileInput = document.querySelector('#asset-upload-input');
-    const searchInput = document.querySelector('#asset-search-input'); // ** THE SEARCH BAR **
+    const searchInput = document.querySelector('#asset-search-input');
     const backToLibraryBtn = document.querySelector('#btn-asset-detail-back');
     const addTagBtn = document.querySelector('#btn-add-tag');
     const addTagInput = document.querySelector('#add-tag-input');
@@ -165,7 +189,10 @@ export function initializeAssetManagerComponent() {
     searchInput.addEventListener('input', debounce((e) => renderGallery(e.target.value), 300));
     
     // Detail view listeners
-    backToLibraryBtn.addEventListener('click', () => showView(personalityForm));
+    backToLibraryBtn.addEventListener('click', () => {
+        showView(personalityForm);
+        renderGallery(searchInput.value); // Re-render gallery respecting the current search term
+    });
     addTagBtn.addEventListener('click', handleAddTag);
     addTagInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAddTag(); });
     deleteAssetBtn.addEventListener('click', handleDeleteAsset);
@@ -184,8 +211,8 @@ export function initializeAssetManagerComponent() {
             }
         }
         event.target.value = ''; 
-        searchInput.value = ''; // Clear search after upload
-        await renderGallery(); // Re-render all assets
+        searchInput.value = '';
+        await renderGallery();
     });
     
     // Initial render when component loads
