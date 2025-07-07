@@ -44,7 +44,6 @@ function renderTagExplorer(filterTerm = '') {
         item.textContent = tag;
         item.onclick = () => handleTagClick(tag);
         
-        // Highlight the tag if it's in our active filter
         if (activeTags.includes(tag)) {
             item.classList.add('selected');
         }
@@ -61,13 +60,13 @@ async function renderGallery() {
     const titleEl = document.querySelector('#gallery-title');
     if (!galleryEl || !titleEl) return;
 
-    galleryEl.innerHTML = 'Loading...';
+    galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
+    // *** FIX: Correctly calls the service with the activeTags array ***
     const assets = await assetManagerService.searchAssetsByTags(activeTags);
 
-    // Update the gallery title to reflect the current filter
     titleEl.textContent = activeTags.length > 0 ? `Tagged: ${activeTags.join(', ')}` : 'All Assets';
 
-    galleryEl.innerHTML = ''; // Clear for fresh rendering
+    galleryEl.innerHTML = ''; 
     if (assets.length === 0) {
         galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found.</p>`;
         return;
@@ -85,6 +84,7 @@ async function renderGallery() {
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card';
+    // *** FIX: This listener now works correctly ***
     card.addEventListener('click', () => showAssetDetailView(asset.id));
 
     if (asset.type === 'image') {
@@ -117,7 +117,8 @@ function renderTagsInDetailView(tags = []) {
         removeBtn.innerHTML = '×';
         removeBtn.onclick = () => handleRemoveTagFromAsset(tag);
 
-        pill.appendChild(pill);
+        // *** FIX: The critical typo is fixed here ***
+        pill.appendChild(removeBtn);
         tagsContainer.appendChild(pill);
     });
 }
@@ -130,19 +131,15 @@ function renderTagsInDetailView(tags = []) {
 function handleTagClick(tag) {
     const tagIndex = activeTags.indexOf(tag);
     if (tagIndex > -1) {
-        activeTags.splice(tagIndex, 1); // If tag is active, remove it
+        activeTags.splice(tagIndex, 1);
     } else {
-        activeTags.push(tag); // If tag is not active, add it
+        activeTags.push(tag);
     }
     
-    // Re-render both UI sections to reflect the new state
     renderTagExplorer(document.querySelector('#tag-explorer-search').value);
     renderGallery();
 }
 
-/**
- * Adds a new tag to the currently viewed asset in the detail popup.
- */
 async function handleAddTagToAsset() {
     const input = document.querySelector('#add-tag-input');
     const newTag = input.value.trim().toLowerCase();
@@ -154,7 +151,6 @@ async function handleAddTagToAsset() {
         await assetManagerService.updateAsset(currentAssetId, { tags: updatedTags });
         renderTagsInDetailView(updatedTags);
         
-        // If this is a brand new tag, update our main list and re-render the explorer
         if (!allDbTags.includes(newTag)) {
             allDbTags.push(newTag);
             allDbTags.sort((a,b) => a.localeCompare(b));
@@ -180,7 +176,7 @@ async function handleDeleteAsset() {
         await assetManagerService.deleteAsset(currentAssetId);
         currentAssetId = null;
         showView(personalityForm);
-        await updateMainUI(); // Refresh everything
+        await updateMainUI();
     }
 }
 
@@ -208,9 +204,6 @@ async function showAssetDetailView(assetId) {
     showView(assetDetailView);
 }
 
-/**
- * A central function to refresh the entire Media Library UI.
- */
 async function updateMainUI() {
     allDbTags = await assetManagerService.getAllUniqueTags();
     renderTagExplorer();
@@ -225,7 +218,6 @@ export function initializeAssetManagerComponent() {
         return;
     }
 
-    // Initialize DOM elements
     personalityForm = document.querySelector('#form-add-personality');
     assetDetailView = document.querySelector('#asset-detail-view');
     mediaLibraryStep = document.querySelector('#media-library-step');
@@ -250,14 +242,14 @@ export function initializeAssetManagerComponent() {
     
     document.querySelector('#btn-asset-detail-back').addEventListener('click', () => {
         showView(personalityForm);
-        updateMainUI(); // Refresh main UI when coming back
+        updateMainUI();
     });
     document.querySelector('#btn-add-tag').addEventListener('click', handleAddTagToAsset);
     document.querySelector('#add-tag-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAddTagToAsset(); });
     document.querySelector('#btn-delete-asset').addEventListener('click', handleDeleteAsset);
     
-    updateMainUI(); // Initial render
+    updateMainUI();
 
-    console.log('Asset Manager Component Initialized (v3).');
+    console.log('Asset Manager Component Initialized (v3 - Patched).');
     isInitialized = true;
 }
