@@ -30,6 +30,16 @@ class AssetManagerService {
     async getAllAssets() {
         return await db.assets.toArray();
     }
+
+    /**
+     * Deletes an asset from the database by its ID.
+     * @param {number} id - The ID of the asset to delete.
+     * @returns {Promise}
+     */
+    async deleteAsset(id) {
+        console.log(`Deleting asset with ID: ${id}`);
+        return await db.assets.delete(id);
+    }
 }
 
 // Export a single instance of the service

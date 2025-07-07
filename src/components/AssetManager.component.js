@@ -3,7 +3,7 @@ import { assetManagerService } from '../services/AssetManager.service.js';
 let isInitialized = false;
 
 /**
- * Creates an HTML element for a single asset card.
+ * Creates an HTML element for a single asset card, now with a delete button.
  * @param {object} asset - The asset object from the database.
  * @returns {HTMLElement} The asset card element.
  */
@@ -12,9 +12,14 @@ function createAssetCard(asset) {
     card.className = 'asset-card';
     card.dataset.assetId = asset.id;
 
+    // Create and add the delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn-delete-asset material-symbols-outlined';
+    deleteBtn.textContent = 'delete';
+    card.appendChild(deleteBtn);
+
     if (asset.type === 'image') {
         const img = document.createElement('img');
-        // Create a URL from the blob data to display the image
         img.src = URL.createObjectURL(asset.data);
         img.alt = asset.name;
         card.appendChild(img);
@@ -56,14 +61,33 @@ async function renderGallery() {
 
 export function initializeAssetManagerComponent() {
     if (isInitialized) {
-        renderGallery(); // Re-render if already initialized
+        renderGallery();
         return;
     }
 
     const uploadButton = document.querySelector('#btn-upload-asset');
     const fileInput = document.querySelector('#asset-upload-input');
+    const gallery = document.querySelector('#asset-manager-gallery');
     
-    if (!uploadButton) return;
+    if (!uploadButton || !gallery) return;
+
+    // --- Event Listener for Deleting Assets ---
+    gallery.addEventListener('click', async (event) => {
+        if (event.target.classList.contains('btn-delete-asset')) {
+            const card = event.target.closest('.asset-card');
+            const assetId = parseInt(card.dataset.assetId);
+
+            if (confirm('Are you sure you want to delete this asset? This cannot be undone.')) {
+                try {
+                    await assetManagerService.deleteAsset(assetId);
+                    await renderGallery(); // Re-render the gallery to show the change
+                } catch (error) {
+                    console.error('Failed to delete asset:', error);
+                    alert('Could not delete asset. See console for details.');
+                }
+            }
+        }
+    });
 
     uploadButton.addEventListener('click', () => {
         fileInput.click();
@@ -73,10 +97,8 @@ export function initializeAssetManagerComponent() {
         const files = event.target.files;
         if (!files.length) return;
 
-        // Show a temporary loading state maybe? For now, just process.
         for (const file of files) {
             try {
-                // For now, prompt for tags. We can build a better UI later.
                 const tagsRaw = prompt(`Enter comma-separated tags for ${file.name}:`, "new");
                 const tags = tagsRaw ? tagsRaw.split(',').map(tag => tag.trim()) : ['untagged'];
                 
@@ -87,15 +109,11 @@ export function initializeAssetManagerComponent() {
             }
         }
         
-        // Reset the file input to allow uploading the same file again
         event.target.value = ''; 
-        
-        await renderGallery(); // Refresh the gallery with the new assets
+        await renderGallery();
     });
     
-    // Initial render
     renderGallery();
-
     console.log('Asset Manager Component Initialized.');
     isInitialized = true;
 }
