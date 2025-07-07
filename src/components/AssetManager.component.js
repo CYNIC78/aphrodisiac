@@ -1,46 +1,42 @@
-import * as assetManagerService from '../services/AssetManager.service.js';
+import { assetManagerService } from '../services/AssetManager.service.js';
 
-// --- DOM Elements ---
-const uploadButton = document.querySelector('#btn-upload-asset');
-const fileInput = document.querySelector('#asset-upload-input');
-const gallery = document.querySelector('#asset-manager-gallery');
-const searchInput = document.querySelector('#asset-search-input');
+function initializeAssetManager() {
+    const uploadButton = document.querySelector('#btn-upload-asset');
+    const fileInput = document.querySelector('#asset-upload-input');
+    const searchInput = document.querySelector('#asset-search-input');
+    const gallery = document.querySelector('#asset-manager-gallery');
 
-/**
- * Handles the event when the user clicks the main upload button.
- * It programmatically clicks the hidden file input element.
- */
-function onUploadButtonClick() {
-    fileInput.click();
+    if (!uploadButton) return; // Only run if the personality form is on screen
+
+    // Trigger the hidden file input when the user clicks our custom button
+    uploadButton.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Handle file selection
+    fileInput.addEventListener('change', async (event) => {
+        const files = event.target.files;
+        if (!files.length) return;
+
+        console.log(`${files.length} file(s) selected.`);
+
+        // For now, we'll just log them. We will add saving logic next.
+        for (const file of files) {
+            // A simple example of adding an asset with a default tag
+            try {
+                const id = await assetManagerService.addAsset(file, ['new']);
+                console.log(`Asset ${file.name} saved with ID: ${id}`);
+            } catch (error) {
+                console.error('Failed to add asset:', error);
+            }
+        }
+
+        // We will add a function here to refresh the gallery view
+        // renderGallery(); 
+    });
+
+    console.log('Asset Manager Component Initialized.');
 }
 
-/**
- * Handles the 'change' event on the file input. This is triggered after
- * the user selects files from their computer.
- * @param {Event} event The file input change event.
- */
-function onFileSelected(event) {
-    const files = event.target.files;
-    if (!files.length) {
-        console.log("No files selected.");
-        return;
-    }
-
-    console.log("Files selected:", files);
-    // In the future, this will call the service to process and save the files.
-    // For now, we just log them.
-
-    // Important: Reset the input value to allow re-uploading the same file
-    fileInput.value = '';
-}
-
-
-// --- Event Listeners ---
-if (uploadButton && fileInput) {
-    uploadButton.addEventListener('click', onUploadButtonClick);
-    fileInput.addEventListener('change', onFileSelected);
-} else {
-    console.error("Asset Manager UI elements not found. Check index.html IDs.");
-}
-
-// More logic for rendering the gallery and handling search will go here later.
+// Run the initialization function
+initializeAssetManager();
