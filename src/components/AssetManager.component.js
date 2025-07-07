@@ -61,22 +61,37 @@ async function renderGallery() {
     if (!galleryEl || !titleEl) return;
 
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
-    // *** FIX: Correctly calls the service with the activeTags array ***
-    const assets = await assetManagerService.searchAssetsByTags(activeTags);
+    
+    try {
+        // Step 1: Always get ALL assets. This is simple and reliable.
+        const allAssets = await assetManagerService.getAllAssets();
 
-    titleEl.textContent = activeTags.length > 0 ? `Tagged: ${activeTags.join(', ')}` : 'All Assets';
+        // Step 2: Filter the assets in JavaScript based on the activeTags array.
+        const assetsToRender = activeTags.length === 0
+            ? allAssets // If no tags are active, show everything.
+            : allAssets.filter(asset => activeTags.every(tag => asset.tags.includes(tag))); // Otherwise, show assets that have ALL active tags.
 
-    galleryEl.innerHTML = ''; 
-    if (assets.length === 0) {
-        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found.</p>`;
-        return;
+        // Update the gallery title
+        titleEl.textContent = activeTags.length > 0 ? `Tagged: ${activeTags.join(', ')}` : 'All Assets';
+
+        galleryEl.innerHTML = ''; // Clear "Loading..."
+        if (assetsToRender.length === 0) {
+            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found.</p>`;
+            return;
+        }
+
+        assetsToRender.forEach(asset => {
+            const card = createAssetCard(asset);
+            galleryEl.appendChild(card);
+        });
+
+    } catch (error) {
+        console.error("Failed to render gallery:", error);
+        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Error loading assets.</p>`;
     }
-
-    assets.forEach(asset => {
-        const card = createAssetCard(asset);
-        galleryEl.appendChild(card);
-    });
 }
+
+
 
 /**
  * Creates a single, clean asset card (image only).
