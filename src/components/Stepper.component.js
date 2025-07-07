@@ -18,8 +18,11 @@ for (const stepper of steppers) {
         stepperService.update(stepper);
     });
     submit.addEventListener("click", (e) => {
-        e.preventDefault();
-        //delegate the submit to the form containing the stepper
-        form.submit();
+        e.preventDefault(); // Prevent the button's default action (if any)
+
+        // CRITICAL FIX: Instead of directly calling form.submit(), which doesn't pass an event,
+        // we dispatch a 'submit' event on the form. This correctly triggers any custom form.submit handlers
+        // that expect an event object (like the one in AddPersonalityForm.component.js).
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); // <-- THE FIX
     });
 }
