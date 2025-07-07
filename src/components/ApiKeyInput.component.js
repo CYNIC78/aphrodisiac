@@ -1,4 +1,4 @@
-//import { GoogleGenAI } from "@google/genai"; // <<< CONFIRMED: GoogleGenAI (not GoogleGenerativeAI)
+
 
 const apiKeyInput = document.querySelector("#apiKeyInput");
 const errorDisplay = document.querySelector(".api-key-error");
