@@ -32,6 +32,7 @@ function showView(viewToShow) {
 // --- RENDERING FUNCTIONS ---
 
 function renderTags(tags = []) {
+    // ... This function remains the same
     const tagsContainer = assetDetailView.querySelector('#asset-detail-tags');
     tagsContainer.innerHTML = '';
     tags.forEach(tag => {
@@ -50,6 +51,7 @@ function renderTags(tags = []) {
 }
 
 async function renderGallery(searchTerm = '') {
+    // ... This function remains the same
     const gallery = document.querySelector('#asset-manager-gallery');
     if (!gallery) return;
 
@@ -73,7 +75,6 @@ function createAssetCard(asset) {
     card.className = 'asset-card';
     card.dataset.assetId = asset.id;
     
-    // The image preview part of the card
     const preview = document.createElement('div');
     preview.className = 'asset-card-preview';
     preview.addEventListener('click', () => showAssetDetailView(asset.id));
@@ -81,7 +82,7 @@ function createAssetCard(asset) {
     if (asset.type === 'image') {
         const img = document.createElement('img');
         img.src = URL.createObjectURL(asset.data);
-        img.alt = asset.name;
+        img.alt = asset.name; // Alt text is still important for accessibility
         preview.appendChild(img);
     } else {
         const icon = document.createElement('span');
@@ -91,28 +92,27 @@ function createAssetCard(asset) {
     }
     card.appendChild(preview);
 
-    // The info part of the card (name and tags)
+    // The info part of the card (tags only)
     const info = document.createElement('div');
     info.className = 'asset-card-info';
 
-    const name = document.createElement('div');
-    name.className = 'asset-name';
-    name.textContent = asset.name;
-    info.appendChild(name);
+    // ===========================================
+    // ==  FILENAME IS REMOVED FROM THIS VIEW   ==
+    // ===========================================
 
-    // ===========================================
-    // == NEW: CLICKABLE TAGS ON GALLERY CARD   ==
-    // ===========================================
     if (asset.tags && asset.tags.length > 0) {
         const tagsContainer = document.createElement('div');
         tagsContainer.className = 'asset-card-tags';
 
-        asset.tags.slice(0, 3).forEach(tag => { // Show up to 3 tags
+        // ===========================================
+        // ==     NOW RENDERS ALL TAGS            ==
+        // ===========================================
+        asset.tags.forEach(tag => { 
             const tagEl = document.createElement('span');
             tagEl.className = 'asset-card-tag';
             tagEl.textContent = tag;
             tagEl.addEventListener('click', (event) => {
-                event.stopPropagation(); // VERY IMPORTANT: prevents opening detail view
+                event.stopPropagation();
                 handleTagClick(tag);
             });
             tagsContainer.appendChild(tagEl);
@@ -126,7 +126,7 @@ function createAssetCard(asset) {
 
 // Show the detail view for a specific asset
 async function showAssetDetailView(assetId) {
-    // ... (This function remains unchanged)
+    // ... This function remains unchanged
     currentAssetId = assetId;
     const asset = await assetManagerService.getAssetById(assetId);
     if (!asset) {
@@ -155,15 +155,15 @@ async function showAssetDetailView(assetId) {
 
 // --- EVENT HANDLERS ---
 
-// NEW: Handles clicking a tag on a gallery card
 function handleTagClick(tag) {
+    // ... This function remains unchanged
     const searchInput = document.querySelector('#asset-search-input');
     searchInput.value = tag;
     renderGallery(tag);
 }
 
 async function handleAddTag() {
-    // ... (This function remains unchanged)
+    // ... This function remains unchanged
     const input = document.querySelector('#add-tag-input');
     const newTag = input.value.trim();
     if (!newTag || !currentAssetId) return;
@@ -178,7 +178,7 @@ async function handleAddTag() {
 }
 
 async function handleRemoveTag(tagToRemove) {
-    // ... (This function remains unchanged)
+    // ... This function remains unchanged
     if (!currentAssetId) return;
     const asset = await assetManagerService.getAssetById(currentAssetId);
     if (asset) {
@@ -189,7 +189,7 @@ async function handleRemoveTag(tagToRemove) {
 }
 
 async function handleDeleteAsset() {
-    // ... (This function remains unchanged)
+    // ... This function remains unchanged
     if (!currentAssetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
         await assetManagerService.deleteAsset(currentAssetId);
@@ -201,7 +201,7 @@ async function handleDeleteAsset() {
 
 // --- INITIALIZATION ---
 export function initializeAssetManagerComponent() {
-    // ... (This function remains largely unchanged)
+    // ... This function remains unchanged
     if (isInitialized) {
         showView(personalityForm);
         renderGallery();
