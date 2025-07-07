@@ -45,21 +45,18 @@ export async function setupDB() {
     });
 
     // Version 6: Modifying the assets table for per-character media libraries
-    // CRITICAL FIX: Rewritten assets store definition for ultimate clarity and correctness in Dexie.
-    // This explicitly defines the primary key and then separate indexes for other fields.
+    // CRITICAL FIX: Rewritten assets store definition using object literal syntax.
+    // This is the most robust way to define a store with multiple indexes in Dexie,
+    // explicitly stating the primary key and all indexes.
     db.version(6).stores({
-        assets: `
-            ++id, // Primary key
-            characterId, // Indexed field for linking to personality
-            name,
-            type,
-            data,
-            timestamp
-        `
-    }).upgrade(trans => {
-        // Add the multi-entry index for 'tags' separately as Dexie often prefers this for clarity
-        // when combined with other indexes and primary keys in the store string.
-        trans.table('assets').schema.idxByName.tags = Dexie.createMultiInstanceDexieIndex('tags');
+        assets: {
+            // Primary key with auto-increment
+            primaryKey: '++id',
+            // Define all other fields as indexes. *tags defines a multi-entry index.
+            indexes: ['characterId', 'name', 'type', '*tags', 'timestamp'],
+            // 'data' (Blob) should be stored but usually not indexed for performance.
+            // No need to explicitly list it here if it's not indexed; Dexie handles it.
+        }
     });
     
     return db;
