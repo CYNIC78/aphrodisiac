@@ -1304,17 +1304,18 @@ input[name="currentChat"][value="none"] {
 /* ==   REFINED ASSET DETAIL VIEW STYLES  == */
 /* ========================================= */
 
-/* Replace with this rule */
-/* Replace with this rule */
-#asset-detail-view {
-    display: grid;
-    grid-template-columns: 1fr 350px; 
-    gap: 1.5rem;
-    /* width: 100%; has been removed */
-    height: 100%;
-    padding: 1rem;
-    box-sizing: border-box;
+#asset-detail-preview {
+    display: flex;
+    justify-content: center;
     align-items: center;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    align-self: center;
+    
+    /* The new, crucial constraints */
+    max-width: 75vh; /* Max width is 75% of viewport height (keeps it square) */
+    max-height: 75vh;/* Max height is 75% of viewport height */
 }
 
 #asset-detail-preview {
