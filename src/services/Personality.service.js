@@ -1,7 +1,7 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
-import { assetManagerService } from "./AssetManager.service.js"; // <-- ADD THIS IMPORT
+import { assetManagerService } from "./AssetManager.service.js"; // <-- Existing Import
 
 // Map to store Object URLs for personality images for proper memory management
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
@@ -39,16 +39,16 @@ export async function migratePersonalities(database) {
 export async function initialize() {
     //default personality setup
     const defaultPersonality = getDefault(); // Get the default personality object
-    const defaultPersonalityCard = insert(defaultPersonality); // Insert it
+    const defaultPersonalityCard = insert(defaultPersonality); // Insert it (this calls loadAndApplyPersonalityAvatar internally)
     defaultPersonalityCard.querySelector("input").click();
-    await loadAndApplyPersonalityAvatar(defaultPersonalityCard, defaultPersonality); // Load avatar for default
+    // await loadAndApplyPersonalityAvatar(defaultPersonalityCard, defaultPersonality); // <-- REMOVED: This was a redundant call
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            const card = insert(personality); // Insert the card
-            await loadAndApplyPersonalityAvatar(card, personality); // Load avatar for this personality
+            const card = insert(personality); // Insert the card (this calls loadAndApplyPersonalityAvatar internally)
+            // await loadAndApplyPersonalityAvatar(card, personality); // <-- REMOVED: This was a redundant call
         }
     }
     
@@ -72,7 +72,12 @@ export function getDefault() {
         'The embodiment of love, beauty, and pleasure, with the candor of ancient times.',
         `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
 
-You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`
+You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`,
+        0, // aggressiveness
+        0, // sensuality
+        false, // internetEnabled
+        false, // roleplayEnabled
+        -1 // <-- ADDED: Explicitly set ID for default personality for consistent handling
     );
 }
 
@@ -133,7 +138,7 @@ function insert(personality) {
     const card = generateCard(personality);
     personalitiesDiv.append(card);
     // Asynchronously load and apply the custom avatar after the card is in the DOM
-    loadAndApplyPersonalityAvatar(card, personality); // <-- ADDED
+    loadAndApplyPersonalityAvatar(card, personality); // <-- EXISTING: This call is correct
     return card;
 }
 
@@ -209,7 +214,7 @@ export async function edit(id, personality) {
     element.replaceWith(newCard); // Replace old card in DOM
 
     // Asynchronously load and apply the custom avatar for the updated card
-    await loadAndApplyPersonalityAvatar(newCard, updatedPersonality); // <-- ADDED
+    await loadAndApplyPersonalityAvatar(newCard, updatedPersonality); // <-- EXISTING: This call is correct
 
     if (input.checked) {
         document.querySelector(`#personality-${id}`).querySelector("input").click();
@@ -278,8 +283,17 @@ export function generateCard(personality) {
  */
 async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
-    if (!imgElement || !personality || typeof personality.id === 'undefined') {
-        console.warn('loadAndApplyPersonalityAvatar: Missing required elements or personality data.');
+    
+    // More robust check for required elements and valid personality ID for Map key
+    if (!imgElement || !personality || (typeof personality.id !== 'number' && personality.id !== -1)) { // Check if ID is a number or -1
+        // Log specific reasons for the warning for better debugging if it still occurs
+        if (!imgElement) {
+            console.warn('loadAndApplyPersonalityAvatar: imgElement not found for card.', cardElement);
+        } else if (!personality) {
+            console.warn('loadAndApplyPersonalityAvatar: personality object is missing.', cardElement);
+        } else if (typeof personality.id !== 'number' && personality.id !== -1) {
+            console.warn('loadAndApplyPersonalityAvatar: personality.id is not a valid number or -1 for map key. ID:', personality.id, 'Personality:', personality);
+        }
         return;
     }
 
