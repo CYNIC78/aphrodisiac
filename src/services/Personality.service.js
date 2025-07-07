@@ -1,7 +1,7 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
-import { assetManagerService } from "./AssetManager.service.js"; // <-- Existing Import
+import { assetManagerService } from "./AssetManager.service.js";
 
 // Map to store Object URLs for personality images for proper memory management
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
@@ -38,17 +38,18 @@ export async function migratePersonalities(database) {
 
 export async function initialize() {
     //default personality setup
-    const defaultPersonality = getDefault(); // Get the default personality object
-    const defaultPersonalityCard = insert(defaultPersonality); // Insert it (this calls loadAndApplyPersonalityAvatar internally)
+    // Correctly create the default personality object with its special ID
+    const defaultPersonality = { ...getDefault(), id: -1 }; // <-- MODIFIED: Correctly sets ID here
+    const defaultPersonalityCard = insert(defaultPersonality);
     defaultPersonalityCard.querySelector("input").click();
-    // await loadAndApplyPersonalityAvatar(defaultPersonalityCard, defaultPersonality); // <-- REMOVED: This was a redundant call
+    // Removed redundant loadAndApplyPersonalityAvatar call, as insert() now handles it.
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            const card = insert(personality); // Insert the card (this calls loadAndApplyPersonalityAvatar internally)
-            // await loadAndApplyPersonalityAvatar(card, personality); // <-- REMOVED: This was a redundant call
+            const card = insert(personality);
+            // Removed redundant loadAndApplyPersonalityAvatar call, as insert() now handles it.
         }
     }
     
@@ -77,7 +78,7 @@ You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to
         0, // sensuality
         false, // internetEnabled
         false, // roleplayEnabled
-        -1 // <-- ADDED: Explicitly set ID for default personality for consistent handling
+        [] // <-- MODIFIED: Removed the incorrect -1 here. It was going into toneExamples.
     );
 }
 
@@ -138,7 +139,7 @@ function insert(personality) {
     const card = generateCard(personality);
     personalitiesDiv.append(card);
     // Asynchronously load and apply the custom avatar after the card is in the DOM
-    loadAndApplyPersonalityAvatar(card, personality); // <-- EXISTING: This call is correct
+    loadAndApplyPersonalityAvatar(card, personality);
     return card;
 }
 
@@ -214,7 +215,7 @@ export async function edit(id, personality) {
     element.replaceWith(newCard); // Replace old card in DOM
 
     // Asynchronously load and apply the custom avatar for the updated card
-    await loadAndApplyPersonalityAvatar(newCard, updatedPersonality); // <-- EXISTING: This call is correct
+    await loadAndApplyPersonalityAvatar(newCard, updatedPersonality);
 
     if (input.checked) {
         document.querySelector(`#personality-${id}`).querySelector("input").click();
