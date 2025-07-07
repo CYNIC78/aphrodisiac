@@ -129,14 +129,14 @@ export async function remove(id) {
         console.log(`Revoked object URL for personality ID: ${id}`);
     }
     await db.personalities.delete(id);
-    // <-- ADDED: Delete all assets associated with this character
+    // Delete all assets associated with this character
     await assetManagerService.deleteAssetsByCharacterId(id);
     console.log(`Deleted all assets for personality ID: ${id}`);
 }
 
 // <-- ADDED: New function to create a barebones personality draft and return its ID
 export async function createDraftPersonality() {
-    const newPersonality = new Personality('New Personality (Draft)', '', 'Draft personality being created...');
+    const newPersonality = new Personality('New Personality (Draft)', '/media/default/images/placeholder.png', 'Draft personality being created...'); // Use a placeholder image
     const id = await db.personalities.add(newPersonality);
     console.log(`Created draft personality with ID: ${id}`);
     return id;
@@ -181,7 +181,7 @@ export function share(personality) {
 export function createAddPersonalityCard() {
     const card = document.createElement("div");
     card.classList.add("card-personality", "card-add-personality");
-    card.id = "btn-add-personality";
+    card.id = "btn-add-personality"; // Ensure the ID is always present for the selector
     card.innerHTML = `
         <div class="add-personality-content">
             <span class="material-symbols-outlined add-icon">add</span>
@@ -202,7 +202,6 @@ export async function removeAll() {
     console.log('Revoked all personality image object URLs.');
 
     // Delete assets for all personalities before clearing personalities table
-    // Get all personalities first, then delete their assets by ID
     const allPersonalities = await db.personalities.toArray();
     for (const p of allPersonalities) {
         if (p.id !== -1) { // Don't try to delete assets for the hardcoded Aphrodite ID
@@ -211,18 +210,34 @@ export async function removeAll() {
     }
     console.log('Deleted all assets from all personalities (excluding Aphrodite).');
 
-    await db.personalities.clear();
-    document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
-        if (node.id) {
-            node.remove();
-        }
-    });
+    await db.personalities.clear(); // Clear personality records from DB
+
+    // CRITICAL FIX HERE: Completely clear and rebuild the #personalitiesDiv UI
+    const personalitiesDiv = document.querySelector("#personalitiesDiv");
+    if (personalitiesDiv) {
+        personalitiesDiv.innerHTML = ''; // Clear all existing children nodes
+    }
+    
+    // Re-add default Aphrodite
+    const defaultPersonality = { ...getDefault(), id: -1 };
+    const defaultPersonalityCard = insert(defaultPersonality);
+    // Note: No need to click defaultPersonalityCard here. The main.js initialize
+    // or chat service should handle initial selection.
+
+    // Re-add the "Create New" card
+    const createCard = createAddPersonalityCard();
+    if (personalitiesDiv) {
+        personalitiesDiv.appendChild(createCard);
+    }
+    
+    // Ensure Aphrodite is selected after clearing if no other chat was active
+    // This part is generally handled by main.js initialization on app load/reload
+    // If we want a dynamic selection after "Clear All", we'd need to emit an event
+    // or call ChatsService.createNewChat() or ChatsService.loadChat(-1) to select Aphrodite.
+    // For now, simple UI refresh.
 }
 
 export async function add(personality) {
-    // This 'add' function will now effectively be used only for updating pre-existing drafts,
-    // or for initial creation if the draft system isn't fully in place yet.
-    // The previous implementation was for direct add. We'll adjust as the workflow refines.
     const id = await db.personalities.add(personality); // Insert in db
     const newPersonalityWithId = { id: id, ...personality }; // Create full object
     insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar and append card
