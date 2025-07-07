@@ -6,6 +6,7 @@ let isInitialized = false;
 let currentAssetId = null;
 let activeTags = []; // Holds the currently selected tags for filtering
 let allDbTags = [];  // A cache of all unique tags from the database
+let currentCharacterId = null; // <-- ADDED: To hold the ID of the currently active personality
 
 // --- UI ELEMENT REFERENCES ---
 let personalityForm, assetDetailView, mediaLibraryStep;
@@ -53,22 +54,28 @@ function renderTagExplorer(filterTerm = '') {
 }
 
 /**
- * Renders the main asset gallery based on the currently active tags.
+ * Renders the main asset gallery based on the currently active tags and character.
  */
 async function renderGallery() {
     const galleryEl = document.querySelector('#asset-manager-gallery');
     const titleEl = document.querySelector('#gallery-title');
     if (!galleryEl || !titleEl) return;
 
+    if (currentCharacterId === null) { // <-- ADDED: Handle case where no character is selected
+        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Select a personality to view its media library.</p>`;
+        titleEl.textContent = 'Media Library';
+        return;
+    }
+
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     
     try {
-        // Step 1: Always get ALL assets. This is simple and reliable.
-        const allAssets = await assetManagerService.getAllAssets();
+        // Step 1: Get assets for the CURRENT character.
+        const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId); // <-- MODIFIED
 
         // Step 2: Filter the assets in JavaScript based on the activeTags array.
         const assetsToRender = activeTags.length === 0
-            ? allAssets // If no tags are active, show everything.
+            ? allAssets // If no tags are active, show everything for this character.
             : allAssets.filter(asset => activeTags.every(tag => asset.tags.includes(tag))); // Otherwise, show assets that have ALL active tags.
 
         // Update the gallery title
@@ -76,7 +83,7 @@ async function renderGallery() {
 
         galleryEl.innerHTML = ''; // Clear "Loading..."
         if (assetsToRender.length === 0) {
-            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found.</p>`;
+            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found for this personality.</p>`;
             return;
         }
 
@@ -164,11 +171,10 @@ async function handleAddTagToAsset() {
         await assetManagerService.updateAsset(currentAssetId, { tags: updatedTags });
         renderTagsInDetailView(updatedTags);
         
-        if (!allDbTags.includes(newTag)) {
-            allDbTags.push(newTag);
-            allDbTags.sort((a,b) => a.localeCompare(b));
-            renderTagExplorer();
-        }
+        // Update the list of all tags for the current character
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId); // <-- MODIFIED
+        allDbTags.sort((a,b) => a.localeCompare(b));
+        renderTagExplorer();
         input.value = '';
     }
 }
@@ -180,16 +186,27 @@ async function handleRemoveTagFromAsset(tagToRemove) {
         const updatedTags = asset.tags.filter(t => t !== tagToRemove);
         await assetManagerService.updateAsset(currentAssetId, { tags: updatedTags });
         renderTagsInDetailView(updatedTags);
+        // Update the list of all tags for the current character in case a tag count goes to zero
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId); // <-- MODIFIED
+        allDbTags.sort((a,b) => a.localeCompare(b));
+        renderTagExplorer();
     }
 }
 
 async function handleDeleteAsset() {
     if (!currentAssetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
-        await assetManagerService.deleteAsset(currentAssetId);
+        // Before deleting, revoke the object URL if it's currently in use by a personality's avatar
+        // This is a simplified check. A more robust solution might check PersonalityService.personalityImageUrls map.
+        const asset = await assetManagerService.getAssetById(currentAssetId);
+        if (asset && asset.data instanceof Blob) {
+            URL.revokeObjectURL(URL.createObjectURL(asset.data)); // Create temp URL just to revoke
+        }
+
+        await assetManagerService.deleteAsset(currentAssetId); // <-- MODIFIED (no characterId needed here, direct ID delete)
         currentAssetId = null;
         showView(personalityForm);
-        await updateMainUI();
+        await updateMainUI(); // This will refresh the gallery for the current character
     }
 }
 
@@ -217,17 +234,28 @@ async function showAssetDetailView(assetId) {
     showView(assetDetailView);
 }
 
-async function updateMainUI() {
-    allDbTags = await assetManagerService.getAllUniqueTags();
+/**
+ * Updates the main UI of the Asset Manager, now scoped to the current character.
+ * @param {number} characterId - The ID of the character whose assets to display.
+ */
+async function updateMainUI(characterId) { // <-- MODIFIED: Now takes characterId
+    currentCharacterId = characterId; // <-- ADDED: Update the global state
+    activeTags = []; // Reset active tags when character changes
+    if (currentCharacterId === null) { // <-- ADDED: Handle initial state
+        allDbTags = []; // No tags if no character selected
+    } else {
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId); // <-- MODIFIED
+    }
     renderTagExplorer();
     renderGallery();
 }
 
 // --- INITIALIZATION ---
-export function initializeAssetManagerComponent() {
+// Modified to be a method that accepts the character ID to display the correct library
+export function initializeAssetManagerComponent(characterId) { // <-- MODIFIED: Now accepts characterId
     if (isInitialized) {
         showView(personalityForm);
-        updateMainUI();
+        updateMainUI(characterId); // <-- MODIFIED: Update UI for the new character
         return;
     }
 
@@ -243,7 +271,7 @@ export function initializeAssetManagerComponent() {
     
     document.querySelector('#asset-upload-input').addEventListener('change', async (event) => {
         const files = event.target.files;
-        if (!files.length) return;
+        if (!files.length || currentCharacterId === null) return; // <-- MODIFIED: Check for currentCharacterId
         for (const file of files) {
             try {
                 // Determine the initial tag based on file type
@@ -253,24 +281,24 @@ export function initializeAssetManagerComponent() {
                 } else if (file.type.startsWith('audio/')) {
                     initialTag = 'audio';
                 }
-                // <-- MODIFIED: Pass the determined initialTag
-                await assetManagerService.addAsset(file, [initialTag]);
+                // Pass the determined initialTag AND the currentCharacterId
+                await assetManagerService.addAsset(file, [initialTag], currentCharacterId); // <-- MODIFIED
             } catch (error) { console.error('Failed to add asset:', error); }
         }
         event.target.value = ''; 
-        await updateMainUI();
+        await updateMainUI(currentCharacterId); // <-- MODIFIED: Pass currentCharacterId
     });
     
     document.querySelector('#btn-asset-detail-back').addEventListener('click', () => {
         showView(personalityForm);
-        updateMainUI();
+        updateMainUI(currentCharacterId); // <-- MODIFIED: Pass currentCharacterId
     });
     document.querySelector('#btn-add-tag').addEventListener('click', handleAddTagToAsset);
     document.querySelector('#add-tag-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAddTagToAsset(); });
     document.querySelector('#btn-delete-asset').addEventListener('click', handleDeleteAsset);
     
-    updateMainUI();
+    updateMainUI(characterId); // <-- MODIFIED: Initial call now correctly passes characterId
 
-    console.log('Asset Manager Component Initialized (v3 - Patched).');
+    console.log('Asset Manager Component Initialized (v4 - Per-character).'); // <-- MODIFIED
     isInitialized = true;
 }
