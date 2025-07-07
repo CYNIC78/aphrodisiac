@@ -1304,14 +1304,17 @@ input[name="currentChat"][value="none"] {
 /* ==   REFINED ASSET DETAIL VIEW STYLES  == */
 /* ========================================= */
 
+/* Replace with this rule */
 #asset-detail-view {
-    display: grid; /* Use grid for a powerful two-column layout */
-    grid-template-columns: 2fr 1fr; /* Preview is twice as wide as the info panel */
+    display: grid;
+    /* The info panel is now a fixed 350px, and the preview takes the rest. */
+    grid-template-columns: 1fr 350px; 
     gap: 1.5rem;
     width: 100%;
     height: 100%;
     padding: 1rem;
     box-sizing: border-box;
+    align-items: center; /* This ensures vertical centering */
 }
 
 #asset-detail-preview {
