@@ -61,16 +61,26 @@ class AssetManagerService {
     }
 
     /**
-     * Searches for assets by a tag search term.
-     * @param {string} term - The search term to filter tags by.
+     * Searches for assets that contain ALL of the given tags.
+     * @param {string[]} tags - An array of tags to filter by.
      * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
      */
-    async searchAssets(term) {
-        if (!term) {
+    async searchAssetsByTags(tags = []) {
+        if (!tags || tags.length === 0) {
             return this.getAllAssets();
         }
-        // Use Dexie's powerful querying to find assets where any tag starts with the term (case-insensitive)
-        return await db.assets.where('tags').startsWithIgnoreCase(term).toArray();
+        // This Dexie query finds assets where the 'tags' array contains every tag from the input array.
+        return await db.assets.where('tags').all(tags).toArray();
+    }
+    
+    /**
+     * Gets a sorted, unique list of all tags in the database.
+     * @returns {Promise<string[]>} A promise that resolves to an array of unique tags.
+     */
+    async getAllUniqueTags() {
+        const allTags = await db.assets.orderBy('tags').uniqueKeys();
+        // The result of uniqueKeys is a flat array, so we can sort it directly.
+        return allTags.sort((a, b) => a.localeCompare(b));
     }
 }
 
