@@ -8,8 +8,17 @@ let isInitialized = false;
 let currentPersonalityId = null; // Stores the ID of the personality being added/edited
 let isNewPersonalityDraft = false; // Flag to track if this personality was created as a draft in this session
 
+// Store a reference to the event listener function so it can be removed
+let stepChangeListener = null; // <-- ADDED
+
 // Expose a cleanup function for OverlayService to call
 export async function cleanupAddPersonalityForm() {
+    // Remove the stepChange listener to prevent re-initialization during overlay close
+    if (stepChangeListener) { // <-- ADDED
+        stepperService.stepperEvents.removeEventListener('stepChange', stepChangeListener); // <-- ADDED
+        stepChangeListener = null; // <-- ADDED
+    }
+
     if (isNewPersonalityDraft && currentPersonalityId !== null) {
         console.log(`AddPersonalityForm: Overlay closed without submission. Deleting draft personality ID: ${currentPersonalityId}`);
         await personalityService.deleteDraftPersonality(currentPersonalityId);
@@ -47,11 +56,9 @@ export function initializeAddPersonalityForm(personalityId = null) {
                     }
                     continue;
                 }
-                // 'id' field is handled separately as currentPersonalityId
                 if (key === 'id') {
                     continue;
                 }
-                // Handle checkboxes
                 if (key === 'internetEnabled' || key === 'roleplayEnabled') {
                     personality[key] = data.has(key);
                 } else {
@@ -59,7 +66,6 @@ export function initializeAddPersonalityForm(personalityId = null) {
                 }
             }
             
-            // Always call edit, whether it's a new draft or an existing personality
             if (currentPersonalityId === null) {
                  console.error("AddPersonalityForm: Attempted to submit form without a valid personality ID.");
                  alert("Error: Personality ID missing during submission. Please report this bug.");
@@ -68,10 +74,9 @@ export function initializeAddPersonalityForm(personalityId = null) {
             await personalityService.edit(currentPersonalityId, personality);
             console.log(`Personality ID ${currentPersonalityId} submitted (edited).`);
 
-            // Mark as submitted so cleanup doesn't delete it
             isNewPersonalityDraft = false; 
             
-            overlayService.closeOverlay();
+            overlayService.closeOverlay(); // This will trigger cleanupAddPersonalityForm
         });
 
         // Add Tone Example Button Handler
@@ -85,8 +90,8 @@ export function initializeAddPersonalityForm(personalityId = null) {
             btnAddToneExample.before(input);
         });
 
-        // Stepper Step Change Listener (CRITICAL for draft ID allocation)
-        stepperService.stepperEvents.addEventListener('stepChange', async (event) => {
+        // CRITICAL FIX HERE: Define the listener function separately
+        stepChangeListener = async (event) => { // <-- MODIFIED
             if (event.detail.stepperId === 'stepper-add-personality') {
                 const currentStepIndex = event.detail.currentStep;
                 const mediaLibraryStepIndex = Array.from(stepper.element.querySelectorAll('.step')).findIndex(stepEl => stepEl.id === 'media-library-step');
@@ -96,37 +101,31 @@ export function initializeAddPersonalityForm(personalityId = null) {
                     console.log("AddPersonalityForm: Navigated to Media Library step for a new personality. Creating draft ID.");
                     currentPersonalityId = await personalityService.createDraftPersonality();
                     isNewPersonalityDraft = true;
-                    // Update the hidden ID input in the form
                     const idInput = form.querySelector("input[name='id']");
                     if (idInput) {
                         idInput.value = currentPersonalityId.toString();
                     }
-                    // Re-initialize Asset Manager component with the new draft ID
                     initializeAssetManagerComponent(currentPersonalityId);
                 } else if (currentPersonalityId !== null) {
-                    // If we already have an ID (either existing or draft), just ensure AssetManager is updated
                     initializeAssetManagerComponent(currentPersonalityId);
                 } else if (personalityId === null && currentPersonalityId === null) {
-                    // If it's a brand new form, and we haven't hit the media library step yet,
-                    // keep AssetManager initialized with null (no character selected yet).
                     initializeAssetManagerComponent(null);
                 }
             }
-        });
+        }; // <-- END of listener function definition
+
+        // Attach the listener once
+        stepperService.stepperEvents.addEventListener('stepChange', stepChangeListener); // <-- ADDED
 
         isInitialized = true;
         console.log("Add Personality Form Component Initialized (Workflow Refactored).");
     }
 
-    // Set the current personality ID whenever the form is opened/re-initialized via OverlayService
     currentPersonalityId = personalityId;
-    isNewPersonalityDraft = (personalityId === null); // If opened with null ID, it's a potential new draft
+    isNewPersonalityDraft = (personalityId === null);
 
-    // For existing personalities (personalityId is not null), ensure AssetManager is initialized correctly
-    // For new personalities, AssetManager will be initialized with null until a draft ID is created.
     initializeAssetManagerComponent(currentPersonalityId);
     
-    // Set the hidden ID input in the form
     const idInput = form.querySelector("input[name='id']");
     if (idInput) {
         idInput.value = personalityId !== null ? personalityId.toString() : '';
