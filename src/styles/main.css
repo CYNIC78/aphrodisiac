@@ -966,9 +966,135 @@ input[name="currentChat"][value="none"] {
     opacity: 0.6;
 }
 
+
+
+
+
+
+/* ================================== */
+/* ==   TAG EXPLORER LAYOUT (v4)   == */
+/* ================================== */
+
+/* This makes the Media Library step use all available space */
+#media-library-step {
+    flex-grow: 1;
+    min-height: 0; /* Flexbox fix for nested scrolling */
+}
+
+/* The main two-panel grid layout */
+.media-library-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr; /* Fixed-width tag panel, flexible gallery */
+    gap: 1rem;
+    height: 100%;
+}
+
+/* The left-side panel for tags */
+.tag-explorer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+}
+
+#tag-explorer-search {
+    flex-shrink: 0; /* Prevent search bar from shrinking */
+}
+
+/* The scrollable list of all tags */
+#tag-explorer-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-right: 0.5rem; /* Space for the scrollbar */
+}
+
+.tag-explorer-item {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s, color 0.2s;
+    justify-content: flex-start; /* Align text to the left */
+    font-weight: 600; /* Make all tags slightly bold */
+    border: 1px solid transparent; /* Prepare for a border transition */
+}
+
+/* ======================================================= */
+/* == THE NEW, HIGH-CONTRAST SELECTED STATE             == */
+/* ======================================================= */
+.tag-explorer-item.selected {
+    font-weight: 800; /* Extra bold when selected */
+}
+
+/* The right-side panel for the gallery */
+.gallery-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.gallery-header h3 {
+    margin: 0;
+}
+
+/* The gallery grid itself */
+#asset-manager-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-auto-rows: 1fr; /* Let rows auto-size */
+    gap: 0.75rem;
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px dashed;
+}
+
+/* Asset cards are now beautifully simple */
+.asset-card {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.asset-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+}
+
+.asset-card:hover img {
+    transform: scale(1.05);
+}
+
+.gallery-empty-placeholder {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    opacity: 0.6;
+}
+
 /* ========================================= */
 /* ==   ASSET DETAIL VIEW STYLES (v3)     == */
 /* ========================================= */
+/* This section remains the same, but is included for completeness of the block */
 
 #asset-detail-view {
     display: grid;
@@ -1096,7 +1222,7 @@ input[name="currentChat"][value="none"] {
     .tag-explorer { background-color: rgba(0,0,0,0.2); }
     #asset-manager-gallery { border-color: rgba(255, 255, 255, 0.1); }
     .tag-explorer-item:not(.selected):hover { background-color: rgba(255,255,255,0.1); }
-    .tag-explorer-item.selected { background-color: #5f96c8; color: #0b2469; }
+    .tag-explorer-item.selected { background-color: #5f96c8; color: #0b2469; } /* High-contrast selected */
     .tag-pill { background-color: #283542; border: 1px solid rgba(255, 255, 255, 0.1); }
     .remove-tag:hover { background-color: rgba(255, 255, 255, 0.1); }
 }
@@ -1105,14 +1231,10 @@ input[name="currentChat"][value="none"] {
     .tag-explorer { background-color: rgba(0,0,0,0.05); }
     #asset-manager-gallery { border-color: rgba(0,0,0,0.1); }
     .tag-explorer-item:not(.selected):hover { background-color: rgba(0,0,0,0.05); }
-    .tag-explorer-item.selected { background-color: #4c7cbe; color: #edf1f8; }
+    .tag-explorer-item.selected { background-color: #4c7cbe; color: #edf1f8; } /* High-contrast selected */
     .tag-pill { background-color: #d2e2f7; border: 1px solid rgba(0, 0, 0, 0.1); color: #011031; }
     .remove-tag:hover { background-color: rgba(0, 0, 0, 0.1); }
 }
-
-
-
-
 
 
 
