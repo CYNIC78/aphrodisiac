@@ -1305,16 +1305,16 @@ input[name="currentChat"][value="none"] {
 /* ========================================= */
 
 /* Replace with this rule */
+/* Replace with this rule */
 #asset-detail-view {
     display: grid;
-    /* The info panel is now a fixed 350px, and the preview takes the rest. */
     grid-template-columns: 1fr 350px; 
     gap: 1.5rem;
-    width: 100%;
+    /* width: 100%; has been removed */
     height: 100%;
     padding: 1rem;
     box-sizing: border-box;
-    align-items: center; /* This ensures vertical centering */
+    align-items: center;
 }
 
 #asset-detail-preview {
