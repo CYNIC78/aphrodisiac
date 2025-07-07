@@ -1584,7 +1584,7 @@ input[name="currentChat"][value="none"] {
 .asset-card-info {
     padding: 0.75rem;
     background-color: rgba(0,0,0,0.2);
-    min-height: 3rem; /* Ensures it looks good even with one line of tags */
+    /* The min-height property has been removed */
 }
 
 /* The .asset-name rule is no longer needed */
