@@ -1,4 +1,4 @@
-
+// No import { GoogleGenAI } from "@google/genai"; here - it's global from CDN!
 
 const apiKeyInput = document.querySelector("#apiKeyInput");
 const errorDisplay = document.querySelector(".api-key-error");
@@ -7,32 +7,24 @@ let debounceTimer;
 
 apiKeyInput.addEventListener("input", () => {
     clearTimeout(debounceTimer);
-
     apiKeyInput.classList.remove("api-key-valid", "api-key-invalid");
     errorDisplay.style.display = "none";
 
     debounceTimer = setTimeout(async () => {
         const apiKey = apiKeyInput.value.trim();
-
-        if (!apiKey) {
-            return;
-        }
+        if (!apiKey) { return; }
 
         try {
-            // ================== REVERTED TO ORIGINAL API KEY TEST ==================
-            // Using GoogleGenAI as originally intended, passing API key as an object
+            // GoogleGenAI is available globally from the CDN script in index.html
             const ai = new GoogleGenAI({ apiKey: apiKey });
-            // Testing with a direct models.generateContent call, as in the original blueprint
+            // Using ai.models.generateContent directly, as per original blueprint
             await ai.models.generateContent({
-                model: "gemini-2.0-flash", // Using the original test model
+                model: "gemini-2.0-flash", // Original test model
                 contents: "test"
             });
-            // =======================================================================
-
             apiKeyInput.classList.add("api-key-valid");
             apiKeyInput.classList.remove("api-key-invalid");
             errorDisplay.style.display = "none";
-
         } catch (error) {
             console.error("API Key validation error:", error);
             apiKeyInput.classList.add("api-key-invalid");

@@ -1,4 +1,4 @@
-
+// IMPORTANT: No import { HarmBlockThreshold, HarmCategory } from "@google/genai"; here - using direct strings!
 
 // DOM Element Selectors
 const ApiKeyInput = document.querySelector("#apiKeyInput");
@@ -41,7 +41,7 @@ export function loadSettings() {
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || 1000;
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
-    modelSelect.value = localStorage.getItem("model") || "gemini-1.5-flash-latest";
+    modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash"; // Reverted to 2.0 flash as per original
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
 
     // Load new Dynamic Character settings with sensible defaults
@@ -76,6 +76,7 @@ export function getSettings() {
         apiKey: ApiKeyInput.value,
         maxTokens: parseInt(maxTokensInput.value, 10),
         temperature: parseFloat((temperatureInput.value / 100).toFixed(2)),
+        // Using direct string values for safety settings (no import needed)
         safetySettings: [
             { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
             { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
