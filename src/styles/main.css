@@ -100,11 +100,9 @@ form {
 /* === FIX 1: FORM DIMENSIONS === */
 #form-add-personality {
     display: none;
-    width: 72rem; 
-    height: 90vh;
-    /* We've added a min-height to prevent it from feeling too short */
-    min-height: 55rem; 
-    max-height: 60rem;
+    width: 72rem;
+    max-width: 95vw; /* Don't get wider than the screen */
+    height: 100%; /* Fill the parent container */
 }
 
 .overlay-content {
@@ -113,9 +111,10 @@ form {
     justify-content: center;
     align-items: center;
     flex-grow: 1;
-    overflow: hidden;
+    /* overflow: hidden; has been removed */
     padding: 1rem;
     box-sizing: border-box;
+    min-height: 0; /* A flexbox fix for nested scrolling */
 }
 
 /* all but the first sidebarcontet */
@@ -143,6 +142,7 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     width: 100%;
+    height: 100%; /* Fill the form */
 }
 
 #btn-stepper-submit {
