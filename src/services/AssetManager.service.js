@@ -82,6 +82,35 @@ class AssetManagerService {
         // The result of uniqueKeys is a flat array, so we can sort it directly.
         return allTags.sort((a, b) => a.localeCompare(b));
     }
+
+    /**
+     * Creates an Object URL for an asset's data Blob.
+     * This URL can be used as an img.src or audio.src.
+     * @param {number} assetId - The ID of the asset.
+     * @returns {Promise<string|null>} The Object URL, or null if asset not found or data is not a Blob.
+     */
+    async getAssetObjectUrl(assetId) {
+        const asset = await this.getAssetById(assetId);
+        if (asset && asset.data instanceof Blob) {
+            return URL.createObjectURL(asset.data);
+        }
+        return null;
+    }
+
+    /**
+     * Searches for image assets that contain ALL of the given tags and returns the Object URL of the first one found.
+     * @param {string[]} tags - An array of tags to filter by.
+     * @returns {Promise<string|null>} The Object URL of the first matching image asset, or null if none found.
+     */
+    async getFirstImageObjectUrlByTags(tags = []) {
+        const assets = await this.searchAssetsByTags(tags);
+        const imageAssets = assets.filter(a => a.type === 'image');
+        if (imageAssets.length > 0) {
+            // If multiple images match, we take the first one found.
+            return this.getAssetObjectUrl(imageAssets[0].id);
+        }
+        return null;
+    }
 }
 
 // Export a single instance of the service

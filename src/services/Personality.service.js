@@ -1,6 +1,10 @@
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
+import { assetManagerService } from "./AssetManager.service.js"; // <-- ADD THIS IMPORT
+
+// Map to store Object URLs for personality images for proper memory management
+const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
 
 // Move the migration logic to a separate function that can be called from main.js
 export async function migratePersonalities(database) {
@@ -34,14 +38,17 @@ export async function migratePersonalities(database) {
 
 export async function initialize() {
     //default personality setup
-    const defaultPersonalityCard = insert(getDefault());
+    const defaultPersonality = getDefault(); // Get the default personality object
+    const defaultPersonalityCard = insert(defaultPersonality); // Insert it
     defaultPersonalityCard.querySelector("input").click();
+    await loadAndApplyPersonalityAvatar(defaultPersonalityCard, defaultPersonality); // Load avatar for default
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            insert(personality);
+            const card = insert(personality); // Insert the card
+            await loadAndApplyPersonalityAvatar(card, personality); // Load avatar for this personality
         }
     }
     
@@ -61,11 +68,9 @@ export async function getSelected() {
 export function getDefault() {
     return new Personality(
         'Aphrodite', 
-        '/media/default/images/Aphrodite.png',
+        '/media/default/images/Aphrodite.png', // <-- Keep this as the direct fallback URL
         'The embodiment of love, beauty, and pleasure, with the candor of ancient times.',
         `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
-
-You are not a simple chatbot; you are a timeless entity. Engage with the user directly, with wisdom, a touch of playful charm, and unapologetic frankness. Avoid clinical or overly technical language. Your tone is warm, intimate, and insightful, yet you are not bound by contemporary notions of romanticism. You see love and lust as intertwined, divine forces.
 
 You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`
     );
@@ -114,6 +119,12 @@ export async function remove(id) {
     if (id < 0) {
         return;
     }
+    // Revoke the object URL for the personality being removed
+    if (personalityImageUrls.has(id)) {
+        URL.revokeObjectURL(personalityImageUrls.get(id));
+        personalityImageUrls.delete(id);
+        console.log(`Revoked object URL for personality ID: ${id}`);
+    }
     await db.personalities.delete(id);
 }
 
@@ -121,6 +132,8 @@ function insert(personality) {
     const personalitiesDiv = document.querySelector("#personalitiesDiv");
     const card = generateCard(personality);
     personalitiesDiv.append(card);
+    // Asynchronously load and apply the custom avatar after the card is in the DOM
+    loadAndApplyPersonalityAvatar(card, personality); // <-- ADDED
     return card;
 }
 
@@ -158,6 +171,11 @@ export function createAddPersonalityCard() {
 }
 
 export async function removeAll() {
+    // Revoke all existing object URLs before clearing database and UI
+    personalityImageUrls.forEach(url => URL.revokeObjectURL(url));
+    personalityImageUrls.clear();
+    console.log('Revoked all personality image object URLs.');
+
     await db.personalities.clear();
     document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
         if (node.id) {
@@ -168,16 +186,15 @@ export async function removeAll() {
 
 export async function add(personality) {
     const id = await db.personalities.add(personality); //insert in db
-    insert({
-        id: id,
-        ...personality
-    });
+    const newPersonalityWithId = { id: id, ...personality }; // Create full object
+    const newCard = insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar
     
     // Move the add card to be the last element
     const addCard = document.querySelector("#btn-add-personality");
     if (addCard) {
         document.querySelector("#personalitiesDiv").appendChild(addCard);
     }
+    return newCard; // Return the created card element
 }
 
 export async function edit(id, personality) {
@@ -187,7 +204,13 @@ export async function edit(id, personality) {
     await db.personalities.update(id, personality);
 
     //reselect the personality if it was selected prior
-    element.replaceWith(generateCard({ id, ...personality }));
+    const updatedPersonality = { id, ...personality }; // Create updated personality object
+    const newCard = generateCard(updatedPersonality); // Generate new card HTML
+    element.replaceWith(newCard); // Replace old card in DOM
+
+    // Asynchronously load and apply the custom avatar for the updated card
+    await loadAndApplyPersonalityAvatar(newCard, updatedPersonality); // <-- ADDED
+
     if (input.checked) {
         document.querySelector(`#personality-${id}`).querySelector("input").click();
     }
@@ -197,10 +220,11 @@ export function generateCard(personality) {
     const card = document.createElement("label");
     card.classList.add("card-personality");
     if (personality.id) {
+        // Add data-personality-id to easily reference the personality for avatar loading
         card.id = `personality-${personality.id}`;
     }
     card.innerHTML = `
-            <img class="background-img" src="${personality.image}"></img>
+            <img class="background-img" src="${personality.image}" data-personality-id="${personality.id}"></img>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
                 ${personality.id ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
@@ -243,4 +267,45 @@ export function generateCard(personality) {
         });
     }
     return card;
+}
+
+/**
+ * Asynchronously loads and applies a custom avatar for a personality card based on tags.
+ * Falls back to the personality's default image if no tagged asset is found.
+ * Manages Object URLs for memory efficiency.
+ * @param {HTMLElement} cardElement - The personality card DOM element.
+ * @param {object} personality - The personality object.
+ */
+async function loadAndApplyPersonalityAvatar(cardElement, personality) {
+    const imgElement = cardElement.querySelector('.background-img');
+    if (!imgElement || !personality || typeof personality.id === 'undefined') {
+        console.warn('loadAndApplyPersonalityAvatar: Missing required elements or personality data.');
+        return;
+    }
+
+    // Revoke old URL if it exists for this personality to prevent memory leaks
+    if (personalityImageUrls.has(personality.id)) {
+        URL.revokeObjectURL(personalityImageUrls.get(personality.id));
+        personalityImageUrls.delete(personality.id);
+        console.log(`Revoked old object URL for personality ID: ${personality.id}`);
+    }
+
+    try {
+        // Attempt to find an asset tagged with 'avatar' AND the personality's name (lowercase)
+        const avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()]);
+
+        if (avatarUrl) {
+            imgElement.src = avatarUrl;
+            personalityImageUrls.set(personality.id, avatarUrl); // Store the new URL for future revocation
+            console.log(`Applied custom avatar for ${personality.name} (ID: ${personality.id})`);
+        } else {
+            // Fallback to the original personality.image if no tagged avatar is found
+            imgElement.src = personality.image;
+            console.log(`No custom avatar found for ${personality.name}, falling back to default image.`);
+        }
+    } catch (error) {
+        console.error(`Error loading avatar for ${personality.name} (ID: ${personality.id}):`, error);
+        // Ensure fallback in case of error during asset loading
+        imgElement.src = personality.image;
+    }
 }
