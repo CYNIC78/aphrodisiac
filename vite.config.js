@@ -1,9 +1,9 @@
-/** @type {import('vite').UserConfig} */
-export default {
-    root: 'src',
-    build: {
-        target: 'esnext',
-        outDir: '../dist',
-        emptyOutDir: true,
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      external: ['@google/genai'] // THIS TELLS VITE NOT TO BUNDLE @google/genai
     }
-}
+  }
+});

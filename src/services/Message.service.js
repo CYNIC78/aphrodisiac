@@ -1,11 +1,12 @@
 //handles sending messages to the api
 
+// Re-added the import statement. Vite will now handle this correctly with rollupOptions.external
+import { GoogleGenAI } from "@google/genai"; 
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// We import the Asset Manager Service to use its powerful functions
 import { assetManagerService } from "./AssetManager.service.js";
 
 
@@ -99,26 +100,23 @@ export async function send(msg, db) {
         return;
     }
 
-    // ================== THE CRITICAL FIX IS HERE ==================
-    // CONFIRMED: The library now requires the API key to be passed inside an object.
-    const genAI = new GoogleGenAI({ apiKey: settings.apiKey }); 
-    // =====================================================
-
-    const model = genAI.getGenerativeModel({ 
-        model: settings.model,
+    // GoogleGenAI is imported now via ES Module.
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    const config = {
+        maxOutputTokens: parseInt(settings.maxTokens),
+        temperature: settings.temperature / 100,
+        systemPrompt: settingsService.getSystemPrompt(),
         safetySettings: settings.safetySettings,
-        generationConfig: {
-            maxOutputTokens: settings.maxTokens,
-            temperature: settings.temperature,
-        },
-        systemInstruction: settingsService.getSystemPrompt()
-    });
+        responseMimeType: "text/plain"
+    };
     
     if (!await chatsService.getCurrentChat(db)) { 
-        const titleGenModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
-        const result = await titleGenModel.generateContent("You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg);
-        const title = result.response.text();
-
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
+        });
+        const title = response.text;
+        
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
@@ -153,11 +151,17 @@ export async function send(msg, db) {
         );
     }
     
-    const chat = model.startChat({ history });
+    const chat = ai.chats.create({
+        model: settings.model,
+        history: history,
+        config: config
+    });
     
-    const result = await chat.sendMessageStream(msg);
+    const stream = await chat.sendMessageStream({
+        message: msg
+    });
     
-    const reply = await insertMessage("model", "", selectedPersonality, result.stream, db);
+    const reply = await insertMessage("model", "", selectedPersonality, stream, db);
     
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
@@ -280,7 +284,11 @@ export async function insertMessage(sender, msg, personality = null, netStream =
 
             try {
                 for await (const chunk of netStream) {
-                     responseText += chunk.text();
+                    if (chunk && chunk.text) { 
+                        responseText += chunk.text;
+                        messageContent.innerHTML = marked.parse(responseText, { breaks: true });
+                        helpers.messageContainerScrollToBottom();
+                    }
                 }
                 rawText = responseText;
 
@@ -313,9 +321,10 @@ export async function insertMessage(sender, msg, personality = null, netStream =
             }
         }
     } else {
+        const messageRole = "You:";
         newMessage.innerHTML = `
                 <div class="message-header">
-                    <h3 class="message-role">You:</h3>
+                    <h3 class="message-role">${messageRole}</h3>
                     <div class="message-actions">
                         <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                         <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
