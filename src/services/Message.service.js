@@ -104,7 +104,7 @@ export async function send(msg, db) {
         return;
     }
     //model setup
-    const genAI = new GoogleGenerativeAI(settings.apiKey);
+    const genAI = new GoogleGenAI(settings.apiKey);
     const model = genAI.getGenerativeModel({ 
         model: settings.model,
         safetySettings: settings.safetySettings,
