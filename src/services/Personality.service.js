@@ -38,18 +38,15 @@ export async function migratePersonalities(database) {
 
 export async function initialize() {
     //default personality setup
-    // Correctly create the default personality object with its special ID
-    const defaultPersonality = { ...getDefault(), id: -1 }; // <-- MODIFIED: Correctly sets ID here
+    const defaultPersonality = { ...getDefault(), id: -1 };
     const defaultPersonalityCard = insert(defaultPersonality);
     defaultPersonalityCard.querySelector("input").click();
-    // Removed redundant loadAndApplyPersonalityAvatar call, as insert() now handles it.
 
     //load all personalities from local storage
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
             const card = insert(personality);
-            // Removed redundant loadAndApplyPersonalityAvatar call, as insert() now handles it.
         }
     }
     
@@ -69,7 +66,7 @@ export async function getSelected() {
 export function getDefault() {
     return new Personality(
         'Aphrodite', 
-        '/media/default/images/Aphrodite.png', // <-- Keep this as the direct fallback URL
+        '/media/default/images/Aphrodite.png', // <-- Keep this as the direct fallback URL for Aphrodite
         'The embodiment of love, beauty, and pleasure, with the candor of ancient times.',
         `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
 
@@ -78,7 +75,7 @@ You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to
         0, // sensuality
         false, // internetEnabled
         false, // roleplayEnabled
-        [] // <-- MODIFIED: Removed the incorrect -1 here. It was going into toneExamples.
+        []
     );
 }
 
@@ -277,7 +274,7 @@ export function generateCard(personality) {
 
 /**
  * Asynchronously loads and applies a custom avatar for a personality card based on tags.
- * Falls back to the personality's default image if no tagged asset is found.
+ * Falls back to a global default avatar, then to the personality's original image URL.
  * Manages Object URLs for memory efficiency.
  * @param {HTMLElement} cardElement - The personality card DOM element.
  * @param {object} personality - The personality object.
@@ -285,16 +282,8 @@ export function generateCard(personality) {
 async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
     
-    // More robust check for required elements and valid personality ID for Map key
-    if (!imgElement || !personality || (typeof personality.id !== 'number' && personality.id !== -1)) { // Check if ID is a number or -1
-        // Log specific reasons for the warning for better debugging if it still occurs
-        if (!imgElement) {
-            console.warn('loadAndApplyPersonalityAvatar: imgElement not found for card.', cardElement);
-        } else if (!personality) {
-            console.warn('loadAndApplyPersonalityAvatar: personality object is missing.', cardElement);
-        } else if (typeof personality.id !== 'number' && personality.id !== -1) {
-            console.warn('loadAndApplyPersonalityAvatar: personality.id is not a valid number or -1 for map key. ID:', personality.id, 'Personality:', personality);
-        }
+    if (!imgElement || !personality || (typeof personality.id !== 'number' && personality.id !== -1)) {
+        console.warn('loadAndApplyPersonalityAvatar: Missing required elements or personality data for map key (expected for default Aphrodite placeholder).');
         return;
     }
 
@@ -306,21 +295,33 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     }
 
     try {
-        // Attempt to find an asset tagged with 'avatar' AND the personality's name (lowercase)
-        const avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()]);
+        let avatarUrl = null;
+
+        // Priority 1: Character-specific avatar (e.g., ['avatar', 'test'])
+        avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()]);
 
         if (avatarUrl) {
-            imgElement.src = avatarUrl;
-            personalityImageUrls.set(personality.id, avatarUrl); // Store the new URL for future revocation
-            console.log(`Applied custom avatar for ${personality.name} (ID: ${personality.id})`);
+            console.log(`Applied character-specific avatar for ${personality.name} (ID: ${personality.id})`);
         } else {
-            // Fallback to the original personality.image if no tagged avatar is found
-            imgElement.src = personality.image;
-            console.log(`No custom avatar found for ${personality.name}, falling back to default image.`);
+            // Priority 2: Global default avatar (e.g., ['default-avatar'])
+            avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['default-avatar']);
+            if (avatarUrl) {
+                console.log(`Applied global default avatar for ${personality.name} (ID: ${personality.id})`);
+            } else {
+                // Priority 3: Fallback to the original personality.image URL
+                imgElement.src = personality.image;
+                console.log(`No custom or global avatar found for ${personality.name}, falling back to original image URL.`);
+                return; // Exit early if we're using the original image URL
+            }
         }
+        
+        // If an avatarUrl was found (either character-specific or global default)
+        imgElement.src = avatarUrl;
+        personalityImageUrls.set(personality.id, avatarUrl); // Store the new URL for future revocation
+
     } catch (error) {
         console.error(`Error loading avatar for ${personality.name} (ID: ${personality.id}):`, error);
-        // Ensure fallback in case of error during asset loading
+        // Ensure fallback to original image in case of any error during asset loading
         imgElement.src = personality.image;
     }
 }
