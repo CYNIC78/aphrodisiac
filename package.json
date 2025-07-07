@@ -2,8 +2,7 @@
   "devDependencies": {
     "vite": "^6.2.2"
   },
-  "dependencies": {
-    "@google/genai": "^0.8.0",
+  "dependencies": {    
     "dexie": "^4.0.10",
     "dompurify": "^3.2.3",
     "tippy.js": "^6.3.7"
