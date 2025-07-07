@@ -101,7 +101,7 @@ form {
 #form-add-personality {
     display: none;
     width: 72rem; 
-    height: 85vh;
+    height: 90vh;
     /* We've added a min-height to prevent it from feeling too short */
     min-height: 55rem; 
     max-height: 60rem;
@@ -872,7 +872,8 @@ input[name="currentChat"][value="none"] {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 0.75rem;
-    height: 25rem;
+    flex-grow: 1; /* This tells the gallery to expand and fill vertical space */
+    min-height: 20rem; /* Ensures it has a good minimum size */
     overflow-y: auto;
     padding: 0.5rem;
     border-radius: 0.5rem;
