@@ -1,7 +1,7 @@
 //handles sending messages to the api
 
-// Re-added the import statement. Vite will now handle this correctly with rollupOptions.external
-import { GoogleGenAI } from "@google/genai"; 
+// REMOVED: import { GoogleGenAI } from "@google/genai";
+// GoogleGenAI is now available globally from the CDN script in index.html (type="module")
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
@@ -100,8 +100,8 @@ export async function send(msg, db) {
         return;
     }
 
-    // GoogleGenAI is imported now via ES Module.
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    // GoogleGenAI is available globally from the CDN script in index.html (no import needed for runtime)
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey }); // This line is correct
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
@@ -111,6 +111,7 @@ export async function send(msg, db) {
     };
     
     if (!await chatsService.getCurrentChat(db)) { 
+        // Using ai.models.generateContent directly, as per original blueprint
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,

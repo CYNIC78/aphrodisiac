@@ -1,5 +1,5 @@
-// Re-added the import statement. Vite will now handle this correctly with rollupOptions.external
-import { GoogleGenAI } from "@google/genai";
+// REMOVED: import { GoogleGenAI } from "@google/genai";
+// GoogleGenAI is now available globally from the CDN script in index.html (type="module")
 
 const apiKeyInput = document.querySelector("#apiKeyInput");
 const errorDisplay = document.querySelector(".api-key-error");
@@ -19,7 +19,8 @@ apiKeyInput.addEventListener("input", () => {
         }
 
         try {
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            // GoogleGenAI is available globally from the CDN script in index.html
+            const ai = new GoogleGenAI({ apiKey: apiKey }); // This line is correct
             
             await ai.models.generateContent({
                 model: "gemini-2.0-flash", // Using a stable model for testing
