@@ -31,6 +31,26 @@ class AssetManagerService {
     async getAssetById(id) {
         return await db.assets.get(id);
     }
+    
+    /**
+     * Updates a specific asset in the database.
+     * @param {number} id - The ID of the asset to update.
+     * @param {object} changes - An object with the properties to change.
+     * @returns {Promise<number>}
+     */
+    async updateAsset(id, changes) {
+        return await db.assets.update(id, changes);
+    }
+
+    /**
+     * Deletes an asset from the database.
+     * @param {number} id - The ID of the asset to delete.
+     * @returns {Promise<void>}
+     */
+    async deleteAsset(id) {
+        return await db.assets.delete(id);
+    }
+
 
     /**
      * Retrieves all assets from the database.
