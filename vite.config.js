@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  root: 'src', // <--- THIS IS THE CRITICAL NEW LINE
+  root: 'src', 
   build: {
+    outDir: '../dist', // <--- THIS IS THE CRITICAL NEW LINE
     rollupOptions: {
       external: ['@google/genai']
     }
