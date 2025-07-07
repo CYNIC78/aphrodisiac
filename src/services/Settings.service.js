@@ -1,4 +1,4 @@
-import { HarmBlockThreshold, HarmCategory } from "@google/genai";
+
 
 // DOM Element Selectors
 const ApiKeyInput = document.querySelector("#apiKeyInput");
@@ -77,10 +77,10 @@ export function getSettings() {
         maxTokens: parseInt(maxTokensInput.value, 10),
         temperature: parseFloat((temperatureInput.value / 100).toFixed(2)),
         safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
