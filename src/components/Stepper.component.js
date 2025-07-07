@@ -1,53 +1,28 @@
-// src/components/Stepper.component.js
-// Handles client-side logic for stepper UI elements.
+//all steppers are expected to have a next, previous and submit button
+//steppers are also expected to be children of a form element
+import *  as stepperService from "../services/Stepper.service";
 
-import * as stepperService from "../services/Stepper.service";
+const steppers = stepperService.getAll();
 
-// This component's purpose is primarily to wire up the actual DOM event listeners
-// for the stepper buttons, and to ensure the stepperService is initialized
-// and its update method is called correctly.
-
-export function initializeStepperComponent() { // Renamed to a function that can be explicitly called
-    // Ensure stepperService is initialized once (though main.js should do this)
-    stepperService.init();
-
-    const steppersElements = document.querySelectorAll('.stepper');
-    steppersElements.forEach(stepperElement => {
-        const form = stepperElement.parentElement;
-        const stepperObj = stepperService.get(stepperElement.id); // Get the stepper object managed by the service
-
-        // If the stepper has already been processed or isn't found in the service, skip
-        if (!stepperObj) {
-            console.warn(`Stepper with ID ${stepperElement.id} not found in StepperService. Skipping event listener setup.`);
-            return;
-        }
-
-        const next = stepperElement.querySelector("#btn-stepper-next");
-        const prev = stepperElement.querySelector("#btn-stepper-previous");
-        const submit = stepperElement.querySelector("#btn-stepper-submit");
-
-        if (next) {
-            next.addEventListener("click", () => {
-                stepperObj.step++;
-                stepperService.update(stepperObj);
-            });
-        }
-        if (prev) {
-            prev.addEventListener("click", () => {
-                stepperObj.step--;
-                stepperService.update(stepperObj);
-            });
-        }
-        if (submit) {
-            submit.addEventListener("click", (e) => {
-                e.preventDefault();
-                // Dispatch a native 'submit' event on the form to trigger its addEventListener handler
-                form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-            });
-        }
+for (const stepper of steppers) {
+    const form = stepper.element.parentElement;
+    const next = stepper.element.querySelector("#btn-stepper-next");
+    const prev = stepper.element.querySelector("#btn-stepper-previous");
+    const submit = stepper.element.querySelector("#btn-stepper-submit");
+    next.addEventListener("click", () => {
+        stepper.step++;
+        stepperService.update(stepper);
     });
-    console.log("Stepper Component Initialized.");
-}
+    prev.addEventListener("click", () => {
+        stepper.step--;
+        stepperService.update(stepper);
+    });
+    submit.addEventListener("click", (e) => {
+        e.preventDefault(); // Prevent the button's default action (if any)
 
-// Call the initialization function directly, as it's meant to be loaded via import.meta.glob
-initializeStepperComponent();
+        // CRITICAL FIX: Instead of directly calling form.submit(), which doesn't pass an event,
+        // we dispatch a 'submit' event on the form. This correctly triggers any custom form.submit handlers
+        // that expect an event object (like the one in AddPersonalityForm.component.js).
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); // <-- THE FIX
+    });
+}
