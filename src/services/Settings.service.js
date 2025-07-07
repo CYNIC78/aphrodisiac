@@ -1,41 +1,81 @@
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 
+// DOM Element Selectors
 const ApiKeyInput = document.querySelector("#apiKeyInput");
 const maxTokensInput = document.querySelector("#maxTokens");
 const temperatureInput = document.querySelector("#temperature");
 const modelSelect = document.querySelector("#selectedModel");
 const autoscrollToggle = document.querySelector("#autoscroll");
 
+// New Dynamic Character Settings Selectors
+const triggerSeparatorInput = document.querySelector("#triggerSeparator");
+const triggerSymbolsInput = document.querySelector("#triggerSymbols");
+const enableAudioToggle = document.querySelector("#enableAudio");
+const globalVolumeSlider = document.querySelector("#globalVolume");
+const globalVolumeLabel = document.querySelector("#label-globalVolume");
+
+
 export function initialize() {
     loadSettings();
+    // Existing Listeners
     ApiKeyInput.addEventListener("input", saveSettings);
     maxTokensInput.addEventListener("input", saveSettings);
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
+
+    // New Listeners for Dynamic Character Settings
+    triggerSeparatorInput.addEventListener("input", saveSettings);
+    triggerSymbolsInput.addEventListener("input", saveSettings);
+    enableAudioToggle.addEventListener("change", saveSettings);
+    globalVolumeSlider.addEventListener("input", saveSettings);
+
+    // Listener to update the volume label in real-time
+    globalVolumeSlider.addEventListener("input", () => {
+        globalVolumeLabel.textContent = globalVolumeSlider.value;
+    });
 }
 
 export function loadSettings() {
+    // Load existing settings
     ApiKeyInput.value = localStorage.getItem("API_KEY") || "";
     maxTokensInput.value = localStorage.getItem("maxTokens") || 1000;
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
-    modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash";
+    modelSelect.value = localStorage.getItem("model") || "gemini-1.5-flash-latest";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
+
+    // Load new Dynamic Character settings with sensible defaults
+    triggerSeparatorInput.value = localStorage.getItem("triggerSeparator") || "~~~";
+    triggerSymbolsInput.value = localStorage.getItem("triggerSymbols") || "[]";
+    // Default to 'true' if it's not explicitly 'false'
+    enableAudioToggle.checked = localStorage.getItem("enableAudio") !== "false"; 
+    globalVolumeSlider.value = localStorage.getItem("globalVolume") || 50;
+
+    // Set initial label values on load
+    globalVolumeLabel.textContent = globalVolumeSlider.value;
 }
 
 export function saveSettings() {
+    // Save existing settings
     localStorage.setItem("API_KEY", ApiKeyInput.value);
     localStorage.setItem("maxTokens", maxTokensInput.value);
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked);
+
+    // Save new Dynamic Character settings
+    localStorage.setItem("triggerSeparator", triggerSeparatorInput.value);
+    localStorage.setItem("triggerSymbols", triggerSymbolsInput.value);
+    localStorage.setItem("enableAudio", enableAudioToggle.checked);
+    localStorage.setItem("globalVolume", globalVolumeSlider.value);
 }
 
 export function getSettings() {
     return {
+        // Existing settings
         apiKey: ApiKeyInput.value,
-        maxTokens: maxTokensInput.value,
-        temperature: temperatureInput.value,
+        maxTokens: parseInt(maxTokensInput.value, 10),
+        temperature: parseFloat((temperatureInput.value / 100).toFixed(2)),
         safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -44,6 +84,12 @@ export function getSettings() {
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
+
+        // New Dynamic Character settings
+        triggerSeparator: triggerSeparatorInput.value,
+        triggerSymbols: triggerSymbolsInput.value,
+        enableAudio: enableAudioToggle.checked,
+        globalVolume: parseInt(globalVolumeSlider.value, 10)
     }
 }
 

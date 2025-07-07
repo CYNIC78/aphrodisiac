@@ -24,12 +24,16 @@ class AssetManagerService {
     }
 
     /**
-     * Retrieves a single asset by its ID.
+     * Retrieves a single asset by its ID and adds a usable dataUrl.
      * @param {number} id - The ID of the asset to retrieve.
      * @returns {Promise<object|undefined>} The asset object, or undefined if not found.
      */
     async getAssetById(id) {
-        return await db.assets.get(id);
+        const asset = await db.assets.get(id);
+        if (asset && asset.data) {
+            asset.dataUrl = URL.createObjectURL(asset.data);
+        }
+        return asset;
     }
     
     /**
@@ -53,11 +57,17 @@ class AssetManagerService {
 
 
     /**
-     * Retrieves all assets from the database.
+     * Retrieves all assets from the database and adds usable dataUrls.
      * @returns {Promise<any[]>} A promise that resolves to an array of assets.
      */
     async getAllAssets() {
-        return await db.assets.toArray();
+        const assets = await db.assets.toArray();
+        assets.forEach(asset => {
+            if (asset.data) {
+                asset.dataUrl = URL.createObjectURL(asset.data);
+            }
+        });
+        return assets;
     }
 
     /**
@@ -69,8 +79,14 @@ class AssetManagerService {
         if (!tags || tags.length === 0) {
             return this.getAllAssets();
         }
-        // This Dexie query finds assets where the 'tags' array contains every tag from the input array.
-        return await db.assets.where('tags').all(tags).toArray();
+        // This filter is more robust than the previous version
+        const assets = await db.assets.filter(asset => tags.every(tag => asset.tags.includes(tag))).toArray();
+        assets.forEach(asset => {
+            if (asset.data) {
+                asset.dataUrl = URL.createObjectURL(asset.data);
+            }
+        });
+        return assets;
     }
     
     /**
@@ -78,9 +94,28 @@ class AssetManagerService {
      * @returns {Promise<string[]>} A promise that resolves to an array of unique tags.
      */
     async getAllUniqueTags() {
+        // This correctly retrieves all unique tags from the multi-entry index
         const allTags = await db.assets.orderBy('tags').uniqueKeys();
-        // The result of uniqueKeys is a flat array, so we can sort it directly.
         return allTags.sort((a, b) => a.localeCompare(b));
+    }
+
+    /**
+     * Finds the first asset of a specific type that has a given tag.
+     * @param {string} type - The type of asset ('image' or 'audio').
+     * @param {string} tag - The tag to search for.
+     * @returns {Promise<object|undefined>} The first matching asset with a dataUrl, or undefined if not found.
+     */
+    async getAssetByTag(type, tag) {
+        const asset = await db.assets
+            .where('type').equals(type)
+            .and(asset => asset.tags.includes(tag))
+            .first(); // .first() is efficient, it stops searching after finding one.
+            
+        if (asset && asset.data) {
+            // We must create a usable URL from the stored blob data
+            asset.dataUrl = URL.createObjectURL(asset.data);
+        }
+        return asset;
     }
 }
 

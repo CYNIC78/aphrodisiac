@@ -155,6 +155,59 @@
                             <label for="autoscroll">Autoscroll</label>
                         </div>
                     </div>
+                    <!-- ================================== -->
+                    <!-- ==      NEW SETTINGS START      == -->
+                    <!-- ================================== -->
+                    <h3>Dynamic Characters</h3>
+                    <div class="generation-settings"> <!-- Using this class for consistent styling -->
+                        <div>
+                            <label class="setting-label" for="triggerSeparator">
+                                <span class="material-symbols-outlined">code</span>
+                                <span>Trigger Separator</span>
+                                <span class="material-symbols-outlined tooltip" 
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="The sequence of characters that separates the visible AI response from hidden commands. Example: ~~~">
+                                    info
+                                </span> 
+                            </label>
+                            <input type="text" id="triggerSeparator" class="input-field" value="~~~">
+                        </div>
+                        <div>
+                            <label class="setting-label" for="triggerSymbols">
+                                <span class="material-symbols-outlined">interests</span>
+                                <span>Trigger Symbols</span>
+                                <span class="material-symbols-outlined tooltip" 
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="The characters that wrap a command key and value. Example: [ and ] for [avatar:smile]">
+                                    info
+                                </span> 
+                            </label>
+                            <input type="text" id="triggerSymbols" class="input-field" value="[]">
+                        </div>
+                        <div>
+                            <label class="setting-label" for="enableAudio">
+                                <span class="material-symbols-outlined">volume_up</span>
+                                <span>Enable Triggered Audio</span>
+                            </label>
+                            <div style="display: flex; gap: 0.25rem; align-items: center;">
+                                <input id="enableAudio" type="checkbox" name="enableAudio"></input>
+                                <label for="enableAudio">Audio Enabled</label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="setting-label" for="globalVolume">
+                                <span class="material-symbols-outlined">volume_down</span>
+                                <span>Global Audio Volume</span> 
+                            </label>
+                            <div class="btn-array">
+                                <input type="range" min="0" max="100" id="globalVolume" class="slider">
+                                <label id="label-globalVolume">50</label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ================================== -->
+                    <!-- ==       NEW SETTINGS END       == -->
+                    <!-- ================================== -->
                 </div>
             </div>
 
@@ -171,6 +224,14 @@
                 </button>
             </div>
             <div class="message-container"></div>
+            <!-- ================================== -->
+            <!-- ==    NEW NOW PLAYING BAR       == -->
+            <!-- ================================== -->
+            <div id="now-playing-bar" style="display: none;">
+                <span class="material-symbols-outlined">music_note</span>
+                <span id="now-playing-track">Now Playing...</span>
+            </div>
+            <!-- ================================== -->
             <div id="message-box">
                 <span contenteditable placeholder="Send a message" id="messageInput" class="input-field"></span>
                 <button type="submit" class="btn-textual material-symbols-outlined" id="btn-send">send</button>
