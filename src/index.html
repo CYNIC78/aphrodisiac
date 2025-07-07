@@ -187,7 +187,7 @@
 				<div class="stepper first-step" id="stepper-add-personality">
 					<div class="stepper-content">
 						<div class="step active">
-							<!-- we match the name property of each input to the corresponding key in our personality model (Personality.service.js) -->
+							<!-- Basic Info Step -->
 							<h3>Basic Info</h3>
 							<input style="display: none;" name="id">
 							<label for="name">Name:</label>
@@ -202,6 +202,7 @@
 								style="height: 25rem; resize:vertical"></textarea>
 						</div>
 						<div class="step">
+							<!-- Personality Step -->
 							<h3>Personality</h3>
 							<label for="aggressiveness">Aggressiveness:</label>
 							<input type="range" name="aggressiveness" min="0" max="3" step="1"
@@ -221,7 +222,6 @@
 								<option value="3">3</option>
 							</datalist>
 							<h3>Tweaks</h3>
-							<!-- internet access toggle -->
 							<div style="display: flex; gap: 0.25rem; align-items: center;">
 								<input id="internet-access" type="checkbox" name="internetEnabled"></input>
 								<label for="internet-access">Internet Access</label>
@@ -229,7 +229,6 @@
 									style="font-size: 0.885rem; opacity: 0.6; cursor:default"
 									info="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
 							</div>
-							<!-- roleplay toggle -->
 							<div style="display: flex; gap: 0.25rem; align-items: center;">
 								<input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
 								<label for="roleplay">Roleplay</label>
@@ -239,6 +238,7 @@
 							</div>
 						</div>
 						<div class="step">
+							<!-- Tone Examples Step -->
 							<div>
 								<h3 style="display:inline">Tone Examples</h3>
 								<span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
@@ -248,22 +248,32 @@
 							<button type="button" id="btn-add-tone-example"
 								class="material-symbols-outlined">add_circle</button>
 						</div>
-						<!-- NEW MEDIA STEP ADDED HERE -->
-						<div class="step">
-							<h3>Media Library</h3>
-							<p style="opacity: 60%; font-size: 90%; font-style: italic;">
-								Upload and tag images or audio files to use with your personality.
-							</p>
-							<div class="asset-manager-controls">
-								<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
-								<button type="button" class="btn-with-icon" id="btn-upload-asset">
-									<span class="material-symbols-outlined">upload_file</span>
-									Upload
-								</button>
-								<input type="search" id="asset-search-input" placeholder="Search by tag..." class="input-field">
-							</div>
-							<div id="asset-manager-gallery">
-								<!-- Asset cards will be injected here by JavaScript -->
+						
+						<!-- ================================== -->
+						<!-- ==  REBUILT MEDIA LIBRARY STEP  == -->
+						<!-- ================================== -->
+						<div class="step" id="media-library-step">
+							<div class="media-library-layout">
+								<div class="tag-explorer">
+									<h3>Tags</h3>
+									<input type="search" id="tag-explorer-search" placeholder="Filter tags...">
+									<div id="tag-explorer-list">
+										<!-- All unique tags will be rendered here by JS -->
+									</div>
+								</div>
+								<div class="gallery-main">
+									<div class="gallery-header">
+										<h3 id="gallery-title">All Assets</h3>
+										<button type="button" class="btn-with-icon" id="btn-upload-asset">
+											<span class="material-symbols-outlined">upload_file</span>
+											Upload
+										</button>
+									</div>
+									<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
+									<div id="asset-manager-gallery">
+										<!-- Asset cards will be injected here by JS -->
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -276,9 +286,7 @@
 				</div>
 			</form>
 
-			<!-- ================================== -->
-			<!-- ==   REFINED ASSET DETAIL VIEW  == -->
-			<!-- ================================== -->
+			<!-- The Asset Detail View remains, but is now controlled by the new system -->
 			<div id="asset-detail-view" style="display: none;">
 				<div id="asset-detail-preview"></div>
 				<div id="asset-detail-info">
@@ -286,9 +294,7 @@
 					<div class="asset-detail-body">
 						<div class="asset-detail-section">
 							<h4>Tags</h4>
-							<div id="asset-detail-tags">
-								<!-- Tag pills will be injected here -->
-							</div>
+							<div id="asset-detail-tags"></div>
 							<div class="add-tag-wrapper">
 								<input type="text" id="add-tag-input" placeholder="Add new tag...">
 								<button id="btn-add-tag" class="material-symbols-outlined">add</button>
@@ -305,6 +311,7 @@
 				</div>
 			</div>
 
+			<!-- The What's New View remains unchanged -->
 			<div id="whats-new">
 				<h1 id="header-version">What's New in </h1>
 				<ul id="changelog">
@@ -314,12 +321,10 @@
 					
 					<li>Visit my discord if you'd like to connect regarding the project, need support, or have any
 						questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
-
 				</ul>
 			</div>
 		</div>
 	</div>
-
 
 
 

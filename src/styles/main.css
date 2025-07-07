@@ -947,6 +947,20 @@ input[name="currentChat"][value="none"] {
     text-align: center;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @media (min-width: 1032px) {
     .sidebar {
         display: flex;
@@ -1302,231 +1316,6 @@ input[name="currentChat"][value="none"] {
 
 
 
-/* ========================================= */
-/* ==   REFINED ASSET DETAIL VIEW STYLES  == */
-/* ========================================= */
-
-#asset-detail-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    align-self: center;
-    
-    /* The new, crucial constraints */
-    max-width: 75vh; /* Max width is 75% of viewport height (keeps it square) */
-    max-height: 75vh;/* Max height is 75% of viewport height */
-}
-
-#asset-detail-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    aspect-ratio: 1 / 1; /* Enforce a square shape */
-    border-radius: 0.5rem;
-    overflow: hidden;
-    align-self: center; /* Center the square vertically */
-}
-
-#asset-detail-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; /* Contain non-square images without distortion */
-}
-
-#asset-detail-info {
-    display: flex;
-    flex-direction: column; /* Stack info sections vertically */
-    gap: 1rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-}
-
-#asset-detail-name {
-    margin: 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    word-break: break-all; /* Prevent long filenames from overflowing */
-}
-
-.asset-detail-body {
-    flex-grow: 1; /* This pushes the actions to the bottom */
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.asset-detail-section h4 {
-    margin: 0 0 0.5rem 0;
-    opacity: 0.7;
-}
-
-.add-tag-wrapper {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.add-tag-wrapper input {
-    flex-grow: 1;
-}
-
-.add-tag-wrapper button {
-    flex-shrink: 0;
-}
-
-.asset-detail-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: auto; /* This works with flex-grow to anchor to the bottom */
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.asset-detail-actions button {
-    justify-content: flex-start; /* Align button content to the left */
-}
-
-/* A specific style for our red danger button */
-.btn-danger {
-    background-color: #a43131;
-    color: #ffffff;
-}
-.btn-danger:hover {
-    background-color: #8b2828;
-}
-
-
-
-
-
-/* ========================================= */
-/* ==   FINAL ASSET DETAIL VIEW STYLES    == */
-/* ========================================= */
-
-#asset-detail-view {
-    display: grid;
-    grid-template-columns: 1fr 350px;
-    gap: 1.5rem;
-    height: 100%;
-    padding: 1rem;
-    box-sizing: border-box;
-    align-items: center;
-}
-
-#asset-detail-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    align-self: center;
-    max-width: 75vh;
-    max-height: 75vh;
-}
-
-#asset-detail-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-#asset-detail-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    height: 100%; /* Make info panel fill height */
-    box-sizing: border-box;
-}
-
-#asset-detail-name {
-    margin: 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    word-break: break-all;
-}
-
-.asset-detail-body {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    overflow-y: auto; /* Allow scrolling if content is too tall */
-}
-
-.asset-detail-section h4 {
-    margin: 0 0 0.5rem 0;
-    opacity: 0.7;
-}
-
-#asset-detail-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.tag-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-}
-
-.remove-tag {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    cursor: pointer;
-    line-height: 1;
-    transition: background-color 0.2s;
-}
-
-.add-tag-wrapper {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
-.add-tag-wrapper input {
-    flex-grow: 1;
-}
-
-.add-tag-wrapper button {
-    flex-shrink: 0;
-}
-
-.asset-detail-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.asset-detail-actions button {
-    justify-content: flex-start;
-}
-
-.btn-danger {
-    background-color: #a43131;
-    color: #ffffff;
-}
-.btn-danger:hover {
-    background-color: #8b2828;
-}
 
 /* Theme-specific tag styles */
 @media (prefers-color-scheme: dark) {
@@ -1638,4 +1427,265 @@ input[name="currentChat"][value="none"] {
         background-color: #4c7cbe;
         color: #edf1f8;
     }
+}
+
+
+
+
+/* ================================== */
+/* ==   TAG EXPLORER LAYOUT (v3)   == */
+/* ================================== */
+
+/* This makes the Media Library step use all available space */
+#media-library-step {
+    flex-grow: 1;
+    min-height: 0; /* Flexbox fix for nested scrolling */
+}
+
+/* The main two-panel grid layout */
+.media-library-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr; /* Fixed-width tag panel, flexible gallery */
+    gap: 1rem;
+    height: 100%;
+}
+
+/* The left-side panel for tags */
+.tag-explorer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+}
+
+#tag-explorer-search {
+    flex-shrink: 0; /* Prevent search bar from shrinking */
+}
+
+/* The scrollable list of all tags */
+#tag-explorer-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-right: 0.5rem; /* Space for the scrollbar */
+}
+
+.tag-explorer-item {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s, color 0.2s;
+    justify-content: flex-start; /* Align text to the left */
+}
+
+.tag-explorer-item.selected {
+    font-weight: 800; /* Make selected tag bold */
+}
+
+/* The right-side panel for the gallery */
+.gallery-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.gallery-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.gallery-header h3 {
+    margin: 0;
+}
+
+/* The gallery grid itself */
+#asset-manager-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px dashed;
+}
+
+/* Asset cards are now beautifully simple */
+.asset-card {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.asset-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+}
+
+.asset-card:hover img {
+    transform: scale(1.05);
+}
+
+.gallery-empty-placeholder {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    opacity: 0.6;
+}
+
+/* ========================================= */
+/* ==   ASSET DETAIL VIEW STYLES (v3)     == */
+/* ========================================= */
+
+#asset-detail-view {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 1.5rem;
+    height: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+    align-items: center;
+}
+
+#asset-detail-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    align-self: center;
+    max-width: 75vh;
+    max-height: 75vh;
+}
+
+#asset-detail-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+#asset-detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+#asset-detail-name {
+    margin: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    word-break: break-all;
+}
+
+.asset-detail-body {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+}
+
+.asset-detail-section h4 {
+    margin: 0 0 0.5rem 0;
+    opacity: 0.7;
+}
+
+#asset-detail-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.remove-tag {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    cursor: pointer;
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+
+.add-tag-wrapper {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.add-tag-wrapper input {
+    flex-grow: 1;
+}
+
+.add-tag-wrapper button {
+    flex-shrink: 0;
+}
+
+.asset-detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.asset-detail-actions button {
+    justify-content: flex-start;
+}
+
+.btn-danger {
+    background-color: #a43131;
+    color: #ffffff;
+}
+.btn-danger:hover {
+    background-color: #8b2828;
+}
+
+/* Theme-specific styles for the new layout */
+@media (prefers-color-scheme: dark) {
+    .tag-explorer { background-color: rgba(0,0,0,0.2); }
+    #asset-manager-gallery { border-color: rgba(255, 255, 255, 0.1); }
+    .tag-explorer-item:not(.selected):hover { background-color: rgba(255,255,255,0.1); }
+    .tag-explorer-item.selected { background-color: #5f96c8; color: #0b2469; }
+    .tag-pill { background-color: #283542; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .remove-tag:hover { background-color: rgba(255, 255, 255, 0.1); }
+}
+
+@media (prefers-color-scheme: light) {
+    .tag-explorer { background-color: rgba(0,0,0,0.05); }
+    #asset-manager-gallery { border-color: rgba(0,0,0,0.1); }
+    .tag-explorer-item:not(.selected):hover { background-color: rgba(0,0,0,0.05); }
+    .tag-explorer-item.selected { background-color: #4c7cbe; color: #edf1f8; }
+    .tag-pill { background-color: #d2e2f7; border: 1px solid rgba(0, 0, 0, 0.1); color: #011031; }
+    .remove-tag:hover { background-color: rgba(0, 0, 0, 0.1); }
 }
