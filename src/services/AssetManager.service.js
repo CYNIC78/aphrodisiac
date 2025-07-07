@@ -6,14 +6,20 @@ class AssetManagerService {
     }
 
     /**
-     * Adds a new asset to the database.
+     * Adds a new asset to the database, associated with a character.
      * @param {File} file - The file to be added.
      * @param {string[]} tags - An array of tags for the asset.
+     * @param {number} characterId - The ID of the personality this asset belongs to.
      * @returns {Promise<number>} The ID of the new asset.
      */
-    async addAsset(file, tags = []) {
-        console.log(`Adding asset: ${file.name} with tags: ${tags.join(', ')}`);
+    async addAsset(file, tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
+        if (typeof characterId === 'undefined' || characterId === null) {
+            console.error("AssetManagerService.addAsset: characterId is required.");
+            throw new Error("characterId is required to add an asset.");
+        }
+        console.log(`Adding asset: ${file.name} for character ID ${characterId} with tags: ${tags.join(', ')}`);
         const asset = {
+            characterId: characterId, // <-- ADDED: Associate asset with character
             name: file.name,
             type: file.type.startsWith('image/') ? 'image' : 'audio',
             tags: tags,
@@ -51,50 +57,82 @@ class AssetManagerService {
         return await db.assets.delete(id);
     }
 
-
     /**
-     * Retrieves all assets from the database.
-     * @returns {Promise<any[]>} A promise that resolves to an array of assets.
+     * Deletes all assets associated with a specific character.
+     * This is crucial for clean character deletion.
+     * @param {number} characterId - The ID of the character whose assets to delete.
+     * @returns {Promise<void>}
      */
-    async getAllAssets() {
-        return await db.assets.toArray();
+    async deleteAssetsByCharacterId(characterId) { // <-- ADDED: New function for per-character deletion
+        if (typeof characterId === 'undefined' || characterId === null) {
+            console.error("AssetManagerService.deleteAssetsByCharacterId: characterId is required.");
+            return;
+        }
+        console.log(`Deleting all assets for character ID: ${characterId}`);
+        await db.assets.where('characterId').equals(characterId).delete();
     }
 
     /**
-     * Searches for assets that contain ALL of the given tags.
+     * Retrieves all assets from the database for a specific character.
+     * @param {number} characterId - The ID of the personality.
+     * @returns {Promise<any[]>} A promise that resolves to an array of assets.
+     */
+    async getAllAssetsForCharacter(characterId) { // <-- MODIFIED: New function for character-specific retrieval
+        if (typeof characterId === 'undefined' || characterId === null) {
+            console.error("AssetManagerService.getAllAssetsForCharacter: characterId is required.");
+            return [];
+        }
+        return await db.assets.where('characterId').equals(characterId).toArray();
+    }
+
+    /**
+     * Searches for assets (for a specific character) that contain ALL of the given tags.
      * @param {string[]} tags - An array of tags to filter by.
+     * @param {number} characterId - The ID of the personality.
      * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
      */
-    async searchAssetsByTags(tags = []) {
+    async searchAssetsByTags(tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
+        if (typeof characterId === 'undefined' || characterId === null) {
+            console.error("AssetManagerService.searchAssetsByTags: characterId is required.");
+            return [];
+        }
         if (!tags || tags.length === 0) {
-            return this.getAllAssets();
+            return this.getAllAssetsForCharacter(characterId); // Use character-specific getter
         }
         
-        // --- CRITICAL FIX START ---
-        // Dexie's .where().all() is not a valid method for multi-entry indexes to check for ALL tags.
-        // Instead, we use .anyOf() to leverage the index for initial candidates,
-        // then filter those candidates in JavaScript to ensure ALL requested tags are present.
+        // Step 1: Get all assets for the specific character that have AT LEAST ONE of the desired tags
+        const candidateAssets = await db.assets
+                                    .where('characterId').equals(characterId) // <-- Filter by characterId first
+                                    .and(asset => tags.some(tag => asset.tags.includes(tag))) // Filter by tags
+                                    .toArray();
 
-        // Step 1: Get all assets that have AT LEAST ONE of the desired tags (leveraging the index)
-        const candidateAssets = await db.assets.where('tags').anyOf(...tags).toArray();
-
-        // Step 2: Filter these candidates in JavaScript to ensure ALL tags are present in the asset's tags array
+        // Step 2: Filter these candidates in JavaScript to ensure ALL tags are present in the asset's tags array.
+        // This is necessary because Dexie's .anyOf() (or .and() combined with a predicate)
+        // only checks for SOME tags, not ALL, when using multi-entry indexes in this way.
         const matchingAssets = candidateAssets.filter(asset =>
             tags.every(tag => asset.tags.includes(tag))
         );
 
         return matchingAssets;
-        // --- CRITICAL FIX END ---
     }
     
     /**
-     * Gets a sorted, unique list of all tags in the database.
+     * Gets a sorted, unique list of all tags for a specific character's assets in the database.
+     * @param {number} characterId - The ID of the personality.
      * @returns {Promise<string[]>} A promise that resolves to an array of unique tags.
      */
-    async getAllUniqueTags() {
-        const allTags = await db.assets.orderBy('tags').uniqueKeys();
-        // The result of uniqueKeys is a flat array, so we can sort it directly.
-        return allTags.sort((a, b) => a.localeCompare(b));
+    async getAllUniqueTagsForCharacter(characterId) { // <-- MODIFIED: New function for character-specific tags
+        if (typeof characterId === 'undefined' || characterId === null) {
+            console.error("AssetManagerService.getAllUniqueTagsForCharacter: characterId is required.");
+            return [];
+        }
+        const allAssets = await this.getAllAssetsForCharacter(characterId); // Get character's assets
+        const uniqueTags = new Set();
+        allAssets.forEach(asset => {
+            asset.tags.forEach(tag => uniqueTags.add(tag));
+        });
+        const sortedTags = Array.from(uniqueTags).sort((a, b) => a.localeCompare(b));
+        return sortedTags;
     }
 
     /**
@@ -112,12 +150,13 @@ class AssetManagerService {
     }
 
     /**
-     * Searches for image assets that contain ALL of the given tags and returns the Object URL of the first one found.
+     * Searches for image assets (for a specific character) that contain ALL of the given tags and returns the Object URL of the first one found.
      * @param {string[]} tags - An array of tags to filter by.
+     * @param {number} characterId - The ID of the personality.
      * @returns {Promise<string|null>} The Object URL of the first matching image asset, or null if none found.
      */
-    async getFirstImageObjectUrlByTags(tags = []) {
-        const assets = await this.searchAssetsByTags(tags);
+    async getFirstImageObjectUrlByTags(tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
+        const assets = await this.searchAssetsByTags(tags, characterId); // <-- Pass characterId
         const imageAssets = assets.filter(a => a.type === 'image');
         if (imageAssets.length > 0) {
             // If multiple images match, we take the first one found.
