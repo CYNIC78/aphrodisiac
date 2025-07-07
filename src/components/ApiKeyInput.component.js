@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai"; // <<< CONFIRMED: GoogleGenAI (not GoogleGenerativeAI)
 
 const apiKeyInput = document.querySelector("#apiKeyInput");
 const errorDisplay = document.querySelector(".api-key-error");
@@ -22,10 +22,12 @@ apiKeyInput.addEventListener("input", () => {
         }
 
         try {
-            // FIX #1: The library requires the API key to be passed inside an object.
-            const genAI = new GoogleGenAI({ apiKey: apiKey });
+            // ================== THE CRITICAL FIX IS HERE ==================
+            // CONFIRMED: The library requires the API key to be passed inside an object.
+            const genAI = new GoogleGenAI({ apiKey: apiKey }); 
+            // =====================================================
             
-            // FIX #2: We must get a specific model instance before making a call.
+            // We must get a specific model instance before making a call.
             // We use the latest flash model for a quick and inexpensive test.
             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 

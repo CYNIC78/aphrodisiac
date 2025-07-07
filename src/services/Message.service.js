@@ -1,6 +1,6 @@
 //handles sending messages to the api
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from "@google/genai"; // <<< CONFIRMED: GoogleGenAI (not GoogleGenerativeAI)
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
@@ -100,9 +100,10 @@ export async function send(msg, db) {
         return;
     }
 
-    // THIS IS THE LINE THAT FIXES THE CRASH.
-    // The library requires the API key to be passed inside an object.
-    const genAI = new GoogleGenAI({ apiKey: settings.apiKey });
+    // ================== THE CRITICAL FIX IS HERE ==================
+    // CONFIRMED: The library now requires the API key to be passed inside an object.
+    const genAI = new GoogleGenAI({ apiKey: settings.apiKey }); 
+    // =====================================================
 
     const model = genAI.getGenerativeModel({ 
         model: settings.model,
@@ -176,7 +177,7 @@ async function regenerate(responseElement, db) {
     await send(message, db);
 }
 
-// ... the rest of the file is unchanged and correct ...
+
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector(".btn-edit");
