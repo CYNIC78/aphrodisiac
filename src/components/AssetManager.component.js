@@ -99,7 +99,6 @@ async function renderGallery() {
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card';
-    // *** FIX: This listener now works correctly ***
     card.addEventListener('click', () => showAssetDetailView(asset.id));
 
     if (asset.type === 'image') {
@@ -132,7 +131,6 @@ function renderTagsInDetailView(tags = []) {
         removeBtn.innerHTML = '×';
         removeBtn.onclick = () => handleRemoveTagFromAsset(tag);
 
-        // *** FIX: The critical typo is fixed here ***
         pill.appendChild(removeBtn);
         tagsContainer.appendChild(pill);
     });
@@ -248,7 +246,15 @@ export function initializeAssetManagerComponent() {
         if (!files.length) return;
         for (const file of files) {
             try {
-                await assetManagerService.addAsset(file, ['new']);
+                // Determine the initial tag based on file type
+                let initialTag = 'new'; // Fallback tag
+                if (file.type.startsWith('image/')) {
+                    initialTag = 'image';
+                } else if (file.type.startsWith('audio/')) {
+                    initialTag = 'audio';
+                }
+                // <-- MODIFIED: Pass the determined initialTag
+                await assetManagerService.addAsset(file, [initialTag]);
             } catch (error) { console.error('Failed to add asset:', error); }
         }
         event.target.value = ''; 
