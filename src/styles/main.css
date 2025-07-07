@@ -872,8 +872,7 @@ input[name="currentChat"][value="none"] {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 0.75rem;
-    flex-grow: 1; /* This tells the gallery to expand and fill vertical space */
-    min-height: 20rem; /* Ensures it has a good minimum size */
+    height: 35rem; /* Set a large, explicit height */
     overflow-y: auto;
     padding: 0.5rem;
     border-radius: 0.5rem;
