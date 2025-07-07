@@ -1,7 +1,7 @@
 import { showElement, hideElement } from '../utils/helpers';
 import * as stepperService from './Stepper.service';
 // Import the component initializers
-import { initializeAddPersonalityForm } from '../components/AddPersonalityForm.component.js';
+import { initializeAddPersonalityForm, cleanupAddPersonalityForm } from '../components/AddPersonalityForm.component.js'; // <-- MODIFIED: Added cleanupAddPersonalityForm
 import { initializeAssetManagerComponent } from '../components/AssetManager.component.js';
 
 
@@ -12,9 +12,9 @@ const personalityForm = document.querySelector("#form-add-personality");
 export function showAddPersonalityForm() {
     showElement(overlay, false);
     showElement(personalityForm, false);
-    // Initialize the components without a specific personality ID for a new form
-    initializeAddPersonalityForm(null); // <-- MODIFIED: Pass null characterId for new personality
-    initializeAssetManagerComponent(null); // <-- MODIFIED: Pass null characterId for new personality
+    // Initialize the components with a null personality ID for a new form (draft)
+    initializeAddPersonalityForm(null);
+    // initializeAssetManagerComponent(null); // This call is now handled by initializeAddPersonalityForm
 }
 
 export function showEditPersonalityForm(personality) {
@@ -29,23 +29,21 @@ export function showEditPersonalityForm(personality) {
             for (const [index, tone] of personality.toneExamples.entries()) {
                 if (index === 0) {
                     const input = personalityForm.querySelector(`input[name="tone-example-1"]`);
-                    if(input) input.value = tone; // Check if input exists
+                    if(input) input.value = tone;
                     continue;
                 }
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.name = `tone-example-${index + 1}`; // Ensure unique names
+                input.name = `tone-example-${index + 1}`;
                 input.classList.add('tone-example');
                 input.placeholder = 'Tone example';
                 input.value = tone;
-                // Append before the add button
                 const btnAddToneExample = personalityForm.querySelector("#btn-add-tone-example");
-                if(btnAddToneExample) btnAddToneExample.before(input); // Check if button exists
+                if(btnAddToneExample) btnAddToneExample.before(input);
             }
         } else {
             const input = personalityForm.querySelector(`[name="${key}"]`);
-            if (input) { // Ensure input element exists before setting value
-                // Handle checkbox inputs specially
+            if (input) {
                 if (input.type === 'checkbox') {
                     input.checked = personality[key];
                 } else {
@@ -57,8 +55,8 @@ export function showEditPersonalityForm(personality) {
     showElement(overlay, false);
     showElement(personalityForm, false);
     // Initialize the components with the personality's ID for editing
-    initializeAddPersonalityForm(personality.id); // <-- MODIFIED: Pass personality.id
-    initializeAssetManagerComponent(personality.id); // <-- MODIFIED: Pass personality.id
+    initializeAddPersonalityForm(personality.id);
+    // initializeAssetManagerComponent(personality.id); // This call is now handled by initializeAddPersonalityForm
 }
 
 export function showChangelog() {
@@ -67,7 +65,10 @@ export function showChangelog() {
     showElement(whatsNew, false);
 }
 
-export function closeOverlay() {
+export async function closeOverlay() { // <-- MODIFIED: Made async
+    // Trigger cleanup logic in AddPersonalityForm BEFORE hiding everything
+    await cleanupAddPersonalityForm(); // <-- ADDED: Call cleanup
+
     hideElement(overlay);
 
     for (const item of overlayItems) {
@@ -78,9 +79,9 @@ export function closeOverlay() {
             // Remove all but the first tone example input and clear its value
             item.querySelectorAll('.tone-example').forEach((element, index) => {
                 if (index === 0) {
-                    element.value = ''; // Clear the first one's value
+                    element.value = '';
                 } else {
-                    element.remove(); // Remove subsequent ones
+                    element.remove();
                 }
             });
             // Reset checkboxes
