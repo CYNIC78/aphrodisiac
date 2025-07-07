@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  root: 'src', // <--- THIS IS THE CRITICAL NEW LINE
   build: {
     rollupOptions: {
-      external: ['@google/genai'] // THIS TELLS VITE NOT TO BUNDLE @google/genai
+      external: ['@google/genai']
     }
   }
 });
