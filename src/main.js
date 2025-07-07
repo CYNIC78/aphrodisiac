@@ -1,22 +1,20 @@
-// Renamed setupDB import for clarity
 import { setupDB } from './services/Db.service'; 
 import * as personalityService from "./services/Personality.service";
 import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import * as helpers from "./utils/helpers";
-import * as assetManagerService from "./services/AssetManager.service"; // Import AssetManagerService
+import * as assetManagerService from "./services/AssetManager.service";
 
 
 // All core application initialization and setup will now happen inside this immediately invoked async function.
 // This resolves the "Top-level await is not available" build error by providing an async context for all awaits.
 (async () => {
     try {
-        // 1. Initialize the database FIRST.
-        const db = setupDB(); // Call the synchronous setup function
-        await db.version(5).upgrade(tx => {}); // Explicitly await the database open/upgrade process
-
-        console.log("Database initialized and ready.");
+        // 1. Initialize the database FIRST by setting up schema, THEN explicitly opening it.
+        const db = setupDB(); // Call the synchronous setup function (defines schema)
+        await db.open(); // <--- CRITICAL: Explicitly open the database and await its readiness
+        console.log("Database initialized and ready (Dexie).");
 
         // 2. Initialize services, passing the 'db' instance where needed.
         settingsService.initialize(); // Settings doesn't directly interact with 'db'
@@ -25,13 +23,12 @@ import * as assetManagerService from "./services/AssetManager.service"; // Impor
         // We now pass 'db' explicitly to their initialization methods.
         await chatsService.initialize(db);
         await personalityService.initialize(db); 
-        await assetManagerService.initialize(db); // Initialize AssetManagerService with db
+        await assetManagerService.initialize(db); 
 
         // 3. Load all component code.
-        // These modules might contain event listeners or initial UI setup that needs to run early.
         const components = import.meta.glob('./components/*.js');
         for (const path in components) {
-            await components[path](); // Execute and await each component module's main function/top-level code
+            await components[path]();
         }
 
         console.log("Aphrodisiac application core initialized successfully.");
@@ -61,7 +58,7 @@ import * as assetManagerService from "./services/AssetManager.service"; // Impor
 
         const deleteAllChatsButton = document.querySelector("#btn-reset-chat");
         if (deleteAllChatsButton) {
-            deleteAllChatsButton.addEventListener("click", () => { chatsService.deleteAllChats() }); // No longer needs 'db' passed here directly
+            deleteAllChatsButton.addEventListener("click", () => { chatsService.deleteAllChats() });
         }
 
         const importPersonalityButton = document.querySelector("#btn-import-personality");

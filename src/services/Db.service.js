@@ -1,13 +1,16 @@
 import { Dexie } from 'dexie';
 
 /**
- * Sets up and migrates the Dexie database.
- * This function is now responsible for creating the database instance.
- * @returns {Promise<Dexie>} The initialized Dexie database instance.
+ * Sets up the Dexie database schema (versions and stores).
+ * This function creates the Dexie instance but DOES NOT open it.
+ * Opening the database should be handled once, centrally, in main.js.
+ * @returns {Dexie} The configured Dexie database instance, not yet opened.
  */
-export function setupDB() { // Removed 'async' because Dexie constructor is synchronous. Migrations are chained.
+export function setupDB() { 
     const db = new Dexie("chatDB");
     
+    // Define all database versions and their schemas here.
+    // Dexie automatically handles upgrades between versions based on your definitions.
     db.version(3).stores({
         chats: `
             ++id,
@@ -31,7 +34,8 @@ export function setupDB() { // Removed 'async' because Dexie constructor is sync
         `
     });
 
-    // Version 5: Adding the Asset Manager table
+    // Version 5: Adding the Asset Manager table.
+    // The .upgrade() callback is for when the version *changes*, not for initial setup.
     db.version(5).stores({
         assets: `
             ++id,
@@ -41,20 +45,9 @@ export function setupDB() { // Removed 'async' because Dexie constructor is sync
             data,
             timestamp
         `
-    }).upgrade(tx => {
-        // Example upgrade logic for v5 if needed, e.g., to add default assets
-        // For now, simply defines the new store
     });
     
-    // Dexie's open() method returns a promise that resolves when all migrations are complete.
-    // We explicitly call it here to ensure the database is ready when setupDB() finishes its *asynchronous* work.
-    db.open().catch(error => {
-        console.error("Failed to open or upgrade Dexie database:", error);
-        alert("Failed to initialize the local database. Please check console for details.");
-        // Consider re-throwing or handling the error more gracefully if crucial for app function
-    });
-
-    return db; // Return the db instance immediately, its open() promise ensures readiness.
+    return db; // Return the Dexie instance. It's not yet open or connected.
 }
 
-// The 'db' export is REMOVED from here. It will now be initialized in main.js and passed to services.
+// REMOVED: export const db = await setupDB(); - this caused the top-level await and schema error.
