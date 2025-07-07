@@ -69,8 +69,22 @@ class AssetManagerService {
         if (!tags || tags.length === 0) {
             return this.getAllAssets();
         }
-        // This Dexie query finds assets where the 'tags' array contains every tag from the input array.
-        return await db.assets.where('tags').all(tags).toArray();
+        
+        // --- CRITICAL FIX START ---
+        // Dexie's .where().all() is not a valid method for multi-entry indexes to check for ALL tags.
+        // Instead, we use .anyOf() to leverage the index for initial candidates,
+        // then filter those candidates in JavaScript to ensure ALL requested tags are present.
+
+        // Step 1: Get all assets that have AT LEAST ONE of the desired tags (leveraging the index)
+        const candidateAssets = await db.assets.where('tags').anyOf(...tags).toArray();
+
+        // Step 2: Filter these candidates in JavaScript to ensure ALL tags are present in the asset's tags array
+        const matchingAssets = candidateAssets.filter(asset =>
+            tags.every(tag => asset.tags.includes(tag))
+        );
+
+        return matchingAssets;
+        // --- CRITICAL FIX END ---
     }
     
     /**
