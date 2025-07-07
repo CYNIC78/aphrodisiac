@@ -22,7 +22,7 @@ export async function setupDB() {
         personalities: `
             ++id,
             name,
-            image,
+            image, // <-- This field will be removed/migrated in version 6
             prompt,
             aggressiveness,
             sensuality,
@@ -45,20 +45,18 @@ export async function setupDB() {
     });
 
     // Version 6: Modifying the assets table for per-character media libraries
-    // This version ensures each asset is tied to a specific characterId.
+    // Corrected syntax for assets table to ensure characterId is properly included and indexed.
     db.version(6).stores({
         assets: `
             ++id,
-            characterId, // NEW: Links asset to a personality
+            characterId, // NEW: Links asset to a personality (will be indexed by Dexie automatically)
             name,
             type,
-            *tags,
+            *tags, // Multi-entry index for tags
             data,
-            timestamp,
-            [characterId+id] // Compound index for efficient lookup per character
+            timestamp
+            // Removed the problematic compound index '[characterId+id]'
         `
-        // No .upgrade() method needed here if the user clears the database first,
-        // as this creates the assets table with the new schema from scratch.
     });
     
     return db;
