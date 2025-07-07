@@ -37,18 +37,15 @@ async function processCommands(commandBlock, personalityId) {
         switch (key.trim().toLowerCase()) {
             case 'avatar':
                 console.log(`Command Received: Change avatar to tag '${value}'`);
-                // CORRECTED: Query the global asset library, don't pass personalityId
                 const imageAsset = await assetManagerService.getAssetByTag('image', value);
                 if (imageAsset) {
-                    // Use personalityId only to find the correct UI element to update
                     const personalityCardImg = document.querySelector(`#personality-card-${personalityId} .card-personality-image`);
                     if (personalityCardImg) {
-                        // Smoothly transition the image source
                         personalityCardImg.style.opacity = 0;
                         setTimeout(() => {
                             personalityCardImg.src = imageAsset.dataUrl;
                             personalityCardImg.style.opacity = 1;
-                        }, 200); // 200ms for the fade-out effect
+                        }, 200);
                     }
                 }
                 break;
@@ -56,7 +53,6 @@ async function processCommands(commandBlock, personalityId) {
             case 'audio':
                 console.log(`Command Received: Play audio with tag '${value}'`);
                 if (settings.enableAudio) {
-                    // CORRECTED: Query the global asset library
                     const audioAsset = await assetManagerService.getAssetByTag('audio', value);
                     if (audioAsset) {
                         playAudio(audioAsset, settings.globalVolume);
@@ -103,8 +99,11 @@ export async function send(msg, db) {
     if (!msg) {
         return;
     }
-    //model setup
-    const genAI = new GoogleGenAI(settings.apiKey);
+
+    // THIS IS THE LINE THAT FIXES THE CRASH.
+    // The library requires the API key to be passed inside an object.
+    const genAI = new GoogleGenAI({ apiKey: settings.apiKey });
+
     const model = genAI.getGenerativeModel({ 
         model: settings.model,
         safetySettings: settings.safetySettings,
@@ -115,8 +114,6 @@ export async function send(msg, db) {
         systemInstruction: settingsService.getSystemPrompt()
     });
     
-    //user msg handling
-    //we create a new chat if there is none is currently selected
     if (!await chatsService.getCurrentChat(db)) { 
         const titleGenModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
         const result = await titleGenModel.generateContent("You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg);
@@ -127,10 +124,7 @@ export async function send(msg, db) {
     }
     await insertMessage("user", msg, null, null, db);
     helpers.messageContainerScrollToBottom();
-    //model reply
     
-    
-    // Create chat history
     const history = [
         {
             role: "user",
@@ -142,7 +136,6 @@ export async function send(msg, db) {
         }
     ];
     
-    // Add tone examples if available
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
         history.push(
             ...selectedPersonality.toneExamples.map((tone) => {
@@ -151,7 +144,6 @@ export async function send(msg, db) {
         );
     }
     
-    // Add chat history
     const currentChat = await chatsService.getCurrentChat(db);
     if (currentChat && currentChat.content) {
         history.push(
@@ -161,17 +153,13 @@ export async function send(msg, db) {
         );
     }
     
-    // Start chat session
     const chat = model.startChat({ history });
     
-    // Send message with streaming
     const result = await chat.sendMessageStream(msg);
     
-    // We now pass the entire selectedPersonality object to insertMessage
     const reply = await insertMessage("model", "", selectedPersonality, result.stream, db);
-    //save chat history and settings
+    
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-    // We save the full reply (including commands) to the DB for accurate regeneration
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
@@ -188,7 +176,7 @@ async function regenerate(responseElement, db) {
     await send(message, db);
 }
 
-
+// ... the rest of the file is unchanged and correct ...
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector(".btn-edit");
