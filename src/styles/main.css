@@ -97,11 +97,14 @@ form {
 
 
 
+/* === FIX 1: FORM DIMENSIONS === */
 #form-add-personality {
     display: none;
-    width: 72rem; /* Increased from 58rem for a more spacious layout */
-    height: 85vh; /* Use 85% of the viewport height for responsiveness */
-    max-height: 60rem; /* Optional: sets a reasonable max height for very tall screens */
+    width: 72rem; 
+    height: 85vh;
+    /* We've added a min-height to prevent it from feeling too short */
+    min-height: 55rem; 
+    max-height: 60rem;
 }
 
 .overlay-content {
@@ -154,9 +157,22 @@ form {
     visibility: visible;
 }
 
+/* === FIX 2: BUTTON STRETCHING === */
 .stepper-footer * {
-    flex: 1;
+    /* This rule is now removed to prevent all elements from growing */
 }
+
+.stepper-footer button {
+    /* Tell buttons not to grow, only shrink if necessary */
+    flex: 0 1 auto;
+    min-width: 8rem; /* Give them a nice minimum width */
+}
+
+#stepper-progress {
+    /* Tell the progress indicator to take all the available empty space */
+    flex: 1 1 0;
+}
+
 
 .step {
     display: flex;
