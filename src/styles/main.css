@@ -99,8 +99,9 @@ form {
 
 #form-add-personality {
     display: none;
-    width: 58rem;
-    height: 78rem;
+    width: 72rem; /* Increased from 58rem for a more spacious layout */
+    height: 85vh; /* Use 85% of the viewport height for responsiveness */
+    max-height: 60rem; /* Optional: sets a reasonable max height for very tall screens */
 }
 
 .overlay-content {
