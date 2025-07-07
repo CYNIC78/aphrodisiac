@@ -248,8 +248,7 @@ export function initializeAssetManagerComponent() {
         if (!files.length) return;
         for (const file of files) {
             try {
-                const defaultTag = file.type.startsWith('image/') ? 'image' : 'audio';
-				await assetManagerService.addAsset(file, [defaultTag]);
+                await assetManagerService.addAsset(file, ['new']);
             } catch (error) { console.error('Failed to add asset:', error); }
         }
         event.target.value = ''; 

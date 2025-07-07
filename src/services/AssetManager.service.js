@@ -1,17 +1,8 @@
-// The db instance will be passed via initialize()
-// import { db } from './Db.service.js'; // Still removed, db is passed via initialize
+import { db } from './Db.service.js';
 
-let _db; // Private variable to hold the db instance
-
-class AssetManagerService { // All methods must be inside this class
+class AssetManagerService {
     constructor() {
-        // Constructor, currently empty but can be used for setup
-    }
-
-    // New initialize method to receive the db instance
-    initialize(dbInstance) {
-        _db = dbInstance;
-        console.log("AssetManagerService initialized with db.");
+        // We can add any initial properties here if needed later
     }
 
     /**
@@ -29,20 +20,16 @@ class AssetManagerService { // All methods must be inside this class
             data: file, // Dexie handles blobs directly
             timestamp: new Date()
         };
-        return await _db.assets.add(asset); // Use _db
+        return await db.assets.add(asset);
     }
 
     /**
-     * Retrieves a single asset by its ID and adds a usable dataUrl.
+     * Retrieves a single asset by its ID.
      * @param {number} id - The ID of the asset to retrieve.
      * @returns {Promise<object|undefined>} The asset object, or undefined if not found.
      */
     async getAssetById(id) {
-        const asset = await _db.assets.get(id); // Use _db
-        if (asset && asset.data) {
-            asset.dataUrl = URL.createObjectURL(asset.data);
-        }
-        return asset;
+        return await db.assets.get(id);
     }
     
     /**
@@ -52,7 +39,7 @@ class AssetManagerService { // All methods must be inside this class
      * @returns {Promise<number>}
      */
     async updateAsset(id, changes) {
-        return await _db.assets.update(id, changes); // Use _db
+        return await db.assets.update(id, changes);
     }
 
     /**
@@ -61,22 +48,16 @@ class AssetManagerService { // All methods must be inside this class
      * @returns {Promise<void>}
      */
     async deleteAsset(id) {
-        return await _db.assets.delete(id); // Use _db
+        return await db.assets.delete(id);
     }
 
 
     /**
-     * Retrieves all assets from the database and adds usable dataUrls.
+     * Retrieves all assets from the database.
      * @returns {Promise<any[]>} A promise that resolves to an array of assets.
      */
     async getAllAssets() {
-        const assets = await _db.assets.toArray(); // Use _db
-        assets.forEach(asset => {
-            if (asset.data) {
-                asset.dataUrl = URL.createObjectURL(asset.data);
-            }
-        });
-        return assets;
+        return await db.assets.toArray();
     }
 
     /**
@@ -88,13 +69,8 @@ class AssetManagerService { // All methods must be inside this class
         if (!tags || tags.length === 0) {
             return this.getAllAssets();
         }
-        const assets = await _db.assets.filter(asset => tags.every(tag => asset.tags.includes(tag))).toArray(); // Use _db
-        assets.forEach(asset => {
-            if (asset.data) {
-                asset.dataUrl = URL.createObjectURL(asset.data);
-            }
-        });
-        return assets;
+        // This Dexie query finds assets where the 'tags' array contains every tag from the input array.
+        return await db.assets.where('tags').all(tags).toArray();
     }
     
     /**
@@ -102,28 +78,11 @@ class AssetManagerService { // All methods must be inside this class
      * @returns {Promise<string[]>} A promise that resolves to an array of unique tags.
      */
     async getAllUniqueTags() {
-        const allTags = await _db.assets.orderBy('tags').uniqueKeys(); // Use _db
+        const allTags = await db.assets.orderBy('tags').uniqueKeys();
+        // The result of uniqueKeys is a flat array, so we can sort it directly.
         return allTags.sort((a, b) => a.localeCompare(b));
-    }
-
-    /**
-     * Finds the first asset of a specific type that has a given tag.
-     * @param {string} type - The type of asset ('image' or 'audio').
-     * @param {string} tag - The tag to search for.
-     * @returns {Promise<object|undefined>} The first matching asset with a dataUrl, or undefined if not found.
-     */
-    async getAssetByTag(type, tag) {
-        const asset = await _db.assets
-            .where('type').equals(type)
-            .and(asset => asset.tags.includes(tag))
-            .first(); // Use _db
-            
-        if (asset && asset.data) {
-            asset.dataUrl = URL.createObjectURL(asset.data);
-        }
-        return asset;
     }
 }
 
 // Export a single instance of the service
-export const assetManagerService = new AssetManagerService(); // <-- Re-enabled this crucial line!
+export const assetManagerService = new AssetManagerService();

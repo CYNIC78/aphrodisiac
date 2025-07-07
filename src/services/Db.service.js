@@ -1,16 +1,14 @@
 import { Dexie } from 'dexie';
 
-/**
- * Sets up the Dexie database schema (versions and stores).
- * This function creates the Dexie instance but DOES NOT open it.
- * Opening the database should be handled once, centrally, in main.js.
- * @returns {Dexie} The configured Dexie database instance, not yet opened.
- */
-export function setupDB() { 
-    const db = new Dexie("chatDB");
-    
-    // Define all database versions and their schemas here.
-    // Dexie automatically handles upgrades between versions based on your definitions.
+export async function setupDB() {
+    let db;
+    try {
+        db = new Dexie("chatDB");
+    } catch (error) {
+        console.error(error);
+        alert("failed to setup dexie (database)");
+        return;
+    }
     db.version(3).stores({
         chats: `
             ++id,
@@ -34,8 +32,7 @@ export function setupDB() {
         `
     });
 
-    // Version 5: Adding the Asset Manager table.
-    // The .upgrade() callback is for when the version *changes*, not for initial setup.
+    // Version 5: Adding the Asset Manager table
     db.version(5).stores({
         assets: `
             ++id,
@@ -47,7 +44,7 @@ export function setupDB() {
         `
     });
     
-    return db; // Return the Dexie instance. It's not yet open or connected.
+    return db;
 }
 
-// REMOVED: export const db = await setupDB(); - this caused the top-level await and schema error.
+export const db = await setupDB();

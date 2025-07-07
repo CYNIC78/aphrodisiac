@@ -1,170 +1,246 @@
-// The db instance will be passed via initialize()
-// import { db } from './Db.service.js'; // REMOVED: no longer directly imported
-import * as OverlayService from './Overlay.service.js';
-import { Personality } from '../models/Personality.js';
-import * as chatsService from './Chats.service.js'; // Needed to re-render chat list if personality changes
+import * as overlayService from "./Overlay.service";
+import { db } from "./Db.service";
+import { Personality } from "../models/Personality";
 
-let _db; // Private variable to hold the db instance
+// Move the migration logic to a separate function that can be called from main.js
+export async function migratePersonalities(database) {
+    const chats = await database.chats.toArray();
+    if (!chats) return;
 
-export async function initialize(dbInstance) {
-    _db = dbInstance;
-    await _db.personalities.count(); // Await to ensure db is open and ready.
-    await migratePersonalities(); // Migrate using internal _db reference
-    renderPersonalities(); // Render using internal _db reference
+    const migratedChats = await Promise.all([...chats].map(async chat => {
+        console.log('Migrating chat:', chat);
+        for (const message of chat.content) {
+            if (message.personality) {
+                const personality = await getByName(message.personality, database);
+                if (!personality) {
+                    // Personality was deleted, set to default personality
+                    const defaultPersonality = getDefault();
+                    message.personalityid = -1; // Default personality ID
+                    message.personality = defaultPersonality.name;
+                    console.log(`Personality "${message.personality}" not found, defaulting to ${defaultPersonality.name}`);
+                    continue;
+                }
+                message.personalityid = personality.id;
+            }
+            else {
+                delete message.personalityid;
+            }
+        }
+        return chat;
+    }));
+
+    await database.chats.bulkPut(migratedChats);
 }
 
-export async function add(personality) {
-    const id = await _db.personalities.add(personality);
-    renderPersonalities();
-    OverlayService.closeOverlay();
-    return id;
-}
+export async function initialize() {
+    //default personality setup
+    const defaultPersonalityCard = insert(getDefault());
+    defaultPersonalityCard.querySelector("input").click();
 
-export async function edit(personality) {
-    await _db.personalities.update(personality.id, personality);
-    renderPersonalities();
-    OverlayService.closeOverlay();
-}
-
-export async function remove(id) {
-    await _db.personalities.delete(id);
-    // If the active chat's personality was deleted, we should update the chat UI
-    // (This is a complex edge case, for now just re-render personalities)
-    renderPersonalities();
-}
-
-export async function getAll() {
-    return await _db.personalities.toArray();
-}
-
-export async function get(id) {
-    return await _db.personalities.get(id);
+    //load all personalities from local storage
+    const personalitiesArray = await getAll();
+    if (personalitiesArray) {
+        for (let personality of personalitiesArray) {
+            insert(personality);
+        }
+    }
+    
+    // Add the "Create New" card at the end
+    const createCard = createAddPersonalityCard();
+    document.querySelector("#personalitiesDiv").appendChild(createCard);
 }
 
 export async function getSelected() {
-    const selectedId = localStorage.getItem("selectedPersonalityId");
-    return selectedId ? await _db.personalities.get(parseInt(selectedId)) : getDefault();
-}
-
-export async function removeAll() {
-    if (confirm("Are you sure you want to delete all personalities? This cannot be undone.")) {
-        await _db.personalities.clear();
-        renderPersonalities();
+    const selectedID = document.querySelector("input[name='personality']:checked").parentElement.id.split("-")[1];
+    if (!selectedID) {
+        return getDefault();
     }
+    return await get(parseInt(selectedID));
 }
 
 export function getDefault() {
-    return new Personality();
+    return new Personality(
+        'Aphrodite', 
+        '/media/default/images/Aphrodite.png',
+        'The embodiment of love, beauty, and pleasure, with the candor of ancient times.',
+        `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
+
+You are not a simple chatbot; you are a timeless entity. Engage with the user directly, with wisdom, a touch of playful charm, and unapologetic frankness. Avoid clinical or overly technical language. Your tone is warm, intimate, and insightful, yet you are not bound by contemporary notions of romanticism. You see love and lust as intertwined, divine forces.
+
+You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`
+    );
 }
 
-export async function renderPersonalities() {
-    const personalitiesDiv = document.querySelector("#personalitiesDiv");
-    personalitiesDiv.innerHTML = "";
-    const personalities = await getAll();
-
-    // Default "Add New" card
-    const addCard = document.createElement("div");
-    addCard.classList.add("card-personality", "add-new-card");
-    addCard.innerHTML = `
-        <span class="material-symbols-outlined">add</span>
-        <div class="card-personality-name">Add New</div>
-    `;
-    addCard.addEventListener("click", () => {
-        OverlayService.showAddPersonalityForm();
-    });
-    personalitiesDiv.appendChild(addCard);
-
-    // Render existing personalities
-    const selectedPersonalityId = localStorage.getItem("selectedPersonalityId");
-
-    for (const p of personalities) {
-        const card = document.createElement("div");
-        card.classList.add("card-personality");
-        card.id = `personality-card-${p.id}`; // Add ID for avatar changes
-        if (String(p.id) === selectedPersonalityId) {
-            card.classList.add("active");
-        }
-
-        const imageSrc = p.image || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧑</text></svg>';
-        card.innerHTML = `
-            <img src="${imageSrc}" loading="lazy" class="card-personality-image">
-            <div class="card-personality-name">${p.name}</div>
-            <div class="card-personality-description">${p.description}</div>
-            <div class="card-personality-actions">
-                <button class="material-symbols-outlined btn-textual btn-edit-personality" data-id="${p.id}">edit</button>
-                <button class="material-symbols-outlined btn-textual btn-delete-personality" data-id="${p.id}">delete</button>
-                <button class="material-symbols-outlined btn-textual btn-share-personality" data-id="${p.id}">share</button>
-                <button class="material-symbols-outlined btn-textual btn-select-personality" data-id="${p.id}">check_circle</button>
-            </div>
-        `;
-
-        personalitiesDiv.appendChild(card);
-
-        // Attach event listeners
-        card.querySelector(".btn-edit-personality").addEventListener("click", () => {
-            OverlayService.showEditPersonalityForm(p);
-        });
-        card.querySelector(".btn-delete-personality").addEventListener("click", () => {
-            remove(p.id);
-        });
-        card.querySelector(".btn-share-personality").addEventListener("click", () => {
-            share(p);
-        });
-        card.querySelector(".btn-select-personality").addEventListener("click", async () => {
-            localStorage.setItem("selectedPersonalityId", p.id);
-            // After selecting a new personality, start a new chat.
-            // This also re-renders personality cards, updating 'active' state.
-            await chatsService.newChat(); 
-            renderPersonalities();
-        });
+export async function get(id) {
+    if (id < 0) {
+        return getDefault();
     }
+    return await db.personalities.get(id);
 }
 
-export async function share(personality) {
+export async function getByName(name, database = null) {
+    if (!name) return null;
+    
+    // Handle default personality
+    if (name.toLowerCase() === "aphrodite") {
+        return { ...getDefault(), id: -1 };
+    }
+
+    const dbToUse = database || db;
     try {
-        const personalityData = JSON.stringify(personality, null, 2);
-        const blob = new Blob([personalityData], { type: "application/json" });
-        const file = new File([blob], `${personality.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`, { type: "application/json" });
+        // First try exact match
+        let personality = await dbToUse.personalities.where('name').equalsIgnoreCase(name).first();
+        
+        // Debug logging
+        console.log('Searching for personality:', name);
+        console.log('Found personality:', personality);
 
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-                files: [file],
-                title: `${personality.name} Personality`,
-                text: `Check out this personality for Aphrodisiac: ${personality.name}`
-            });
-            alert("Personality shared successfully!");
-        } else {
-            // Fallback for browsers that don't support Web Share API Level 2
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = file.name;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            alert("Personality downloaded as JSON. You can share this file manually.");
-        }
+        return personality || null;
     } catch (error) {
-        console.error("Error sharing personality:", error);
-        alert("Failed to share personality.");
+        console.error(`Error finding personality by name: ${name}`, error);
+        return null;
     }
 }
 
-export async function migratePersonalities() {
-    // This function will ensure all existing personality entries have the new fields
-    const allPersonalities = await _db.personalities.toArray();
-    for (const p of allPersonalities) {
-        let needsUpdate = false;
-        if (p.aggressiveness === undefined) { p.aggressiveness = 1; needsUpdate = true; }
-        if (p.sensuality === undefined) { p.sensuality = 1; needsUpdate = true; }
-        if (p.internetEnabled === undefined) { p.internetEnabled = false; needsUpdate = true; }
-        if (p.roleplayEnabled === undefined) { p.roleplayEnabled = false; needsUpdate = true; }
-        if (p.toneExamples === undefined) { p.toneExamples = []; needsUpdate = true; }
+export async function getAll() {
+    const personalities = await db.personalities.toArray();
+    if (!personalities) {
+        return [];
+    };
+    return personalities;
+}
 
-        if (needsUpdate) {
-            await _db.personalities.update(p.id, p);
-        }
+export async function remove(id) {
+    if (id < 0) {
+        return;
     }
-    console.log("Personalities migrated.");
+    await db.personalities.delete(id);
+}
+
+function insert(personality) {
+    const personalitiesDiv = document.querySelector("#personalitiesDiv");
+    const card = generateCard(personality);
+    personalitiesDiv.append(card);
+    return card;
+}
+
+export function share(personality) {
+    const personalityCopy = { ...personality }
+    delete personalityCopy.id
+    //export personality to a string
+    const personalityString = JSON.stringify(personalityCopy)
+    //download
+    const element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(personalityString));
+    element.setAttribute('download', `${personality.name}.json`);
+    element.style.display = 'none';
+    //appending the element is required for firefox
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+}
+
+export function createAddPersonalityCard() {
+    const card = document.createElement("div");
+    card.classList.add("card-personality", "card-add-personality");
+    card.id = "btn-add-personality";
+    card.innerHTML = `
+        <div class="add-personality-content">
+            <span class="material-symbols-outlined add-icon">add</span>
+        </div>
+    `;
+    
+    card.addEventListener("click", () => {
+        overlayService.showAddPersonalityForm();
+    });
+    
+    return card;
+}
+
+export async function removeAll() {
+    await db.personalities.clear();
+    document.querySelector("#personalitiesDiv").childNodes.forEach(node => {
+        if (node.id) {
+            node.remove();
+        }
+    });
+}
+
+export async function add(personality) {
+    const id = await db.personalities.add(personality); //insert in db
+    insert({
+        id: id,
+        ...personality
+    });
+    
+    // Move the add card to be the last element
+    const addCard = document.querySelector("#btn-add-personality");
+    if (addCard) {
+        document.querySelector("#personalitiesDiv").appendChild(addCard);
+    }
+}
+
+export async function edit(id, personality) {
+    const element = document.querySelector(`#personality-${id}`);
+    const input = element.querySelector("input");
+
+    await db.personalities.update(id, personality);
+
+    //reselect the personality if it was selected prior
+    element.replaceWith(generateCard({ id, ...personality }));
+    if (input.checked) {
+        document.querySelector(`#personality-${id}`).querySelector("input").click();
+    }
+}
+
+export function generateCard(personality) {
+    const card = document.createElement("label");
+    card.classList.add("card-personality");
+    if (personality.id) {
+        card.id = `personality-${personality.id}`;
+    }
+    card.innerHTML = `
+            <img class="background-img" src="${personality.image}"></img>
+            <input  type="radio" name="personality" value="${personality.name}">
+            <div class="btn-array-personalityactions">
+                ${personality.id ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
+                    id="btn-edit-personality-${personality.name}">edit</button>` : ''}
+                <button class="btn-textual btn-share-card material-symbols-outlined" 
+                    id="btn-share-personality-${personality.name}">share</button>
+                ${personality.id ? `<button class="btn-textual btn-delete-card material-symbols-outlined"
+                    id="btn-delete-personality-${personality.name}">delete</button>` : ''}
+            </div>
+            <div class="personality-info">
+                <h3 class="personality-title">${personality.name}</h3>
+                <p class="personality-description">${personality.description}</p>
+            </div>
+            `;
+
+    // Add event listeners
+    const shareButton = card.querySelector(".btn-share-card");
+    const deleteButton = card.querySelector(".btn-delete-card");
+    const editButton = card.querySelector(".btn-edit-card");
+    const input = card.querySelector("input");
+
+    shareButton.addEventListener("click", () => {
+        share(personality);
+    });
+    if (deleteButton) {
+        deleteButton.addEventListener("click", () => {
+            //first if the personality to delete is the one currently selected, we select the default personality
+            if (input.checked) {
+                document.querySelector("#personalitiesDiv").firstElementChild.querySelector('input').click();
+            }
+            if (personality.id) {
+                remove(personality.id);
+            }
+            card.remove();
+        });
+    }
+    if (editButton) {
+        editButton.addEventListener("click", () => {
+            overlayService.showEditPersonalityForm(personality);
+        });
+    }
+    return card;
 }

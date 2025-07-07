@@ -1,90 +1,11 @@
 //handles sending messages to the api
 
-// REMOVED: import { GoogleGenAI } from "@google/genai";
-// GoogleGenAI is now available globally from the CDN script in index.html (type="module")
+import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-import { assetManagerService } from "./AssetManager.service.js";
-
-
-/**
- * Processes a block of hidden commands from the AI's response.
- * @param {string} commandBlock - The string containing commands, e.g., "[avatar:happy] [audio:laugh]"
- * @param {string} personalityId - The ID of the current personality to find the UI card to update.
- */
-async function processCommands(commandBlock, personalityId) {
-    const settings = settingsService.getSettings();
-    const symbols = settings.triggerSymbols;
-    if (!commandBlock || !symbols || symbols.length !== 2) return;
-
-    // Create a regular expression to find all commands like [key:value]
-    const commandRegex = new RegExp(`\\${symbols[0]}(.*?)\\${symbols[1]}`, 'g');
-    const commands = commandBlock.match(commandRegex);
-
-    if (!commands) return;
-
-    for (const command of commands) {
-        // Extract the content from between the symbols, e.g., "avatar:happy"
-        const content = command.slice(symbols[0].length, -symbols[1].length);
-        const [key, ...valueParts] = content.split(':');
-        const value = valueParts.join(':').trim();
-
-        if (!key || !value) continue;
-
-        switch (key.trim().toLowerCase()) {
-            case 'avatar':
-                console.log(`Command Received: Change avatar to tag '${value}'`);
-                const imageAsset = await assetManagerService.getAssetByTag('image', value);
-                if (imageAsset) {
-                    const personalityCardImg = document.querySelector(`#personality-card-${personalityId} .card-personality-image`);
-                    if (personalityCardImg) {
-                        personalityCardImg.style.opacity = 0;
-                        setTimeout(() => {
-                            personalityCardImg.src = imageAsset.dataUrl;
-                            personalityCardImg.style.opacity = 1;
-                        }, 200);
-                    }
-                }
-                break;
-
-            case 'audio':
-                console.log(`Command Received: Play audio with tag '${value}'`);
-                if (settings.enableAudio) {
-                    const audioAsset = await assetManagerService.getAssetByTag('audio', value);
-                    if (audioAsset) {
-                        playAudio(audioAsset, settings.globalVolume);
-                    }
-                }
-                break;
-        }
-    }
-}
-
-/**
- * Creates and plays an audio element, updating the UI.
- * @param {object} asset - The audio asset object from the database.
- * @param {number} volume - The global volume level (0-100).
- */
-function playAudio(asset, volume) {
-    const nowPlayingBar = document.querySelector('#now-playing-bar');
-    const nowPlayingTrack = document.querySelector('#now-playing-track');
-    
-    const audio = new Audio(asset.dataUrl);
-    audio.volume = volume / 100;
-
-    nowPlayingTrack.textContent = `Now Playing: ${asset.name}`;
-    helpers.showElement(nowPlayingBar, 'flex');
-
-    audio.play().catch(e => console.error("Error playing audio:", e));
-    
-    audio.onended = () => {
-        helpers.hideElement(nowPlayingBar);
-    };
-}
-
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -99,9 +20,8 @@ export async function send(msg, db) {
     if (!msg) {
         return;
     }
-
-    // GoogleGenAI is available globally from the CDN script in index.html (no import needed for runtime)
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey }); // This line is correct
+    //model setup
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
@@ -110,20 +30,23 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
     
+    //user msg handling
+    //we create a new chat if there is none is currently selected
     if (!await chatsService.getCurrentChat(db)) { 
-        // Using ai.models.generateContent directly, as per original blueprint
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
         });
         const title = response.text;
-        
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
     await insertMessage("user", msg, null, null, db);
     helpers.messageContainerScrollToBottom();
+    //model reply
     
+    
+    // Create chat history
     const history = [
         {
             role: "user",
@@ -135,7 +58,8 @@ export async function send(msg, db) {
         }
     ];
     
-    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
+    // Add tone examples if available
+    if (selectedPersonality.toneExamples) {
         history.push(
             ...selectedPersonality.toneExamples.map((tone) => {
                 return { role: "model", parts: [{ text: tone }] }
@@ -143,27 +67,28 @@ export async function send(msg, db) {
         );
     }
     
+    // Add chat history
     const currentChat = await chatsService.getCurrentChat(db);
-    if (currentChat && currentChat.content) {
-        history.push(
-            ...currentChat.content.map((msg) => {
-                return { role: msg.role, parts: msg.parts }
-            })
-        );
-    }
+    history.push(
+        ...currentChat.content.map((msg) => {
+            return { role: msg.role, parts: msg.parts } //we remove the `personality` property as the API expects only `role` and `parts`
+        })
+    );
     
+    // Create chat session
     const chat = ai.chats.create({
         model: settings.model,
         history: history,
         config: config
     });
     
+    // Send message with streaming
     const stream = await chat.sendMessageStream({
         message: msg
     });
     
-    const reply = await insertMessage("model", "", selectedPersonality, stream, db);
-    
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
+    //save chat history and settings
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
@@ -171,6 +96,7 @@ export async function send(msg, db) {
 }
 
 async function regenerate(responseElement, db) {
+    //basically, we remove every message after the response we wish to regenerate, then send the message again.
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
@@ -190,12 +116,20 @@ function setupMessageEditing(messageElement, db) {
     
     if (!editButton || !saveButton) return;
     
+    // Handle edit button click
     editButton.addEventListener("click", () => {
+        // Enable editing
         messageText.setAttribute("contenteditable", "true");
         messageText.focus();
+        
+        // Show save button, hide edit button
         editButton.style.display = "none";
         saveButton.style.display = "inline-block";
+        
+        // Store original content to allow cancellation
         messageText.dataset.originalContent = messageText.innerHTML;
+        
+        // Place cursor at the end
         const selection = window.getSelection();
         const range = document.createRange();
         range.selectNodeContents(messageText);
@@ -204,20 +138,32 @@ function setupMessageEditing(messageElement, db) {
         selection.addRange(range);
     });
     
+    // Handle save button click
     saveButton.addEventListener("click", async () => {
+        // Disable editing
         messageText.removeAttribute("contenteditable");
+        
+        // Show edit button, hide save button
         editButton.style.display = "inline-block";
         saveButton.style.display = "none";
+        
+        // Get the message index to update the correct message in chat history
         const messageContainer = document.querySelector(".message-container");
         const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
+        
+        // Update the chat history in database
         await updateMessageInDatabase(messageElement, messageIndex, db);
     });
     
+    // Handle keydown events in the editable message
     messageText.addEventListener("keydown", (e) => {
+        // Save on Enter key (without shift for newlines)
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             saveButton.click();
         }
+        
+        // Cancel on Escape key
         if (e.key === "Escape") {
             messageText.innerHTML = messageText.dataset.originalContent;
             messageText.removeAttribute("contenteditable");
@@ -231,11 +177,18 @@ async function updateMessageInDatabase(messageElement, messageIndex, db) {
     if (!db) return;
     
     try {
+        // Get the updated message text
         const messageText = messageElement.querySelector(".message-text").innerHTML;
-        const rawText = messageText.replace(/<[^>]*>/g, "").trim();
+        const rawText = messageText.replace(/<[^>]*>/g, "").trim(); // Strip HTML for storing in parts
+        
+        // Get the current chat and update the specific message
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
+        
+        // Update the message content in the parts array
         currentChat.content[messageIndex].parts[0].text = rawText;
+        
+        // Save the updated chat back to the database
         await db.chats.put(currentChat);
         console.log("Message updated in database");
     } catch (error) {
@@ -244,18 +197,20 @@ async function updateMessageInDatabase(messageElement, messageIndex, db) {
     }
 }
 
-export async function insertMessage(sender, msg, personality = null, netStream = null, db = null) {
+export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null) {
+    //create new message div for the user's message then append to message container's top
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
-
+    //handle model's message
     if (sender != "user") {
         newMessage.classList.add("message-model");
+        const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
-                <img class="pfp" src="${personality?.image || ''}" loading="lazy"></img>
-                <h3 class="message-role">${personality?.name || 'Model'}</h3>
+                <img class="pfp" src="${pfpSrc}" loading="lazy"></img>
+                <h3 class="message-role">${messageRole}</h3>
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
@@ -270,58 +225,44 @@ export async function insertMessage(sender, msg, personality = null, netStream =
             try {
                 await regenerate(newMessage, db)
             } catch (error) {
-                alert("Error: " + error.message);
+                if (error.status === 429) {
+                    alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
+                    return;
+                }
+                alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
                 console.error(error);
             }
         });
         const messageContent = newMessage.querySelector(".message-text");
+        //no streaming necessary if not receiving answer
         if (!netStream) {
             messageContent.innerHTML = marked.parse(msg);
-        } else {
+        }
+        else {
             let rawText = "";
-            let visibleText = "";
-            let commandBlock = "";
-            let responseText = "";
-
             try {
+                // In the new API, we receive an iterable stream
                 for await (const chunk of netStream) {
-                    if (chunk && chunk.text) { 
-                        responseText += chunk.text;
-                        messageContent.innerHTML = marked.parse(responseText, { breaks: true });
+                    // The chunks will have text property that contains content
+                    if (chunk && chunk.text) {
+                        rawText += chunk.text;
+                        messageContent.innerHTML = marked.parse(rawText, { breaks: true }); //convert md to HTML
                         helpers.messageContainerScrollToBottom();
                     }
                 }
-                rawText = responseText;
-
-                const settings = settingsService.getSettings();
-                const separator = settings.triggerSeparator;
-
-                if (rawText.includes(separator)) {
-                    const parts = rawText.split(separator);
-                    visibleText = parts[0];
-                    commandBlock = parts.slice(1).join(separator);
-                } else {
-                    visibleText = rawText;
-                }
-                
-                messageContent.innerHTML = marked.parse(visibleText, { breaks: true });
-                helpers.messageContainerScrollToBottom();
-
-                if (commandBlock && personality) {
-                    await processCommands(commandBlock, personality.id);
-                }
-
                 hljs.highlightAll();
+                helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
                 return { HTML: messageContent.innerHTML, md: rawText };
             } catch (error) {
                 alert("Error processing response: " + error);
                 console.error("Stream error:", error);
-                messageContent.innerHTML += "<br><br><span style='color:red;'>An error occurred.</span>";
                 return { HTML: messageContent.innerHTML, md: rawText };
             }
         }
-    } else {
+    }
+    //handle user's message, expect encoded
+    else {
         const messageRole = "You:";
         newMessage.innerHTML = `
                 <div class="message-header">
@@ -336,5 +277,7 @@ export async function insertMessage(sender, msg, personality = null, netStream =
                 `;
     }
     hljs.highlightAll();
+    
+    // Setup edit functionality for the message
     setupMessageEditing(newMessage, db);
 }
