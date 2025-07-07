@@ -4,26 +4,26 @@ import * as settingsService from "./services/Settings.service";
 import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import * as helpers from "./utils/helpers";
-import * as assetManagerService from "./services/AssetManager.service";
+// CRITICAL FIX: Directly import the 'assetManagerService' instance, not the whole module namespace.
+import { assetManagerService } from "./services/AssetManager.service"; 
 
 
 // All core application initialization and setup will now happen inside this immediately invoked async function.
-// This resolves the "Top-level await is not available" build error by providing an async context for all awaits.
 (async () => {
     try {
         // 1. Initialize the database FIRST by setting up schema, THEN explicitly opening it.
-        const db = setupDB(); // Call the synchronous setup function (defines schema)
-        await db.open(); // <--- CRITICAL: Explicitly open the database and await its readiness
+        const db = setupDB();
+        await db.open();
         console.log("Database initialized and ready (Dexie).");
 
         // 2. Initialize services, passing the 'db' instance where needed.
-        settingsService.initialize(); // Settings doesn't directly interact with 'db'
+        settingsService.initialize();
 
-        // Initialize services that require the database instance.
-        // We now pass 'db' explicitly to their initialization methods.
         await chatsService.initialize(db);
         await personalityService.initialize(db); 
-        await assetManagerService.initialize(db); 
+        // CRITICAL FIX: Call initialize directly on the imported instance.
+        assetManagerService.initialize(db); // No 'await' needed here, as initialize itself is synchronous
+                                             // and only sets _db, not performs async DB ops.
 
         // 3. Load all component code.
         const components = import.meta.glob('./components/*.js');
