@@ -1,22 +1,60 @@
 import { assetManagerService } from '../services/AssetManager.service.js';
+import { showElement, hideElement } from '../utils/helpers.js';
 
 let isInitialized = false;
 
-/**
- * Creates an HTML element for a single asset card, now with a delete button.
- * @param {object} asset - The asset object from the database.
- * @returns {HTMLElement} The asset card element.
- */
+// UI Elements
+let personalityForm, assetDetailView;
+
+// Helper to switch between the main gallery and the detail view
+function showView(viewToShow) {
+    const views = [personalityForm, assetDetailView];
+    views.forEach(view => {
+        if (view === viewToShow) {
+            showElement(view, false);
+        } else {
+            hideElement(view);
+        }
+    });
+}
+
+// Show the detail view for a specific asset
+async function showAssetDetailView(assetId) {
+    const asset = await assetManagerService.getAssetById(assetId);
+    if (!asset) {
+        console.error(`Asset with ID ${assetId} not found.`);
+        return;
+    }
+
+    // Populate the detail view
+    const previewEl = assetDetailView.querySelector('#asset-detail-preview');
+    const nameEl = assetDetailView.querySelector('#asset-detail-name');
+    
+    previewEl.innerHTML = ''; // Clear previous preview
+    if (asset.type === 'image') {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(asset.data);
+        previewEl.appendChild(img);
+    } else {
+        const icon = document.createElement('span');
+        icon.className = 'material-symbols-outlined asset-icon-large';
+        icon.textContent = 'music_note';
+        previewEl.appendChild(icon);
+    }
+    nameEl.textContent = asset.name;
+
+    // We will add logic for tags and delete button later
+    showView(assetDetailView);
+}
+
+// Creates an HTML element for a single asset card.
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card';
     card.dataset.assetId = asset.id;
 
-    // Create and add the delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn-delete-asset material-symbols-outlined';
-    deleteBtn.textContent = 'delete';
-    card.appendChild(deleteBtn);
+    // *** EVENT LISTENER TO OPEN DETAIL VIEW ***
+    card.addEventListener('click', () => showAssetDetailView(asset.id));
 
     if (asset.type === 'image') {
         const img = document.createElement('img');
@@ -38,10 +76,9 @@ function createAssetCard(asset) {
     return card;
 }
 
-/**
- * Fetches all assets and renders them in the gallery.
- */
+
 async function renderGallery() {
+    // ... (renderGallery function remains the same, so not shown for brevity)
     const gallery = document.querySelector('#asset-manager-gallery');
     if (!gallery) return;
 
@@ -61,34 +98,24 @@ async function renderGallery() {
 
 export function initializeAssetManagerComponent() {
     if (isInitialized) {
+        showView(personalityForm);
         renderGallery();
         return;
     }
 
+    // Initialize DOM elements
+    personalityForm = document.querySelector('#form-add-personality');
+    assetDetailView = document.querySelector('#asset-detail-view');
     const uploadButton = document.querySelector('#btn-upload-asset');
     const fileInput = document.querySelector('#asset-upload-input');
-    const gallery = document.querySelector('#asset-manager-gallery');
+    const searchInput = document.querySelector('#asset-search-input');
+    const backToLibraryBtn = document.querySelector('#btn-asset-detail-back');
+
+    if (!uploadButton) return;
+
+    // Go back from detail view to the gallery
+    backToLibraryBtn.addEventListener('click', () => showView(personalityForm));
     
-    if (!uploadButton || !gallery) return;
-
-    // --- Event Listener for Deleting Assets ---
-    gallery.addEventListener('click', async (event) => {
-        if (event.target.classList.contains('btn-delete-asset')) {
-            const card = event.target.closest('.asset-card');
-            const assetId = parseInt(card.dataset.assetId);
-
-            if (confirm('Are you sure you want to delete this asset? This cannot be undone.')) {
-                try {
-                    await assetManagerService.deleteAsset(assetId);
-                    await renderGallery(); // Re-render the gallery to show the change
-                } catch (error) {
-                    console.error('Failed to delete asset:', error);
-                    alert('Could not delete asset. See console for details.');
-                }
-            }
-        }
-    });
-
     uploadButton.addEventListener('click', () => {
         fileInput.click();
     });
@@ -99,10 +126,9 @@ export function initializeAssetManagerComponent() {
 
         for (const file of files) {
             try {
-                const tagsRaw = prompt(`Enter comma-separated tags for ${file.name}:`, "new");
-                const tags = tagsRaw ? tagsRaw.split(',').map(tag => tag.trim()) : ['untagged'];
-                
-                await assetManagerService.addAsset(file, tags);
+                // *** THE ANNOYING PROMPT IS GONE! ***
+                // We just add a default tag for now.
+                await assetManagerService.addAsset(file, ['new']);
             } catch (error) {
                 console.error('Failed to add asset:', error);
                 alert(`Could not add asset: ${file.name}. See console for details.`);
@@ -110,10 +136,13 @@ export function initializeAssetManagerComponent() {
         }
         
         event.target.value = ''; 
+        searchInput.value = '';
+        
         await renderGallery();
     });
     
     renderGallery();
+
     console.log('Asset Manager Component Initialized.');
     isInitialized = true;
 }

@@ -24,6 +24,15 @@ class AssetManagerService {
     }
 
     /**
+     * Retrieves a single asset by its ID.
+     * @param {number} id - The ID of the asset to retrieve.
+     * @returns {Promise<object|undefined>} The asset object, or undefined if not found.
+     */
+    async getAssetById(id) {
+        return await db.assets.get(id);
+    }
+
+    /**
      * Retrieves all assets from the database.
      * @returns {Promise<any[]>} A promise that resolves to an array of assets.
      */
@@ -32,13 +41,16 @@ class AssetManagerService {
     }
 
     /**
-     * Deletes an asset from the database by its ID.
-     * @param {number} id - The ID of the asset to delete.
-     * @returns {Promise}
+     * Searches for assets by a tag search term.
+     * @param {string} term - The search term to filter tags by.
+     * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
      */
-    async deleteAsset(id) {
-        console.log(`Deleting asset with ID: ${id}`);
-        return await db.assets.delete(id);
+    async searchAssets(term) {
+        if (!term) {
+            return this.getAllAssets();
+        }
+        // Use Dexie's powerful querying to find assets where any tag starts with the term (case-insensitive)
+        return await db.assets.where('tags').startsWithIgnoreCase(term).toArray();
     }
 }
 

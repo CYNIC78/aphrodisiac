@@ -178,128 +178,153 @@
         </div>
     </div>
 
-    <div class="overlay">
-        <div class="header">
-            <button class="btn-textual" id="btn-hide-overlay">BACK</button>
-        </div>
-        <div class="overlay-content">
-            <form id="form-add-personality">
-                <div class="stepper first-step" id="stepper-add-personality">
-                    <div class="stepper-content">
-                        <div class="step active">
-                            <!-- we match the name property of each input to the corresponding key in our personality model (Personality.service.js) -->
-                            <h3>Basic Info</h3>
-                            <input style="display: none;" name="id">
-                            <label for="name">Name:</label>
-                            <input type="text" name="name" placeholder="Mario" list="name-list">
-                            <label for="description">Description:</label>
-                            <input type="text" name="description" placeholder="A  plumber with a shroom addiction.">
-                            <label for="image">Image URL:</label>
-                            <input type="text" name="image" placeholder="https://example.com/mario.png">
-                            <label for="prompt">System Prompt:</label>
-                            <textarea type="text" name="prompt"
-                                placeholder="You are to act as main character from the Mario video game series..."
-                                style="height: 25rem; resize:vertical"></textarea>
-                        </div>
-                        <div class="step">
-                            <h3>Personality</h3>
-                            <label for="aggressiveness">Aggressiveness:</label>
-                            <input type="range" name="aggressiveness" min="0" max="3" step="1"
-                                list="aggressiveness-steps">
-                            <datalist id="aggressiveness-steps">
-                                <option value="0">0</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                            </datalist>
-                            <label for="sensuality">Sensuality:</label>
-                            <input type="range" name="sensuality" min="0" max="3" step="1" list="sensuality-steps">
-                            <datalist id="sensuality-steps">
-                                <option value="0">0</option>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                            </datalist>
-                            <h3>Tweaks</h3>
-                            <!-- internet access toggle -->
-                            <div style="display: flex; gap: 0.25rem; align-items: center;">
-                                <input id="internet-access" type="checkbox" name="internetEnabled"></input>
-                                <label for="internet-access">Internet Access</label>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
-                            </div>
-                            <!-- roleplay toggle -->
-                            <div style="display: flex; gap: 0.25rem; align-items: center;">
-                                <input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
-                                <label for="roleplay">Roleplay</label>
-                                <span class="material-symbols-outlined tooltip"
-                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="This attribute enhances your roleplay experience by enabling a new game-ified interface. Currently still in development.">info</span>
-                            </div>
-                        </div>
-                        <div class="step">
-                            <div>
-                                <h3 style="display:inline">Tone Examples</h3>
-                                <span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
-                            </div>
-                            <input type="text" name="tone-example-1" class="tone-example"
-                                placeholder="I'm a plumber, not a doctor. Lets-a go!">
-                            <button type="button" id="btn-add-tone-example"
-                                class="material-symbols-outlined">add_circle</button>
-                        </div>
-                        <!-- NEW MEDIA STEP ADDED HERE -->
+	<div class="overlay">
+		<div class="header">
+			<button class="btn-textual" id="btn-hide-overlay">BACK</button>
+		</div>
+		<div class="overlay-content">
+			<form id="form-add-personality">
+				<div class="stepper first-step" id="stepper-add-personality">
+					<div class="stepper-content">
+						<div class="step active">
+							<!-- we match the name property of each input to the corresponding key in our personality model (Personality.service.js) -->
+							<h3>Basic Info</h3>
+							<input style="display: none;" name="id">
+							<label for="name">Name:</label>
+							<input type="text" name="name" placeholder="Mario" list="name-list">
+							<label for="description">Description:</label>
+							<input type="text" name="description" placeholder="A  plumber with a shroom addiction.">
+							<label for="image">Image URL:</label>
+							<input type="text" name="image" placeholder="https://example.com/mario.png">
+							<label for="prompt">System Prompt:</label>
+							<textarea type="text" name="prompt"
+								placeholder="You are to act as main character from the Mario video game series..."
+								style="height: 25rem; resize:vertical"></textarea>
+						</div>
+						<div class="step">
+							<h3>Personality</h3>
+							<label for="aggressiveness">Aggressiveness:</label>
+							<input type="range" name="aggressiveness" min="0" max="3" step="1"
+								list="aggressiveness-steps">
+							<datalist id="aggressiveness-steps">
+								<option value="0">0</option>
+								<option value="1">1</option>
+								<option value="2">2</option>
+								<option value="3">3</option>
+							</datalist>
+							<label for="sensuality">Sensuality:</label>
+							<input type="range" name="sensuality" min="0" max="3" step="1" list="sensuality-steps">
+							<datalist id="sensuality-steps">
+								<option value="0">0</option>
+								<option value="1">1</option>
+								<option value="2">2</option>
+								<option value="3">3</option>
+							</datalist>
+							<h3>Tweaks</h3>
+							<!-- internet access toggle -->
+							<div style="display: flex; gap: 0.25rem; align-items: center;">
+								<input id="internet-access" type="checkbox" name="internetEnabled"></input>
+								<label for="internet-access">Internet Access</label>
+								<span class="material-symbols-outlined tooltip"
+									style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+									info="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
+							</div>
+							<!-- roleplay toggle -->
+							<div style="display: flex; gap: 0.25rem; align-items: center;">
+								<input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
+								<label for="roleplay">Roleplay</label>
+								<span class="material-symbols-outlined tooltip"
+									style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+									info="This attribute enhances your roleplay experience by enabling a new game-ified interface. Currently still in development.">info</span>
+							</div>
+						</div>
+						<div class="step">
+							<div>
+								<h3 style="display:inline">Tone Examples</h3>
+								<span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
+							</div>
+							<input type="text" name="tone-example-1" class="tone-example"
+								placeholder="I'm a plumber, not a doctor. Lets-a go!">
+							<button type="button" id="btn-add-tone-example"
+								class="material-symbols-outlined">add_circle</button>
+						</div>
+						<!-- NEW MEDIA STEP ADDED HERE -->
 						<div class="step">
 							<h3>Media Library</h3>
 							<p style="opacity: 60%; font-size: 90%; font-style: italic;">
 								Upload and tag images or audio files to use with your personality.
 							</p>
-							<!-- New wrapper for the two-column layout -->
-							<div class="asset-manager-body">
-								<!-- 1. The new sidebar for tags -->
-								<div id="asset-tag-sidebar">
-									<!-- The list of clickable tags will be injected here by JavaScript later -->
-								</div>
-								<!-- 2. The main content area -->
-								<div class="asset-manager-main">
-									<div class="asset-manager-controls">
-										<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
-										<button type="button" class="btn-with-icon" id="btn-upload-asset">
-											<span class="material-symbols-outlined">upload_file</span>
-											Upload
-										</button>
-										<input type="search" id="asset-search-input" placeholder="Search by tag..." class="input-field">
-									</div>
-									<div id="asset-manager-gallery">
-										<!-- Asset cards will be injected here by JavaScript -->
-									</div>
-								</div>
+							<div class="asset-manager-controls">
+								<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
+								<button type="button" class="btn-with-icon" id="btn-upload-asset">
+									<span class="material-symbols-outlined">upload_file</span>
+									Upload
+								</button>
+								<input type="search" id="asset-search-input" placeholder="Search by tag..." class="input-field">
+							</div>
+							<div id="asset-manager-gallery">
+								<!-- Asset cards will be injected here by JavaScript -->
 							</div>
 						</div>
-                    </div>
-                    <div class="stepper-footer">
-                        <button id="btn-stepper-previous" type="button">Previous</button>
-                        <div id="stepper-progress"></div>
-                        <button id="btn-stepper-next" type="button">Next</button>
-                        <button id="btn-stepper-submit" type="submit">Submit</button>
-                    </div>
-                </div>
-            </form>
+					</div>
+					<div class="stepper-footer">
+						<button id="btn-stepper-previous" type="button">Previous</button>
+						<div id="stepper-progress"></div>
+						<button id="btn-stepper-next" type="button">Next</button>
+						<button id="btn-stepper-submit" type="submit">Submit</button>
+					</div>
+				</div>
+			</form>
 
-            <div id="whats-new">
-                <h1 id="header-version">What's New in </h1>
-                <ul id="changelog">
-                    <li>Warning: Pro model is currently disabled for free users. <br>
-                        This is a limitation set by Google and cannot be bypassed. 
-                        <a href="https://x.com/officiallogank/status/1922357621178200248">More info</a></li>
-                    
-                    <li>Visit my discord if you'd like to connect regarding the project, need support, or have any
-                        questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
+			<!-- ================================== -->
+			<!-- ==   NEW ASSET DETAIL VIEW      == -->
+			<!-- ================================== -->
+			<div id="asset-detail-view" style="display: none;">
+				<div id="asset-detail-preview"></div>
+				<div id="asset-detail-info">
+					<h3 id="asset-detail-name"></h3>
+					<div class="asset-detail-section">
+						<h4>Tags</h4>
+						<div id="asset-detail-tags">
+							<!-- Tag pills will be injected here -->
+						</div>
+						<div class="add-tag-wrapper">
+							<input type="text" id="add-tag-input" placeholder="Add new tag...">
+							<button id="btn-add-tag" class="material-symbols-outlined">add</button>
+						</div>
+					</div>
+					<div class="asset-detail-actions">
+						<button id="btn-delete-asset" class="btn-danger">
+							<span class="material-symbols-outlined">delete</span>
+							Delete Asset
+						</button>
+						<button id="btn-asset-detail-back">Back to Library</button>
+					</div>
+				</div>
+			</div>
 
-                </ul>
-            </div>
-        </div>
-    </div>
+			<div id="whats-new">
+				<h1 id="header-version">What's New in </h1>
+				<ul id="changelog">
+					<li>Warning: Pro model is currently disabled for free users. <br>
+						This is a limitation set by Google and cannot be bypassed. 
+						<a href="https://x.com/officiallogank/status/1922357621178200248">More info</a></li>
+					
+					<li>Visit my discord if you'd like to connect regarding the project, need support, or have any
+						questions: <a href="https://discord.gg/ZbdPu4Dm3e">Discord Server</a></li>
+
+				</ul>
+			</div>
+		</div>
+	</div>
+
+
+
+
+
+
+
+
 
     <script type="module" src="main.js"></script>
 </body>
