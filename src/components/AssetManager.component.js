@@ -62,7 +62,7 @@ async function renderGallery() {
     if (!galleryEl || !titleEl) return;
 
     if (currentCharacterId === null) { // <-- ADDED: Handle case where no character is selected
-        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Select a personality to view its media library.</p>`;
+        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Create a personality to use its media library.</p>`;
         titleEl.textContent = 'Media Library';
         return;
     }
