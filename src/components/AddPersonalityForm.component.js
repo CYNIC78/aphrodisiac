@@ -2,12 +2,12 @@ import { Personality } from "../models/Personality";
 import * as personalityService from '../services/Personality.service';
 import * as stepperService from '../services/Stepper.service';
 import * as overlayService from '../services/Overlay.service';
-import { initializeAssetManagerComponent } from './AssetManager.component.js'; // <-- ADDED: Need to import it here too
+import { initializeAssetManagerComponent } from './AssetManager.component.js';
 
 let isInitialized = false;
-let currentPersonalityId = null; // <-- ADDED: To store the ID for the form context
+let currentPersonalityId = null;
 
-export function initializeAddPersonalityForm(personalityId = null) { // <-- MODIFIED: Accepts personalityId
+export function initializeAddPersonalityForm(personalityId = null) {
     // Only initialize event listeners once
     if (!isInitialized) {
         const form = document.querySelector("#form-add-personality");
@@ -18,33 +18,35 @@ export function initializeAddPersonalityForm(personalityId = null) { // <-- MODI
             return;
         }
 
-        form.submit = async (e) => { // <-- MODIFIED: Made async
+        // CRITICAL FIX HERE: Use addEventListener for submit to ensure 'e' (event object) is always passed
+        form.addEventListener('submit', async (e) => { // <-- CRITICAL FIX: Changed from form.submit = ...
             e.preventDefault(); // Prevent default form submission
-            //turn all the form data into a personality object
+
+            // Turn all the form data into a personality object
             const personality = new Personality();
             const data = new FormData(form);
             
             // Collect form data into personality object
             for (const [key, value] of data.entries()) {
-                if (key.includes("tone-example")) { // Tone examples are dynamically named, check for prefix
+                if (key.includes("tone-example")) {
                     if (value) {
                         personality.toneExamples.push(value);
                     }
                     continue;
                 }
-                if (key === 'id') { // 'id' will be handled separately for add/edit
+                if (key === 'id') {
                     continue;
                 }
-                // Handle checkboxes (FormData for unchecked checkbox doesn't include the key)
+                // Handle checkboxes
                 if (key === 'internetEnabled' || key === 'roleplayEnabled') {
-                    personality[key] = data.has(key); // Set true if present, false if not
+                    personality[key] = data.has(key);
                 } else {
                     personality[key] = value;
                 }
             }
 
             // Handle both edit and add cases
-            const idFromForm = data.get('id'); // Get ID from hidden input if present
+            const idFromForm = data.get('id');
             let finalPersonalityId = null;
 
             if (idFromForm) { // This is an edit
@@ -52,15 +54,15 @@ export function initializeAddPersonalityForm(personalityId = null) { // <-- MODI
                 await personalityService.edit(finalPersonalityId, personality);
                 console.log(`Edited personality with ID: ${finalPersonalityId}`);
             } else { // This is a new personality being added
-                finalPersonalityId = await personalityService.add(personality); // ID is returned on add
+                finalPersonalityId = await personalityService.add(personality);
                 console.log(`Added new personality with ID: ${finalPersonalityId}`);
             }
-            // After adding/editing, update currentPersonalityId to ensure context is maintained if needed later
+            // After adding/editing, update currentPersonalityId to ensure context is maintained
             currentPersonalityId = finalPersonalityId;
             
             overlayService.closeOverlay();
             // After closing, the UI will re-render personalities, which will trigger avatar loads.
-        }
+        }); // <-- CRITICAL FIX: End of addEventListener
 
         // This code is for setting up the `add tone example` button
         btn.addEventListener('click', (e) => {
@@ -80,7 +82,7 @@ export function initializeAddPersonalityForm(personalityId = null) { // <-- MODI
     currentPersonalityId = personalityId;
     
     // Pass the current personality ID to the Asset Manager component for context
-    initializeAssetManagerComponent(currentPersonalityId); // <-- ADDED / MODIFIED
+    initializeAssetManagerComponent(currentPersonalityId);
     
     // If it's a new personality form, make sure the ID field is clear
     const idInput = document.querySelector("#form-add-personality input[name='id']");
