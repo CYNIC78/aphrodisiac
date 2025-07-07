@@ -1,6 +1,10 @@
 import { assetManagerService } from '../services/AssetManager.service.js';
 
-function initializeAssetManager() {
+let isInitialized = false;
+
+export function initializeAssetManagerComponent() {
+    if (isInitialized) return; // Prevent re-initializing
+
     const uploadButton = document.querySelector('#btn-upload-asset');
     const fileInput = document.querySelector('#asset-upload-input');
     const searchInput = document.querySelector('#asset-search-input');
@@ -36,7 +40,7 @@ function initializeAssetManager() {
     });
 
     console.log('Asset Manager Component Initialized.');
+    isInitialized = true;
 }
 
-// Run the initialization function
-initializeAssetManager();
+// The self-invoking call has been removed.
