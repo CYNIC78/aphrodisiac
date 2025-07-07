@@ -248,22 +248,35 @@
                             <button type="button" id="btn-add-tone-example"
                                 class="material-symbols-outlined">add_circle</button>
                         </div>
-                        <!-- NEW MEDIA STEP ADDED HERE -->
+                        <!-- === NEW ASSET MANAGER LAYOUT === -->
                         <div class="step">
-                            <h3>Media Library</h3>
-                            <p style="opacity: 60%; font-size: 90%; font-style: italic;">
-                                Upload and tag images or audio files to use with your personality.
-                            </p>
-                            <div class="asset-manager-controls">
-                                <input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
-                                <button type="button" class="btn-with-icon" id="btn-upload-asset">
-                                    <span class="material-symbols-outlined">upload_file</span>
-                                    Upload
-                                </button>
-                                <input type="search" id="asset-search-input" placeholder="Search by tag..." class="input-field">
-                            </div>
-                            <div id="asset-manager-gallery">
-                                <!-- Asset cards will be injected here by JavaScript -->
+                            <h3>Asset Manager</h3>
+                            <div id="asset-manager-layout">
+                                <div id="asset-manager-groups">
+                                    <h4>Groups</h4>
+                                    <div class="new-group-input-wrapper">
+                                        <input type="text" id="new-group-name" placeholder="New group name">
+                                        <button type="button" id="btn-add-group" class="material-symbols-outlined">add_circle</button>
+                                    </div>
+                                    <div id="asset-groups-list">
+                                        <!-- Groups (tags) will be rendered here -->
+                                    </div>
+                                </div>
+                                <div id="asset-manager-main">
+                                    <div class="asset-main-header">
+                                        <h4 id="asset-gallery-title">All Assets</h4>
+                                        <div>
+                                            <input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
+                                            <button type="button" class="btn-with-icon" id="btn-upload-asset">
+                                                <span class="material-symbols-outlined">upload_file</span>
+                                                Upload
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="asset-manager-gallery">
+                                        <!-- Asset cards will be injected here by JavaScript -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
