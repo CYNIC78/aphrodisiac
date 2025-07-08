@@ -62,9 +62,11 @@ export async function initialize() {
 
     let personalityToActivateId = -1; // Default to Aphrodite's ID
     if (lastActivePersonalityId !== null) {
-        const foundPersonality = await get(lastActivePersonalityId);
+        // NEW FIX: Convert the string ID from localStorage back to a number
+        const parsedId = parseInt(lastActivePersonalityId, 10); 
+        const foundPersonality = await get(parsedId); // Use the parsed number ID
         if (foundPersonality) {
-            personalityToActivateId = lastActivePersonalityId;
+            personalityToActivateId = parsedId; // Use the parsed ID
         } else {
             console.warn(`Last active personality with ID ${lastActivePersonalityId} not found. Defaulting to Aphrodite.`);
             // If not found, personalityToActivateId remains -1 (Aphrodite)
