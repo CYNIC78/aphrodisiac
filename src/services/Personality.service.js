@@ -1,3 +1,5 @@
+// FILE: src/services/Personality.service.js
+
 import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
@@ -222,20 +224,12 @@ export async function removeAll() {
     // Re-add default Aphrodite
     const defaultPersonality = { ...getDefault(), id: -1 };
     const defaultPersonalityCard = insert(defaultPersonality);
-    // Note: No need to click defaultPersonalityCard here. The main.js initialize
-    // or chat service should handle initial selection.
 
     // Re-add the "Create New" card
     const createCard = createAddPersonalityCard();
     if (personalitiesDiv) {
         personalitiesDiv.appendChild(createCard);
     }
-    
-    // Ensure Aphrodite is selected after clearing if no other chat was active
-    // This part is generally handled by main.js initialization on app load/reload
-    // If we want a dynamic selection after "Clear All", we'd need to emit an event
-    // or call ChatsService.createNewChat() or ChatsService.loadChat(-1) to select Aphrodite.
-    // For now, simple UI refresh.
 }
 
 export async function add(personality) {
@@ -273,20 +267,22 @@ export async function edit(id, personality) {
 export function generateCard(personality) {
     const card = document.createElement("label");
     card.classList.add("card-personality");
-    // Ensure the card gets an ID based on personality.id for lookup and event handling
     if (personality.id !== undefined && personality.id !== null) {
         card.id = `personality-${personality.id}`;
     }
+    // --- MODIFIED: Added btn-media-library-card ---
     card.innerHTML = `
             <img class="background-img" src="${personality.image}" data-personality-id="${personality.id}"></img>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
                 ${(personality.id !== undefined && personality.id !== null && personality.id !== -1) ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
-                    id="btn-edit-personality-${personality.name}">edit</button>` : ''}
+                    id="btn-edit-personality-${personality.name}" title="Edit Personality">edit</button>` : ''}
+                ${(personality.id !== undefined && personality.id !== null && personality.id !== -1) ? `<button class="btn-textual btn-media-library-card material-symbols-outlined" 
+                    id="btn-media-library-${personality.name}" title="Media Library">perm_media</button>` : ''}
                 <button class="btn-textual btn-share-card material-symbols-outlined" 
-                    id="btn-share-personality-${personality.name}">share</button>
+                    id="btn-share-personality-${personality.name}" title="Share Personality">share</button>
                 ${(personality.id !== undefined && personality.id !== null && personality.id !== -1) ? `<button class="btn-textual btn-delete-card material-symbols-outlined"
-                    id="btn-delete-personality-${personality.name}">delete</button>` : ''}
+                    id="btn-delete-personality-${personality.name}" title="Delete Personality">delete</button>` : ''}
             </div>
             <div class="personality-info">
                 <h3 class="personality-title">${personality.name}</h3>
@@ -294,30 +290,60 @@ export function generateCard(personality) {
             </div>
             `;
 
-    // Add event listeners
+    // --- MODIFIED: Added logic for the new button and safety improvements for all buttons ---
     const shareButton = card.querySelector(".btn-share-card");
     const deleteButton = card.querySelector(".btn-delete-card");
     const editButton = card.querySelector(".btn-edit-card");
+    const mediaLibraryButton = card.querySelector(".btn-media-library-card"); // Get the new button
     const input = card.querySelector("input");
 
-    shareButton.addEventListener("click", () => {
-        share(personality);
-    });
+    const handleButtonClick = (event, action) => {
+        event.preventDefault();
+        event.stopPropagation();
+        action();
+    };
+
+    if (shareButton) {
+        shareButton.addEventListener("click", (event) => {
+            handleButtonClick(event, () => share(personality));
+        });
+    }
     if (deleteButton) {
-        deleteButton.addEventListener("click", () => {
-            //first if the personality to delete is the one currently selected, we select the default personality
-            if (input.checked) {
-                document.querySelector("#personalitiesDiv").firstElementChild.querySelector('input').click();
-            }
-            if (personality.id !== undefined && personality.id !== null) {
-                remove(personality.id);
-            }
-            card.remove();
+        deleteButton.addEventListener("click", (event) => {
+            handleButtonClick(event, () => {
+                if (input.checked) {
+                    document.querySelector("#personalitiesDiv").firstElementChild.querySelector('input').click();
+                }
+                if (personality.id !== undefined && personality.id !== null) {
+                    remove(personality.id);
+                }
+                card.remove();
+            });
         });
     }
     if (editButton) {
-        editButton.addEventListener("click", () => {
-            overlayService.showEditPersonalityForm(personality);
+        editButton.addEventListener("click", (event) => {
+            handleButtonClick(event, () => overlayService.showEditPersonalityForm(personality));
+        });
+    }
+    // --- NEW: Event listener for the Media Library shortcut ---
+    if (mediaLibraryButton) {
+        mediaLibraryButton.addEventListener("click", (event) => {
+            handleButtonClick(event, () => {
+                // Step 1: Show the form. This also populates it with the correct personality data.
+                overlayService.showEditPersonalityForm(personality);
+                
+                // Step 2: Use a small delay to ensure the overlay and its contents are rendered in the DOM.
+                setTimeout(() => {
+                    const nextButton = document.querySelector('#btn-stepper-next');
+                    if (nextButton) {
+                        // Step 3: Programmatically click the 'Next' button three times to navigate to the 4th step.
+                        nextButton.click(); // to step 2
+                        nextButton.click(); // to step 3
+                        nextButton.click(); // to step 4
+                    }
+                }, 50); // 50ms is a safe delay.
+            });
         });
     }
     return card;
@@ -333,16 +359,14 @@ export function generateCard(personality) {
 async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
     
-    // Ensure personality.id is a valid number (including -1 for Aphrodite)
     if (!imgElement || !personality || (typeof personality.id !== 'number' && personality.id !== -1)) {
         console.warn('loadAndApplyPersonalityAvatar: Missing required elements or personality data (ID:', personality?.id, 'Name:', personality?.name, ').');
         if (imgElement && personality) {
-             imgElement.src = personality.image; // Fallback to personality's original image
+             imgElement.src = personality.image;
         }
         return;
     }
 
-    // Revoke old URL if it exists for this personality to prevent memory leaks
     if (personalityImageUrls.has(personality.id)) {
         URL.revokeObjectURL(personalityImageUrls.get(personality.id));
         personalityImageUrls.delete(personality.id);
@@ -352,11 +376,8 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     try {
         let avatarUrl = null;
         
-        // Ensure characterId is valid before making service calls (not null for draft creation or -1 for Aphrodite)
-        // If personality.id is null (e.g., a new personality not yet saved/drafted), we can't query assets for it.
         const characterIdToUse = (typeof personality.id === 'number' && personality.id !== -1) ? personality.id : null;
 
-        // Priority 1: Character-specific avatar (e.g., ['avatar', 'test'])
         if (characterIdToUse !== null) {
              avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], characterIdToUse);
         }
@@ -366,12 +387,11 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
         } else {
             console.log(`No character-specific avatar found for ${personality.name}. Falling back to original image URL.`);
             imgElement.src = personality.image;
-            return; // Exit early if we're using the original image URL
+            return; 
         }
         
-        // If an avatarUrl was found (character-specific)
         imgElement.src = avatarUrl;
-        personalityImageUrls.set(personality.id, avatarUrl); // Store the new URL for future revocation
+        personalityImageUrls.set(personality.id, avatarUrl);
 
     } catch (error) {
         console.error(`Error loading avatar for ${personality.name} (ID: ${personality.id}):`, error);
