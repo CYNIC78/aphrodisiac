@@ -1,3 +1,5 @@
+// FILE: src/services/Chats.service.js
+
 import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import * as personalityService from "./Personality.service";
@@ -127,12 +129,29 @@ function insertChatEntry(chat, db) {
 }
 
 export async function addChat(title, firstMessage = null, db) {
+    const ai = new GoogleGenAI({ apiKey: settingsService.getSettings().apiKey }); // Re-initialize AI here for title generation
+    const selectedPersonality = await personalityService.getSelected(); // Get the currently active personality
+
+    // Construct a more context-aware prompt for the chat title
+    let titlePrompt = `You are to act as a generator for short, concise chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else.`;
+    if (selectedPersonality) {
+        titlePrompt += ` This chat is with the personality named "${selectedPersonality.name}", whose description is "${selectedPersonality.description}". Try to incorporate the personality's theme or name if relevant.`;
+    }
+    titlePrompt += ` The user's first message is: "${firstMessage}".`;
+
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash', // Still use Flash for quick title generation
+        contents: titlePrompt,
+    });
+    const generatedTitle = response.text; // Use the AI's generated title
+
     const id = await db.chats.put({
-        title: title,
+        title: generatedTitle, // Use the generated title here
         timestamp: Date.now(),
         content: firstMessage ? [{ role: "user", parts: [{ text: firstMessage }] }] : []
     });
-    insertChatEntry({ title, id }, db);
+    insertChatEntry({ title: generatedTitle, id }, db); // Pass the generated title to insertChatEntry
     console.log("chat added with id: ", id);
 
     // NEW: Select the newly added chat to make it active
