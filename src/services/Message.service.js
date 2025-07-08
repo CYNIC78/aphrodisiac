@@ -100,7 +100,8 @@ function setupMessageEditing(messageElement, db) {
 
         if (messageData) {
             const rawText = messageData.parts[0].text;
-            messageTextDiv.innerText = helpers.getDecoded(rawText); // Use innerText to avoid HTML issues
+            // THE FIX: Use .innerText to set the content, which ensures no HTML is interpreted.
+            messageTextDiv.innerText = helpers.getDecoded(rawText);
             
             messageTextDiv.setAttribute("contenteditable", "true");
             messageTextDiv.focus();
@@ -116,6 +117,7 @@ function setupMessageEditing(messageElement, db) {
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
 
+        // THE FIX: Use .innerText to get the clean text without any HTML tags.
         const newRawText = messageTextDiv.innerText; 
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
@@ -132,6 +134,7 @@ function setupMessageEditing(messageElement, db) {
             commandBlock = parts[1] || "";
         }
         
+        // Re-render the visible part using the clean text
         messageTextDiv.innerHTML = marked.parse(visibleMessage, { breaks: true });
         
         if (commandBlock) {
@@ -186,10 +189,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         });
         const messageContent = newMessage.querySelector(".message-text");
 
-        // --- FINAL POLISH: This block now handles both "loading" and "live" messages ---
         if (!netStream) {
-            // This is the "Loading Path" for old messages from the database.
-            // We apply the same splitting logic here.
             const userSettings = settingsService.getSettings();
             const separator = userSettings.triggers.separator;
             let visibleMessage = msg, commandBlock = "";
@@ -201,10 +201,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             }
             messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
             
-            // Note: We don't process commands for old messages to prevent re-triggering sounds/actions on every load.
-            // This is the desired behavior. The initial trigger happened when the message was first received.
         } else {
-            // This is the "Live Path" for new messages from the stream.
             let fullRawText = "";
             try {
                 for await (const chunk of netStream) {
