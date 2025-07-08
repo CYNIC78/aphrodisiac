@@ -1714,11 +1714,16 @@ input[name="currentChat"][value="none"] {
 
 
 
-/* === Avatar Smooth Transition (Corrected) === */
-.pfp {
-    transition: opacity 0.2s ease-in-out;
+/* === Avatar Smooth Transition (Revised and Improved) === */
+/* Applies to both chat PFP and personality card background image */
+.pfp,
+.personality-card .background-img {
+    transition: opacity 0.25s ease-in-out; /* Slightly slower fade for smoother feel */
 }
 
-.avatar-fade-out {
+/* This class will instantly hide the element without transition, for immediate swapping */
+.pfp.hide-for-swap,
+.personality-card .background-img.hide-for-swap {
     opacity: 0;
+    transition: none; /* Important: No transition when hiding */
 }

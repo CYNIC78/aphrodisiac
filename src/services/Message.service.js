@@ -235,33 +235,54 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
+                        
+                        // === START OF REPLACED CODE BLOCK (PFP) ===
                         const pfpElement = messageElement.querySelector('.pfp');
-						if (pfpElement) {
-													// 1. Start the fade-out. The CSS transition makes it smooth.
-													pfpElement.classList.add('avatar-fade-out');
-												
-													// 2. Wait for the fade-out animation to finish (0.2s).
-													setTimeout(() => {
-														// 3. Set up a one-time instruction for WHEN the new image has finished loading.
-														pfpElement.onload = () => {
-															// 5. Once it's loaded, fade the new image in.
-															pfpElement.classList.remove('avatar-fade-out');
-															// Clean up to prevent memory leaks and future errors.
-															pfpElement.onload = null;
-															URL.revokeObjectURL(objectURL);
-														};
-														// 4. Now, tell the browser to start loading the new image.
-														pfpElement.src = objectURL;
-													}, 200); // This duration MUST match the CSS transition!
-												}
+                        if (pfpElement) {
+                            const tempImage = new Image();
+                            tempImage.src = objectURL; // Start loading the new image in the background
+                            
+                            tempImage.onload = () => {
+                                // Once the new image is fully loaded:
+                                pfpElement.classList.add('hide-for-swap'); // Instantly hide the current PFP
+                                // Use requestAnimationFrame to ensure CSS applies before source change
+                                requestAnimationFrame(() => {
+                                    pfpElement.src = objectURL; // Swap the image source
+                                    pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                    URL.revokeObjectURL(objectURL); // Clean up the Blob URL
+                                });
+                            };
+                            tempImage.onerror = () => {
+                                console.error("Failed to load new avatar image for message:", objectURL);
+                                URL.revokeObjectURL(objectURL); // Still revoke if failed to load
+                            };
+                        }
+                        // === END OF REPLACED CODE BLOCK (PFP) ===
+
+                        // === START OF REPLACED CODE BLOCK (Personality Card) ===
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
                         if(personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
                             if(cardImg) {
-                                cardImg.style.opacity = 0;
-                                setTimeout(() => { cardImg.src = objectURL; cardImg.style.opacity = 1; }, 200);
+                                const tempImage = new Image();
+                                tempImage.src = objectURL; // Preload new image for the card
+    
+                                tempImage.onload = () => {
+                                    // Once the new image is fully loaded:
+                                    cardImg.classList.add('hide-for-swap'); // Instantly hide the current card image
+                                    requestAnimationFrame(() => {
+                                        cardImg.src = objectURL; // Swap the image source
+                                        cardImg.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                        URL.revokeObjectURL(objectURL); // Clean up the Blob URL
+                                    });
+                                };
+                                tempImage.onerror = () => {
+                                    console.error("Failed to load personality card image:", objectURL);
+                                    URL.revokeObjectURL(objectURL);
+                                };
                             }
                         }
+                        // === END OF REPLACED CODE BLOCK (Personality Card) ===
                     }
                 } catch (e) { console.error(`Error processing image command:`, e); }
                 break;
