@@ -82,6 +82,8 @@ async function regenerate(responseElement, db) {
 }
 
 
+// --- FINAL, CORRECTED EDITING LOGIC ---
+
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
@@ -100,7 +102,7 @@ function setupMessageEditing(messageElement, db) {
 
         if (messageData) {
             const rawText = messageData.parts[0].text;
-            // THE FIX: Use .innerText to set the content, which ensures no HTML is interpreted.
+            // THE FIX: Use innerText to display the raw text without HTML interpretation.
             messageTextDiv.innerText = helpers.getDecoded(rawText);
             
             messageTextDiv.setAttribute("contenteditable", "true");
@@ -110,14 +112,13 @@ function setupMessageEditing(messageElement, db) {
             saveButton.style.display = 'inline-block';
         } else {
             console.error("Could not find message data for editing.");
-            alert("Error: Could not retrieve message for editing.");
         }
     });
 
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
 
-        // THE FIX: Use .innerText to get the clean text without any HTML tags.
+        // THE FIX: Use innerText to get the clean text, stripping all HTML.
         const newRawText = messageTextDiv.innerText; 
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
@@ -156,6 +157,7 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
         
+        // Save the clean, raw text back to the database
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
 
@@ -168,7 +170,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
-
     if (sender != "user") {
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
