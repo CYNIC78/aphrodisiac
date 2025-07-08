@@ -1712,18 +1712,3 @@ input[name="currentChat"][value="none"] {
     }
 }
 
-/* --- THE FINAL, SIMPLE, AND CORRECT EDITING STYLE --- */
-.edit-textarea {
-    width: 100%;
-    margin-top: 1rem;
-    padding: 0;
-    border: 1px dashed rgba(128, 128, 128, 0.5);
-    background-color: transparent;
-    color: inherit;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
-    resize: vertical;
-    overflow: hidden; /* Prevents scrollbar from showing up unnecessarily */
-    box-sizing: border-box;
-}
