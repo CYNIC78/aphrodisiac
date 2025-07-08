@@ -8,23 +8,15 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// THIS FILE NO LONGER IMPORTS THE ASSET MANAGER.
+// NO AssetManager import here. It will be loaded on-demand.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
-    if (!selectedPersonality) {
-        return;
-    }
-    if (settings.apiKey === "") {
-        alert("Please enter an API key");
-        return;
-    }
-    if (!msg) {
-        return;
-    }
+    if (!selectedPersonality) return;
+    if (settings.apiKey === "") return alert("Please enter an API key");
+    if (!msg) return;
 
-    //model setup
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
@@ -34,7 +26,6 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
     
-    //user msg handling
     if (!await chatsService.getCurrentChat(db)) { 
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
@@ -54,44 +45,24 @@ export async function send(msg, db) {
     helpers.messageContainerScrollToBottom();
     
     const history = [
-        {
-            role: "user",
-            parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }]
-        },
-        {
-            role: "model",
-            parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }]
-        }
+        { role: "user", parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }] },
+        { role: "model", parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }] }
     ];
     
     if (selectedPersonality.toneExamples) {
-        history.push(
-            ...selectedPersonality.toneExamples.map((tone) => {
-                return { role: "model", parts: [{ text: tone }] }
-            })
-        );
+        history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(
-        ...currentChat.content.map((msg) => {
-            return { role: msg.role, parts: msg.parts }
-        })
-    );
+    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
     
-    const chat = ai.chats.create({
-        model: settings.model,
-        history: history,
-        config: config
-    });
+    const chat = ai.chats.create({ model: settings.model, history, config });
 
     let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
     
-    const stream = await chat.sendMessageStream({
-        message: messageToSendToAI
-    });
+    const stream = await chat.sendMessageStream({ message: messageToSendToAI });
     
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
@@ -104,7 +75,6 @@ async function regenerate(responseElement, db) {
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-
     chat.content = chat.content.slice(0, elementIndex - 1);
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
@@ -115,7 +85,6 @@ function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector(".btn-edit");
     const saveButton = messageElement.querySelector(".btn-save");
     const messageText = messageElement.querySelector(".message-text");
-    
     if (!editButton || !saveButton) return;
     
     editButton.addEventListener("click", () => {
@@ -136,41 +105,30 @@ function setupMessageEditing(messageElement, db) {
         messageText.removeAttribute("contenteditable");
         editButton.style.display = "inline-block";
         saveButton.style.display = "none";
-        
         const messageContainer = document.querySelector(".message-container");
         const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
-        
         await updateMessageInDatabase(messageElement, messageIndex, db);
-
         const newRawText = messageText.textContent;
         const settings = settingsService.getSettings();
         const separator = settings.triggers.separator;
-        let visibleMessage = newRawText;
-        let commandBlock = "";
-
+        let visibleMessage = newRawText, commandBlock = "";
         if (separator && newRawText.includes(separator)) {
             const parts = newRawText.split(separator);
             visibleMessage = parts[0].trim();
             commandBlock = parts[1] || "";
         }
-        
         messageText.innerHTML = marked.parse(visibleMessage, { breaks: true });
         if (commandBlock) {
              const currentChat = await chatsService.getCurrentChat(db);
              const characterId = currentChat.content[messageIndex]?.personalityid;
              if(characterId !== undefined) {
-                // CORRECTLY DELEGATE to the new function in Personality.service
-                personalityService.processTriggersForMessage(commandBlock, messageElement, characterId);
+                await processCommandBlock(commandBlock, messageElement, characterId);
              }
         }
     });
     
     messageText.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            saveButton.click();
-        }
-        
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveButton.click(); }
         if (e.key === "Escape") {
             messageText.innerHTML = messageText.dataset.originalContent;
             messageText.removeAttribute("contenteditable");
@@ -188,9 +146,7 @@ async function updateMessageInDatabase(messageElement, messageIndex, db) {
         if (!currentChat || !currentChat.content[messageIndex]) return;
         currentChat.content[messageIndex].parts[0].text = rawText;
         await db.chats.put(currentChat);
-    } catch (error) {
-        console.error("Error updating message in database:", error);
-    }
+    } catch (error) { console.error("Error updating message in database:", error); }
 }
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
@@ -198,14 +154,12 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
-
     if (sender != "user") {
         newMessage.classList.add("message-model");
-        const messageRole = selectedPersonalityTitle;
         newMessage.innerHTML = `
             <div class="message-header">
                 <img class="pfp" src="${pfpSrc}" loading="lazy"></img>
-                <h3 class="message-role">${messageRole}</h3>
+                <h3 class="message-role">${selectedPersonalityTitle}</h3>
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
@@ -213,14 +167,12 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text"></div>
-            `;
+            <div class="message-text"></div>`;
         const refreshButton = newMessage.querySelector(".btn-refresh");
         refreshButton.addEventListener("click", async () => {
             try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
         });
         const messageContent = newMessage.querySelector(".message-text");
-
         if (!netStream) {
             messageContent.innerHTML = marked.parse(msg);
         } else {
@@ -229,18 +181,14 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 for await (const chunk of netStream) {
                     if (chunk && chunk.text) { fullRawText += chunk.text; }
                 }
-
                 const userSettings = settingsService.getSettings();
                 const separator = userSettings.triggers.separator;
-                let visibleMessage = fullRawText;
-                let commandBlock = "";
-
+                let visibleMessage = fullRawText, commandBlock = "";
                 if (separator && fullRawText.includes(separator)) {
                     const parts = fullRawText.split(separator);
                     visibleMessage = parts[0].trim();
                     commandBlock = parts[1] || "";
                 }
-                
                 if (typingSpeed > 0) {
                     messageContent.innerHTML = '';
                     let renderedText = '';
@@ -254,12 +202,9 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
                     helpers.messageContainerScrollToBottom();
                 }
-
                 if (commandBlock) {
-                    // CORRECTLY DELEGATE to the new function in Personality.service
-                    personalityService.processTriggersForMessage(commandBlock, newMessage, characterId);
+                    await processCommandBlock(commandBlock, newMessage, characterId);
                 }
-
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
@@ -271,19 +216,82 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             }
         }
     } else {
-        const messageRole = "You:";
         newMessage.innerHTML = `
                 <div class="message-header">
-                    <h3 class="message-role">${messageRole}</h3>
+                    <h3 class="message-role">You:</h3>
                     <div class="message-actions">
                         <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                         <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
                     </div>
                 </div>
                 <div class="message-role-api" style="display: none;">${sender}</div>
-                <div class="message-text">${helpers.getDecoded(msg)}</div>
-                `;
+                <div class="message-text">${helpers.getDecoded(msg)}</div>`;
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
+}
+
+// === DEFINITIVE FIX: Command processing logic is back inside Message.service.js ===
+async function processCommandBlock(commandBlock, messageElement, characterId) {
+    if (characterId === null) {
+        console.warn("Cannot process commands: Invalid characterId.");
+        return;
+    }
+
+    // On-demand import prevents circular dependency issues.
+    const { assetManagerService } = await import('./AssetManager.service.js');
+    const settings = settingsService.getSettings();
+    const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
+    let match;
+
+    while ((match = commandRegex.exec(commandBlock)) !== null) {
+        const command = match[1].trim().toLowerCase();
+        const value = match[2].trim();
+
+        switch (command) {
+            case 'image':
+                try {
+                    const asset = await assetManagerService.getAssetByTag(value, 'image', characterId);
+                    if (asset && asset.data instanceof Blob) {
+                        const objectURL = URL.createObjectURL(asset.data);
+                        const pfpElement = messageElement.querySelector('.pfp');
+                        if (pfpElement) pfpElement.src = objectURL;
+                        const personalityCard = document.querySelector(`#personality-${characterId}`);
+                        if(personalityCard) {
+                            const cardImg = personalityCard.querySelector('.background-img');
+                            if(cardImg) {
+                                cardImg.style.opacity = 0;
+                                setTimeout(() => {
+                                    cardImg.src = objectURL;
+                                    cardImg.style.opacity = 1;
+                                }, 200);
+                            }
+                        }
+                    } else {
+                        console.warn(`Image asset with tag "${value}" not found for character ${characterId}.`);
+                    }
+                } catch (e) { console.error(`Error processing image command:`, e); }
+                break;
+
+            case 'audio':
+                if (settings.audio.enabled) {
+                    try {
+                        const asset = await assetManagerService.getAssetByTag(value, 'audio', characterId);
+                        if (asset && asset.data instanceof Blob) {
+                            const objectURL = URL.createObjectURL(asset.data);
+                            const audio = new Audio(objectURL);
+                            audio.volume = settings.audio.volume;
+                            audio.play().catch(e => console.error("Audio playback failed:", e));
+                            audio.onended = () => URL.revokeObjectURL(objectURL);
+                        } else {
+                            console.warn(`Audio asset with tag "${value}" not found for character ${characterId}.`);
+                        }
+                    } catch (e) { console.error(`Error processing audio command:`, e); }
+                }
+                break;
+
+            default:
+                console.warn(`Unknown command: "${command}"`);
+        }
+    }
 }
