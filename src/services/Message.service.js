@@ -8,8 +8,8 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// NEW: Import the AssetManager service to fetch assets for our commands.
-import * as assetManager from "./AssetManager.service.js";
+// --- FIX: Correctly import the assetManagerService instance ---
+import { assetManagerService } from "./AssetManager.service.js";
 
 
 export async function send(msg, db) {
@@ -37,7 +37,6 @@ export async function send(msg, db) {
     };
     
     //user msg handling
-    //we create a new chat if there is none is currently selected
     if (!await chatsService.getCurrentChat(db)) { 
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
@@ -48,18 +47,14 @@ export async function send(msg, db) {
         document.querySelector(`#chat${id}`).click();
     }
 
-    // Display user message in UI
     await insertMessage("user", msg, null, null, db);
 
-    // --- START: CHARACTER REMINDER LOGIC ---
     const currentChat = await chatsService.getCurrentChat(db);
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
     await db.chats.put(currentChat);
-    // --- END: CHARACTER REMINDER LOGIC ---
 
     helpers.messageContainerScrollToBottom();
     
-    // Create chat history for the AI session.
     const history = [
         {
             role: "user",
@@ -91,28 +86,23 @@ export async function send(msg, db) {
         config: config
     });
 
-    // --- START: CHARACTER REMINDER LOGIC (Injection into current message) ---
     let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
-    // --- END: CHARACTER REMINDER LOGIC ---
     
     const stream = await chat.sendMessageStream({
         message: messageToSendToAI
     });
     
-    // --- MODIFIED: Pass characterId to insertMessage to enable asset triggers ---
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
-    // Save model reply to chat history
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
 }
 
 async function regenerate(responseElement, db) {
-    //basically, we remove every message after the response we wish to regenerate, then send the message again.
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
@@ -123,7 +113,6 @@ async function regenerate(responseElement, db) {
     await send(message, db);
 }
 
-// NOTE: This function's editing implementation is basic. It will be enhanced later.
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector(".btn-edit");
     const saveButton = messageElement.querySelector(".btn-save");
@@ -155,7 +144,6 @@ function setupMessageEditing(messageElement, db) {
         
         await updateMessageInDatabase(messageElement, messageIndex, db);
 
-        // --- NEW: Re-process triggers after an edit ---
         const newRawText = messageText.textContent;
         const settings = settingsService.getSettings();
         const separator = settings.triggers.separator;
@@ -168,7 +156,6 @@ function setupMessageEditing(messageElement, db) {
             commandBlock = parts[1] || "";
         }
         
-        // Re-render the visible part and re-run commands
         messageText.innerHTML = marked.parse(visibleMessage, { breaks: true });
         if (commandBlock) {
              const currentChat = await chatsService.getCurrentChat(db);
@@ -197,7 +184,7 @@ function setupMessageEditing(messageElement, db) {
 async function updateMessageInDatabase(messageElement, messageIndex, db) {
     if (!db) return;
     try {
-        const rawText = messageElement.querySelector(".message-text").textContent; // Use textContent to get raw text
+        const rawText = messageElement.querySelector(".message-text").textContent;
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
         currentChat.content[messageIndex].parts[0].text = rawText;
@@ -207,7 +194,6 @@ async function updateMessageInDatabase(messageElement, messageIndex, db) {
     }
 }
 
-// --- MODIFIED: Function signature and logic updated for Trigger System ---
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
@@ -245,7 +231,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     if (chunk && chunk.text) { fullRawText += chunk.text; }
                 }
 
-                // --- NEW: Trigger Phrase System Logic ---
                 const userSettings = settingsService.getSettings();
                 const separator = userSettings.triggers.separator;
                 let visibleMessage = fullRawText;
@@ -253,11 +238,10 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
                 if (separator && fullRawText.includes(separator)) {
                     const parts = fullRawText.split(separator);
-                    visibleMessage = parts[0].trim(); // Trim whitespace
+                    visibleMessage = parts[0].trim();
                     commandBlock = parts[1] || "";
                 }
                 
-                // MODIFIED: Type out only the visible part
                 if (typingSpeed > 0) {
                     messageContent.innerHTML = '';
                     let renderedText = '';
@@ -272,7 +256,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     helpers.messageContainerScrollToBottom();
                 }
 
-                // NEW: Process the command block after typing is complete
                 if (commandBlock) {
                     await processCommandBlock(commandBlock, newMessage, characterId);
                 }
@@ -280,7 +263,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
-                // IMPORTANT: Return the FULL RAW text so it's saved correctly to the database for editing.
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
                 console.error("Stream error:", error);
@@ -306,7 +288,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     setupMessageEditing(newMessage, db);
 }
 
-// --- NEW: Helper function to process the command block ---
 async function processCommandBlock(commandBlock, messageElement, characterId) {
     if (characterId === null) {
         console.warn("Cannot process commands: Invalid characterId.");
@@ -314,7 +295,6 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
     }
 
     const settings = settingsService.getSettings();
-    // Use dynamic symbols from settings to build the regex
     const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
     let match;
 
@@ -323,9 +303,10 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
         const value = match[2].trim();
 
         switch (command) {
-            case 'image': // Changed from 'avatar' to 'image' for consistency
+            case 'image':
                 try {
-                    const asset = await assetManager.getAssetByTag(value, 'image', characterId);
+                    // --- FIX: Use the correct service name 'assetManagerService' ---
+                    const asset = await assetManagerService.getAssetByTag(value, 'image', characterId);
                     if (asset && asset.data) {
                         const pfpElement = messageElement.querySelector('.pfp');
                         if (pfpElement) { pfpElement.src = asset.data; }
@@ -350,7 +331,8 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
             case 'audio':
                 if (settings.audio.enabled) {
                     try {
-                        const asset = await assetManager.getAssetByTag(value, 'audio', characterId);
+                        // --- FIX: Use the correct service name 'assetManagerService' ---
+                        const asset = await assetManagerService.getAssetByTag(value, 'audio', characterId);
                         if (asset && asset.data) {
                             const audio = new Audio(asset.data);
                             audio.volume = settings.audio.volume;
