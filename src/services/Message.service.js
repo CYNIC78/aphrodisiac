@@ -17,7 +17,7 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey }); // KEEP: This is the ONLY place allowed to instantiate GoogleGenAI for main chat.
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
@@ -26,15 +26,17 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
     
-    if (!await chatsService.getCurrentChat(db)) { 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-        });
-        const title = response.text;
-        const id = await chatsService.addChat(title, null, db);
-        document.querySelector(`#chat${id}`).click();
-    }
+    // REMOVED FORBIDDEN/REDUNDANT LOGIC: This check and title generation is now handled
+    // by chatsService.addChat() before send() is even called for new chats.
+    // if (!await chatsService.getCurrentChat(db)) { 
+    //     const response = await ai.models.generateContent({
+    //         model: 'gemini-2.0-flash',
+    //         contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
+    //     });
+    //     const title = response.text;
+    //     const id = await chatsService.addChat(title, null, db);
+    //     document.querySelector(`#chat${id}`).click();
+    // }
 
     await insertMessage("user", msg, null, null, db);
 
@@ -309,5 +311,35 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                 }
                 break;
         }
+    }
+}
+
+/**
+ * Generates a chat title using the Google Gemini API.
+ * This function centralizes API calls for title generation, respecting Rule 3.
+ * @param {string} apiKey The Google Gemini API key.
+ * @param {object} personality The currently selected personality object.
+ * @param {string} firstMessage The user's first message in the chat.
+ * @returns {Promise<string>} The generated chat title.
+ */
+export async function generateChatTitle(apiKey, personality, firstMessage) {
+    const ai = new GoogleGenAI({ apiKey: apiKey }); // ALLOWED: This file is authorized to instantiate GoogleGenAI.
+    
+    let titlePrompt = `You are to act as a generator for short, concise chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else.`;
+    if (personality) {
+        titlePrompt += ` This chat is with the personality named "${personality.name}", whose description is "${personality.description}". Try to incorporate the personality's theme or name if relevant.`;
+    }
+    titlePrompt += ` The user's first message is: "${firstMessage}".`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash', // Still use Flash for quick title generation
+            contents: titlePrompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error generating chat title:", error);
+        // Fallback if title generation fails (e.g., API key issue, network error)
+        return `Chat with ${personality ? personality.name : 'AI'}`; 
     }
 }
