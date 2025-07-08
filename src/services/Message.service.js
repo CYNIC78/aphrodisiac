@@ -81,73 +81,91 @@ async function regenerate(responseElement, db) {
     await send(message, db);
 }
 
+
+// --- FINAL FIX: Upgraded editing logic to fetch raw text from the database ---
+
 function setupMessageEditing(messageElement, db) {
-    const editButton = messageElement.querySelector(".btn-edit");
-    const saveButton = messageElement.querySelector(".btn-save");
-    const messageText = messageElement.querySelector(".message-text");
-    if (!editButton || !saveButton) return;
-    
-    editButton.addEventListener("click", () => {
-        messageText.setAttribute("contenteditable", "true");
-        messageText.focus();
-        editButton.style.display = "none";
-        saveButton.style.display = "inline-block";
-        messageText.dataset.originalContent = messageText.innerHTML;
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(messageText);
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
+    const editButton = messageElement.querySelector('.btn-edit');
+    const saveButton = messageElement.querySelector('.btn-save');
+    const messageTextDiv = messageElement.querySelector('.message-text');
+
+    if (!editButton || !saveButton || !messageTextDiv) return;
+
+    // Attach a data attribute to the message element to store its index
+    const messageContainer = document.querySelector(".message-container");
+    const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
+    messageElement.dataset.messageIndex = messageIndex;
+
+    editButton.addEventListener('click', async () => {
+        const currentChat = await chatsService.getCurrentChat(db);
+        const index = parseInt(messageElement.dataset.messageIndex, 10);
+        const messageData = currentChat.content[index];
+
+        if (messageData) {
+            // Fetch the FULL RAW text from the database record
+            const rawText = messageData.parts[0].text;
+            
+            // Switch to textarea for editing
+            messageTextDiv.innerHTML = `<textarea class="edit-textarea">${helpers.getDecoded(rawText)}</textarea>`;
+            editButton.style.display = 'none';
+            saveButton.style.display = 'inline-block';
+            messageTextDiv.querySelector('.edit-textarea').focus();
+        } else {
+            console.error("Could not find message data for editing.");
+            alert("Error: Could not retrieve message for editing.");
+        }
     });
-    
-    saveButton.addEventListener("click", async () => {
-        messageText.removeAttribute("contenteditable");
-        editButton.style.display = "inline-block";
-        saveButton.style.display = "none";
-        const messageContainer = document.querySelector(".message-container");
-        const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
-        await updateMessageInDatabase(messageElement, messageIndex, db);
-        const newRawText = messageText.textContent;
+
+    saveButton.addEventListener('click', async () => {
+        const textarea = messageTextDiv.querySelector('.edit-textarea');
+        if (!textarea) return;
+
+        const newRawText = textarea.value;
+        const index = parseInt(messageElement.dataset.messageIndex, 10);
+        
+        // Update the database first
+        await updateMessageInDatabase(index, newRawText, db);
+
+        // Now, re-render the message with the new content
         const settings = settingsService.getSettings();
         const separator = settings.triggers.separator;
-        let visibleMessage = newRawText, commandBlock = "";
+        let visibleMessage = newRawText;
+        let commandBlock = "";
+
         if (separator && newRawText.includes(separator)) {
             const parts = newRawText.split(separator);
             visibleMessage = parts[0].trim();
             commandBlock = parts[1] || "";
         }
-        messageText.innerHTML = marked.parse(visibleMessage, { breaks: true });
+        
+        messageTextDiv.innerHTML = marked.parse(visibleMessage, { breaks: true });
+        
         if (commandBlock) {
              const currentChat = await chatsService.getCurrentChat(db);
-             const characterId = currentChat.content[messageIndex]?.personalityid;
-             if(characterId !== undefined) {
+             const characterId = currentChat.content[index]?.personalityid;
+             if (characterId !== undefined) {
                 await processCommandBlock(commandBlock, messageElement, characterId);
              }
         }
-    });
-    
-    messageText.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveButton.click(); }
-        if (e.key === "Escape") {
-            messageText.innerHTML = messageText.dataset.originalContent;
-            messageText.removeAttribute("contenteditable");
-            editButton.style.display = "inline-block";
-            saveButton.style.display = "none";
-        }
+
+        editButton.style.display = 'inline-block';
+        saveButton.style.display = 'none';
     });
 }
 
-async function updateMessageInDatabase(messageElement, messageIndex, db) {
+async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
     try {
-        const rawText = messageElement.querySelector(".message-text").textContent;
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
-        currentChat.content[messageIndex].parts[0].text = rawText;
+        
+        // Save the new, potentially modified raw text back to the database
+        currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
+
     } catch (error) { console.error("Error updating message in database:", error); }
 }
+
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
@@ -249,11 +267,9 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
         switch (command) {
             case 'image':
                 try {
-                    // --- DEFINITIVE FIX: Calling the CORRECT function name ---
                     const assets = await assetManagerService.searchAssetsByTags([value, 'image'], characterId);
-                    // --- DEFINITIVE FIX: Check if assets were found and get the first one ---
                     if (assets && assets.length > 0) {
-                        const asset = assets[0]; // Use the first matching asset
+                        const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
                         const pfpElement = messageElement.querySelector('.pfp');
                         if (pfpElement) pfpElement.src = objectURL;
@@ -277,9 +293,7 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
             case 'audio':
                 if (settings.audio.enabled) {
                     try {
-                        // --- DEFINITIVE FIX: Calling the CORRECT function name ---
                         const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
-                        // --- DEFINITIVE FIX: Check if assets were found and get the first one ---
                         if (assets && assets.length > 0) {
                             const asset = assets[0];
                             const objectURL = URL.createObjectURL(asset.data);
