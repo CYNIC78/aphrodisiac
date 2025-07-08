@@ -82,7 +82,7 @@ async function regenerate(responseElement, db) {
 }
 
 
-// --- FINAL FIX: Upgraded editing logic to fetch raw text from the database ---
+// --- FINAL, SUPERIOR FIX: Elegant in-place editing ---
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
@@ -91,7 +91,6 @@ function setupMessageEditing(messageElement, db) {
 
     if (!editButton || !saveButton || !messageTextDiv) return;
 
-    // Attach a data attribute to the message element to store its index
     const messageContainer = document.querySelector(".message-container");
     const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
     messageElement.dataset.messageIndex = messageIndex;
@@ -102,14 +101,14 @@ function setupMessageEditing(messageElement, db) {
         const messageData = currentChat.content[index];
 
         if (messageData) {
-            // Fetch the FULL RAW text from the database record
             const rawText = messageData.parts[0].text;
+            messageTextDiv.innerHTML = helpers.getDecoded(rawText); // Set the raw text, not rendered HTML
             
-            // Switch to textarea for editing
-            messageTextDiv.innerHTML = `<textarea class="edit-textarea">${helpers.getDecoded(rawText)}</textarea>`;
+            messageTextDiv.setAttribute("contenteditable", "true");
+            messageTextDiv.focus();
+            
             editButton.style.display = 'none';
             saveButton.style.display = 'inline-block';
-            messageTextDiv.querySelector('.edit-textarea').focus();
         } else {
             console.error("Could not find message data for editing.");
             alert("Error: Could not retrieve message for editing.");
@@ -117,16 +116,14 @@ function setupMessageEditing(messageElement, db) {
     });
 
     saveButton.addEventListener('click', async () => {
-        const textarea = messageTextDiv.querySelector('.edit-textarea');
-        if (!textarea) return;
+        messageTextDiv.removeAttribute("contenteditable");
 
-        const newRawText = textarea.value;
+        // THE KEY FIX: Use .innerText to get the clean text without any HTML tags.
+        const newRawText = messageTextDiv.innerText; 
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
-        // Update the database first
         await updateMessageInDatabase(index, newRawText, db);
 
-        // Now, re-render the message with the new content
         const settings = settingsService.getSettings();
         const separator = settings.triggers.separator;
         let visibleMessage = newRawText;
@@ -138,6 +135,7 @@ function setupMessageEditing(messageElement, db) {
             commandBlock = parts[1] || "";
         }
         
+        // Re-render the visible part using the clean text
         messageTextDiv.innerHTML = marked.parse(visibleMessage, { breaks: true });
         
         if (commandBlock) {
@@ -159,7 +157,7 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
         
-        // Save the new, potentially modified raw text back to the database
+        // Save the clean, raw text back to the database
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
 
