@@ -1712,3 +1712,13 @@ input[name="currentChat"][value="none"] {
     }
 }
 
+
+
+/* === Avatar Smooth Transition (Corrected) === */
+.pfp {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.avatar-fade-out {
+    opacity: 0;
+}

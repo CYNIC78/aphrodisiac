@@ -236,7 +236,24 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
                         const pfpElement = messageElement.querySelector('.pfp');
-                        if (pfpElement) pfpElement.src = objectURL;
+						if (pfpElement) {
+													// 1. Start the fade-out. The CSS transition makes it smooth.
+													pfpElement.classList.add('avatar-fade-out');
+												
+													// 2. Wait for the fade-out animation to finish (0.2s).
+													setTimeout(() => {
+														// 3. Set up a one-time instruction for WHEN the new image has finished loading.
+														pfpElement.onload = () => {
+															// 5. Once it's loaded, fade the new image in.
+															pfpElement.classList.remove('avatar-fade-out');
+															// Clean up to prevent memory leaks and future errors.
+															pfpElement.onload = null;
+															URL.revokeObjectURL(objectURL);
+														};
+														// 4. Now, tell the browser to start loading the new image.
+														pfpElement.src = objectURL;
+													}, 200); // This duration MUST match the CSS transition!
+												}
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
                         if(personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
