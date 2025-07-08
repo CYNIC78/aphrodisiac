@@ -1,7 +1,7 @@
 // FILE: src/components/Sidebar.component.js
 
 import * as helpers from "../utils/helpers";
-import * as settingsService from "../services/Settings.service.js"; // NEW: Import settings service
+import * as settingsService from "../services/Settings.service.js"; // Import settings service
 
 const hideSidebarButton = document.querySelector("#btn-hide-sidebar");
 const showSidebarButton = document.querySelector("#btn-show-sidebar");
@@ -17,46 +17,88 @@ showSidebarButton.addEventListener("click", () => {
     helpers.showElement(sidebar, false);
 });
 
-let activeTabIndex = undefined;
-function navigateTo(tab) {
-    const index = [...tabs].indexOf(tab);
-    if (index == activeTabIndex) {
+let activeTabIndex; // This will be set during initial load, not default to undefined
+
+/**
+ * Handles navigation between sidebar tabs with visual transitions.
+ * This function is designed for user-initiated clicks after the initial load.
+ * @param {HTMLElement} tabElement The tab element that was clicked.
+ */
+function handleTabNavigation(tabElement) {
+    const newIndex = [...tabs].indexOf(tabElement);
+
+    // If the clicked tab is already the active one, do nothing.
+    // This prevents re-animating or re-saving if already in correct state.
+    if (newIndex === activeTabIndex) {
         return;
     }
-    // Remove active class from previously active tab if exists
+
+    // 1. Deactivate the currently active tab's visuals and hide its content (with fade-out)
+    // This block runs only if there was a previous active tab (i.e., not on the very first click after load).
     if (activeTabIndex !== undefined) {
         tabs[activeTabIndex].classList.remove("navbar-tab-active");
-        helpers.hideElement(sidebarViews[activeTabIndex]);
+        helpers.hideElement(sidebarViews[activeTabIndex], true); // Allow old content to fade out
     }
     
-    // Set new active tab
-    tab.classList.add("navbar-tab-active");
-    helpers.showElement(sidebarViews[index], true);
-    activeTabIndex = index;
-    tabHighlight.style.left = `calc(100% / ${tabs.length} * ${index})`;
+    // 2. Activate the new tab's visuals and show its content (with fade-in)
+    tabElement.classList.add("navbar-tab-active");
+    helpers.showElement(sidebarViews[newIndex], true); // Fade in new content
+    
+    // 3. Update the highlight bar position to the new tab
+    tabHighlight.style.left = `calc(100% / ${tabs.length} * ${newIndex})`;
 
-    // NEW: Save the active tab to settings
-    settingsService.setActiveTab(tab.textContent);
+    // 4. Update the internal state and save the active tab name to settings
+    activeTabIndex = newIndex;
+    settingsService.setActiveTab(tabElement.textContent);
 }
 
-//tab setup
+// === INITIAL SETUP ON PAGE LOAD ===
+// This section ensures the sidebar is in the correct state immediately when the page loads.
+
+// 1. Set initial highlight bar width (this only needs to be done once)
 tabHighlight.style.width = `calc(100% / ${tabs.length})`;
+
+// 2. Add event listeners for click navigation for all tabs
 for(const tab of tabs){
     tab.addEventListener("click", () => {
-        navigateTo(tab);
+        handleTabNavigation(tab);
     });
 }
 
-// NEW: On initialization, navigate to the last active tab from settings
+// 3. Determine which tab should be active on initial load
 const settings = settingsService.getSettings();
 const lastActiveTabName = settings.lastActive.tab;
 
-let initialTab = tabs[0]; // Default to 'Chats' tab (index 0)
-// Find the tab element that matches the last active tab name
-for (const tab of tabs) {
-    if (tab.textContent === lastActiveTabName) {
-        initialTab = tab;
+let initialTabElement = tabs[0]; // Default to 'Chats' tab (first one)
+let initialTabIndex = 0;
+
+// Find the tab element that matches the last saved active tab name
+for (let i = 0; i < tabs.length; i++) {
+    if (tabs[i].textContent === lastActiveTabName) {
+        initialTabElement = tabs[i];
+        initialTabIndex = i;
         break;
     }
 }
-navigateTo(initialTab); // Navigate to the remembered tab or default
+
+// 4. Apply initial styles and content visibility *directly and instantly*
+//    No animations or transitions here, just set the final state.
+initialTabElement.classList.add("navbar-tab-active"); // Mark the initial tab as active
+
+// Hide all sidebar content sections instantly, then show only the active one.
+sidebarViews.forEach((view, index) => {
+    if (index === initialTabIndex) {
+        helpers.showElement(view, false); // Show this view instantly (no fade-in)
+    } else {
+        helpers.hideElement(view, false); // Hide all other views instantly (no fade-out)
+    }
+});
+
+// Position the highlight bar for the initial tab instantly
+tabHighlight.style.left = `calc(100% / ${tabs.length} * ${initialTabIndex})`;
+
+// 5. Set the internal activeTabIndex for subsequent `handleTabNavigation` calls
+activeTabIndex = initialTabIndex;
+
+// 6. Ensure the current active tab is saved in settings (harmless if it's already the loaded one)
+settingsService.setActiveTab(initialTabElement.textContent);
