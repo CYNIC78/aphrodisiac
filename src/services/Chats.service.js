@@ -1,6 +1,8 @@
 import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import * as personalityService from "./Personality.service";
+import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
+
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
 const sidebar = document.querySelector(".sidebar");
@@ -33,7 +35,39 @@ export async function initialize(db) {
     chatContainer.innerHTML = "";
     const chats = await getAllChatIdentifiers(db);
     for (let chat of chats) {
-        insertChatEntry(chat, db);
+        insertChatEntry(chat, db); // This creates the radio buttons for all chats
+    }
+
+    const settings = settingsService.getSettings();
+    const lastActiveChatId = settings.lastActive.chatId; // This is a string from localStorage
+
+    let chatToLoadId = null;
+
+    if (lastActiveChatId !== null) {
+        const parsedId = parseInt(lastActiveChatId, 10);
+        // Check if a chat with this ID actually exists in the current list of chats
+        const foundChat = chats.find(c => c.id === parsedId);
+        if (foundChat) {
+            chatToLoadId = parsedId;
+        } else {
+            console.warn(`Last active chat with ID ${lastActiveChatId} not found. Starting a new chat.`);
+        }
+    }
+
+    if (chatToLoadId !== null) {
+        // Find the radio button for the chat and click it to load and select it
+        const radioButton = document.querySelector(`#chat${chatToLoadId}`);
+        if (radioButton) {
+            radioButton.click(); // This will trigger the change listener, load the chat, and save its ID
+        } else {
+            // This case implies the chat entry was not inserted, which shouldn't happen if foundChat was true.
+            // As a fallback, ensure a new chat is started and settings updated.
+            console.warn(`Radio button for chat ID ${chatToLoadId} not found. Starting a new chat.`);
+            newChat();
+        }
+    } else {
+        // No last active chat or it was not found, start a new chat.
+        newChat();
     }
 }
 
@@ -79,6 +113,8 @@ function insertChatEntry(chat, db) {
 
 
     chatRadioButton.addEventListener("change", async () => {
+        // NEW: Save the active chat ID to settings
+        settingsService.setActiveChatId(chat.id);
         await loadChat(chat.id, db);
         if (window.innerWidth < 1032) {
             helpers.hideElement(sidebar);
@@ -98,6 +134,13 @@ export async function addChat(title, firstMessage = null, db) {
     });
     insertChatEntry({ title, id }, db);
     console.log("chat added with id: ", id);
+
+    // NEW: Select the newly added chat to make it active
+    const newChatRadioButton = document.querySelector(`#chat${id}`);
+    if (newChatRadioButton) {
+        newChatRadioButton.click(); // This will trigger its 'change' listener and call loadChat and save its ID
+    }
+
     return id;
 }
 
@@ -111,6 +154,7 @@ export async function getCurrentChat(db) {
 
 export async function deleteAllChats(db) {
     await db.chats.clear();
+    // After clearing, initialize again, which will default to a new chat and update settings.
     initialize(db);
 }
 
@@ -118,14 +162,20 @@ export async function deleteAllChats(db) {
 export async function deleteChat(id, db) {
     await db.chats.delete(id);
     if (getCurrentChatId() == id) {
+        // If the deleted chat was the currently selected one, start a new chat
         newChat();
     }
-    initialize(db);
+    initialize(db); // Re-initialize to update the chat list and potentially re-select a chat
 }
 
 export function newChat() {
     messageContainer.innerHTML = "";
-    document.querySelector("input[name='currentChat']:checked").checked = false;
+    const currentCheckedRadio = document.querySelector("input[name='currentChat']:checked");
+    if (currentCheckedRadio) {
+        currentCheckedRadio.checked = false; // Uncheck the currently active one
+    }
+    // NEW: Update settings to reflect that no chat is currently selected
+    settingsService.setActiveChatId(null);
 }
 
 export async function loadChat(chatID, db) {
@@ -176,4 +226,3 @@ export async function getChatById(id, db) {
     const chat = await db.chats.get(id);
     return chat;
 }
-
