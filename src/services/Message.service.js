@@ -82,14 +82,15 @@ async function regenerate(responseElement, db) {
 }
 
 
-// --- FINAL, CORRECTED EDITING LOGIC ---
+// --- THE FINAL, SIMPLE, AND CORRECT EDITING LOGIC ---
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
     const messageTextDiv = messageElement.querySelector('.message-text');
+    const editTextArea = messageElement.querySelector('.edit-textarea');
 
-    if (!editButton || !saveButton || !messageTextDiv) return;
+    if (!editButton || !saveButton || !messageTextDiv || !editTextArea) return;
 
     const messageContainer = document.querySelector(".message-container");
     const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
@@ -102,27 +103,28 @@ function setupMessageEditing(messageElement, db) {
 
         if (messageData) {
             const rawText = messageData.parts[0].text;
-            // THE FIX: Use innerText to display the raw text without HTML interpretation.
-            messageTextDiv.innerText = helpers.getDecoded(rawText);
             
-            messageTextDiv.setAttribute("contenteditable", "true");
-            messageTextDiv.focus();
+            editTextArea.value = helpers.getDecoded(rawText);
+            messageTextDiv.style.display = 'none';
+            editTextArea.style.display = 'block';
+            editTextArea.focus();
             
+            editTextArea.style.height = 'auto';
+            editTextArea.style.height = (editTextArea.scrollHeight) + 'px';
+
             editButton.style.display = 'none';
             saveButton.style.display = 'inline-block';
-        } else {
-            console.error("Could not find message data for editing.");
         }
     });
 
     saveButton.addEventListener('click', async () => {
-        messageTextDiv.removeAttribute("contenteditable");
-
-        // THE FIX: Use innerText to get the clean text, stripping all HTML.
-        const newRawText = messageTextDiv.innerText; 
+        const newRawText = editTextArea.value;
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
         await updateMessageInDatabase(index, newRawText, db);
+
+        editTextArea.style.display = 'none';
+        messageTextDiv.style.display = 'block';
 
         const settings = settingsService.getSettings();
         const separator = settings.triggers.separator;
@@ -135,7 +137,6 @@ function setupMessageEditing(messageElement, db) {
             commandBlock = parts[1] || "";
         }
         
-        // Re-render the visible part using the clean text
         messageTextDiv.innerHTML = marked.parse(visibleMessage, { breaks: true });
         
         if (commandBlock) {
@@ -157,7 +158,6 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
         
-        // Save the clean, raw text back to the database
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
 
@@ -172,6 +172,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     messageContainer.append(newMessage);
     if (sender != "user") {
         newMessage.classList.add("message-model");
+        // ADDED a textarea for editing
         newMessage.innerHTML = `
             <div class="message-header">
                 <img class="pfp" src="${pfpSrc}" loading="lazy"></img>
@@ -183,7 +184,8 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text"></div>`;
+            <div class="message-text"></div>
+            <textarea class="edit-textarea" style="display: none;"></textarea>`; // This is the crucial addition
         const refreshButton = newMessage.querySelector(".btn-refresh");
         refreshButton.addEventListener("click", async () => {
             try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
@@ -193,12 +195,9 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         if (!netStream) {
             const userSettings = settingsService.getSettings();
             const separator = userSettings.triggers.separator;
-            let visibleMessage = msg, commandBlock = "";
-
+            let visibleMessage = msg;
             if (separator && msg.includes(separator)) {
-                const parts = msg.split(separator);
-                visibleMessage = parts[0].trim();
-                commandBlock = parts[1] || "";
+                visibleMessage = msg.split(separator)[0].trim();
             }
             messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
             
@@ -252,7 +251,8 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     </div>
                 </div>
                 <div class="message-role-api" style="display: none;">${sender}</div>
-                <div class="message-text">${helpers.getDecoded(msg)}</div>`;
+                <div class="message-text">${helpers.getDecoded(msg)}</div>
+                <textarea class="edit-textarea" style="display: none;"></textarea>`; // This is the crucial addition
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
