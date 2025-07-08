@@ -104,7 +104,7 @@ export async function send(msg, db) {
     if (selectedPersonality.reminder) {
         // Append the reminder at the "bottom" of the current message for the AI.
         // We use \n\n to ensure it's on a new line and stands out clearly to the AI.
-        messageToSendToAI += `\n\nREMINDER: ${selectedPersonality.reminder}`;
+        messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
     // --- END: CHARACTER REMINDER LOGIC ---
     
