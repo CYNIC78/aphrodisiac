@@ -819,13 +819,16 @@ input[name="currentChat"][value="none"] {
 
 
 
-.generation-settings {
+.generation-settings,
+.trigger-settings { /* MODIFIED: Added .trigger-settings here */
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-.generation-settings div {
+/* MODIFIED: Changed div to direct child selector > */
+.generation-settings > div,
+.trigger-settings > div {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -835,6 +838,14 @@ input[name="currentChat"][value="none"] {
         font-size: 1.2rem;
     }
 }
+
+/* NEW: Style for the two-column symbol inputs */
+.trigger-symbols-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+
 
 .setting-label {
     display: flex;

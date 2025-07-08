@@ -5,7 +5,16 @@ const maxTokensInput = document.querySelector("#maxTokens");
 const temperatureInput = document.querySelector("#temperature");
 const modelSelect = document.querySelector("#selectedModel");
 const autoscrollToggle = document.querySelector("#autoscroll");
-const typingSpeedInput = document.querySelector("#typingSpeed"); // <-- NEW LINE
+const typingSpeedInput = document.querySelector("#typingSpeed");
+
+// NEW: Get references to all the new trigger system inputs
+const triggerSeparatorInput = document.querySelector("#triggerSeparator");
+const triggerSymbolStartInput = document.querySelector("#triggerSymbolStart");
+const triggerSymbolEndInput = document.querySelector("#triggerSymbolEnd");
+const enableAudioToggle = document.querySelector("#enableAudio");
+const globalVolumeInput = document.querySelector("#globalVolume");
+const globalVolumeLabel = document.querySelector("#label-globalVolume");
+
 
 export function initialize() {
     loadSettings();
@@ -14,7 +23,17 @@ export function initialize() {
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
-    typingSpeedInput.addEventListener("input", saveSettings); // <-- NEW LINE
+    typingSpeedInput.addEventListener("input", saveSettings);
+
+    // NEW: Add event listeners for all new inputs
+    triggerSeparatorInput.addEventListener("input", saveSettings);
+    triggerSymbolStartInput.addEventListener("input", saveSettings);
+    triggerSymbolEndInput.addEventListener("input", saveSettings);
+    enableAudioToggle.addEventListener("change", saveSettings);
+    globalVolumeInput.addEventListener("input", () => {
+        globalVolumeLabel.textContent = globalVolumeInput.value;
+        saveSettings();
+    });
 }
 
 export function loadSettings() {
@@ -23,7 +42,15 @@ export function loadSettings() {
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
     modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
-    typingSpeedInput.value = localStorage.getItem("typingSpeed") || 10; // <-- CHANGED DEFAULT TO 20ms
+    typingSpeedInput.value = localStorage.getItem("typingSpeed") || 10;
+    
+    // NEW: Load all trigger settings from localStorage or set sensible defaults
+    triggerSeparatorInput.value = localStorage.getItem("triggerSeparator") || "---";
+    triggerSymbolStartInput.value = localStorage.getItem("triggerSymbolStart") || "[";
+    triggerSymbolEndInput.value = localStorage.getItem("triggerSymbolEnd") || "]";
+    enableAudioToggle.checked = localStorage.getItem("enableAudio") !== "false"; // Default to true
+    globalVolumeInput.value = localStorage.getItem("globalVolume") || 70; // Default to 70%
+    globalVolumeLabel.textContent = globalVolumeInput.value; // Sync label on load
 }
 
 export function saveSettings() {
@@ -32,10 +59,18 @@ export function saveSettings() {
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked);
-    localStorage.setItem("typingSpeed", typingSpeedInput.value); // <-- NEW LINE
+    localStorage.setItem("typingSpeed", typingSpeedInput.value);
+    
+    // NEW: Save all trigger settings
+    localStorage.setItem("triggerSeparator", triggerSeparatorInput.value);
+    localStorage.setItem("triggerSymbolStart", triggerSymbolStartInput.value);
+    localStorage.setItem("triggerSymbolEnd", triggerSymbolEndInput.value);
+    localStorage.setItem("enableAudio", enableAudioToggle.checked);
+    localStorage.setItem("globalVolume", globalVolumeInput.value);
 }
 
 export function getSettings() {
+    // MODIFIED: Return settings in a more organized object
     return {
         apiKey: ApiKeyInput.value,
         maxTokens: maxTokensInput.value,
@@ -48,7 +83,16 @@ export function getSettings() {
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
-        typingSpeed: parseInt(typingSpeedInput.value), // <-- NEW LINE: Parse to int for use as a number
+        typingSpeed: parseInt(typingSpeedInput.value),
+        triggers: {
+            separator: triggerSeparatorInput.value,
+            symbolStart: triggerSymbolStartInput.value,
+            symbolEnd: triggerSymbolEndInput.value
+        },
+        audio: {
+            enabled: enableAudioToggle.checked,
+            volume: parseInt(globalVolumeInput.value) / 100 // Convert 0-100 slider to 0.0-1.0 for Audio API
+        }
     }
 }
 

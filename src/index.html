@@ -149,29 +149,81 @@
                     </div>
                     <h3>User Experience</h3>
                     <div>
-                        <!-- autoscroll toggle -->
-                         <div style="display: flex; gap: 0.25rem; align-items: center;">
+                        <div style="display: flex; gap: 0.25rem; align-items: center;">
                             <input id="autoscroll" type="checkbox" name="autoscrollEnabled"></input>
                             <label for="autoscroll">Autoscroll</label>
                         </div>
                     </div>
-                    <!-- START: NEW TYPING SPEED SETTING -->
                     <div style="margin-top: 1rem;">
                         <label class="setting-label" for="typingSpeed">
                             <span class="material-symbols-outlined">speed</span>
-                            <span>Typing Delay</span> <!-- CHANGED TEXT HERE -->
+                            <span>Typing Delay</span>
                             <span class="material-symbols-outlined tooltip" 
                             style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                            info="Controls the delay between characters for the AI's response (in milliseconds). Higher values mean slower typing, 0 is instant."> <!-- CHANGED INFO TEXT -->
+                            info="Controls the delay between characters for the AI's response (in milliseconds). Higher values mean slower typing, 0 is instant.">
                                 info
                             </span> 
                         </label>
                         <div class="btn-array">
-                            <input type="range" min="0" max="100" id="typingSpeed" class="slider"> <!-- CHANGED MAX HERE -->
+                            <input type="range" min="0" max="100" id="typingSpeed" class="slider">
                             <label id="label-typingSpeed">0</label>
                         </div>
                     </div>
-                    <!-- END: NEW TYPING SPEED SETTING -->
+
+                    <!-- ========================== -->
+                    <!-- == NEW TRIGGER SETTINGS == -->
+                    <!-- ========================== -->
+                    <h3>Trigger System</h3>
+                    <div class="trigger-settings">
+                        <div>
+                            <label class="setting-label" for="triggerSeparator">
+                                <span class="material-symbols-outlined">segment</span>
+                                <span>Trigger Separator</span>
+                                <span class="material-symbols-outlined tooltip" 
+                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                info="The sequence of characters that separates the visible message from hidden commands. Example: --- or |||">
+                                    info
+                                </span> 
+                            </label>
+                            <input type="text" id="triggerSeparator" class="input-field"></input>
+                        </div>
+                        <div class="trigger-symbols-wrapper">
+                            <div>
+                                <label class="setting-label" for="triggerSymbolStart">
+                                    <span class="material-symbols-outlined">start</span>
+                                    <span>Start Symbol</span>
+                                </label>
+                                <input type="text" id="triggerSymbolStart" class="input-field"></input>
+                            </div>
+                            <div>
+                                <label class="setting-label" for="triggerSymbolEnd">
+                                    <span class="material-symbols-outlined">keyboard_tab</span>
+                                    <span>End Symbol</span>
+                                </label>
+                                <input type="text" id="triggerSymbolEnd" class="input-field"></input>
+                            </div>
+                        </div>
+                         <div>
+                            <div style="display: flex; gap: 0.25rem; align-items: center;">
+                                <input id="enableAudio" type="checkbox" name="enableAudio"></input>
+                                <label for="enableAudio">Enable Audio Triggers</label>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="setting-label" for="globalVolume">
+                                <span class="material-symbols-outlined">volume_up</span>
+                                <span>Global Volume</span>
+                            </label>
+                            <div class="btn-array">
+                                <input type="range" min="0" max="100" id="globalVolume" class="slider">
+                                <label id="label-globalVolume">0</label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ========================== -->
+                    <!-- == END TRIGGER SETTINGS == -->
+                    <!-- ========================== -->
+
                 </div>
             </div>
 
@@ -347,12 +399,6 @@
 			</div>
 		</div>
 	</div>
-
-
-
-
-
-
 
     <script type="module" src="main.js"></script>
 </body>
