@@ -21,8 +21,8 @@ let activeTabIndex; // This will be set during initial load, not default to unde
 
 /**
  * Handles navigation between sidebar tabs with visual transitions.
- * This function is designed for user-initiated clicks after the initial load.
- * @param {HTMLElement} tabElement The tab element that was clicked.
+ * This function is designed for user-initiated clicks and programmatic calls.
+ * @param {HTMLElement} tabElement The tab element that was clicked or passed.
  */
 function handleTabNavigation(tabElement) {
     const newIndex = [...tabs].indexOf(tabElement);
@@ -34,7 +34,7 @@ function handleTabNavigation(tabElement) {
     }
 
     // 1. Deactivate the currently active tab's visuals and hide its content (with fade-out)
-    // This block runs only if there was a previous active tab (i.e., not on the very first click after load).
+    // This block runs only if there was a previous active tab (i.e., not on the very first navigation).
     if (activeTabIndex !== undefined) {
         tabs[activeTabIndex].classList.remove("navbar-tab-active");
         helpers.hideElement(sidebarViews[activeTabIndex], true); // Allow old content to fade out
@@ -51,6 +51,21 @@ function handleTabNavigation(tabElement) {
     activeTabIndex = newIndex;
     settingsService.setActiveTab(tabElement.textContent);
 }
+
+/**
+ * Programmatically navigates the sidebar to a specified tab by its text content.
+ * This is an exported function to be used by other services/components.
+ * @param {string} tabName The text content of the tab to navigate to (e.g., "Chats", "Personalities", "Settings").
+ */
+export function navigateToTabByName(tabName) {
+    const targetTab = Array.from(tabs).find(tab => tab.textContent === tabName);
+    if (targetTab) {
+        handleTabNavigation(targetTab);
+    } else {
+        console.warn(`Attempted to navigate to unknown tab: "${tabName}"`);
+    }
+}
+
 
 // === INITIAL SETUP ON PAGE LOAD ===
 // This section ensures the sidebar is in the correct state immediately when the page loads.
