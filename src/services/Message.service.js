@@ -20,6 +20,7 @@ export async function send(msg, db) {
     if (!msg) {
         return;
     }
+
     //model setup
     const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config = {
@@ -41,12 +42,25 @@ export async function send(msg, db) {
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
+
+    // Display user message in UI
     await insertMessage("user", msg, null, null, db);
+
+    // --- START: CHARACTER REMINDER LOGIC ---
+    // Get the current chat before modifying its content
+    const currentChat = await chatsService.getCurrentChat(db);
+
+    // Save the user's visible message to chat history immediately.
+    // This ensures our chat history accurately reflects what the user sees.
+    currentChat.content.push({ role: "user", parts: [{ text: msg }] });
+    await db.chats.put(currentChat); // Persist the user message to the database
+    // --- END: CHARACTER REMINDER LOGIC ---
+
     helpers.messageContainerScrollToBottom();
     //model reply
     
-    
-    // Create chat history
+    // Create chat history for the AI session.
+    // This 'history' object is built once and passed to the chat session.
     const history = [
         {
             role: "user",
@@ -67,59 +81,44 @@ export async function send(msg, db) {
         );
     }
     
-    // Add chat history
-    const currentChat = await chatsService.getCurrentChat(db);
+    // Add chat history from DB to the session history.
+    // We remove the `personality` property as the API expects only `role` and `parts`.
+    // The `currentChat` object now already includes the most recent user message.
     history.push(
         ...currentChat.content.map((msg) => {
-            return { role: msg.role, parts: msg.parts } //we remove the `personality` property as the API expects only `role` and `parts`
+            return { role: msg.role, parts: msg.parts }
         })
     );
     
-    // Create chat session
+    // Create chat session (using the correct 'chat' variable name, no re-declaration)
     const chat = ai.chats.create({
         model: settings.model,
         history: history,
         config: config
     });
+
+    // --- START: CHARACTER REMINDER LOGIC (Injection into current message) ---
+    // Prepare the message to send to the AI, including the hidden reminder.
+    // The reminder is appended to the *current* user message for this turn only.
+    let messageToSendToAI = msg; // This is the user's actual input
+    if (selectedPersonality.reminder) {
+        // Append the reminder at the "bottom" of the current message for the AI.
+        // We use \n\n to ensure it's on a new line and stands out clearly to the AI.
+        messageToSendToAI += `\n\nREMINDER: ${selectedPersonality.reminder}`;
+    }
+    // --- END: CHARACTER REMINDER LOGIC ---
     
- 
-
-// Save user message to chat history *before* appending reminder for AI
-// This ensures only the visible user message is saved.
-	currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-	await db.chats.put(currentChat); // Save updated chat with user message
-
-	helpers.messageContainerScrollToBottom();
-	//model reply
-
-	// Prepare the message to send to the AI, potentially including the hidden reminder
-	let messageToSendToAI = msg;
-	if (selectedPersonality.reminder) {
-		// Append the reminder at the "bottom" of the current message for the AI
-		messageToSendToAI += `\n\nREMINDER: ${selectedPersonality.reminder}`;
-	}
-
-	// Create chat session (history remains as constructed earlier, without reminder)
-	const chat = ai.chats.create({
-		model: settings.model,
-		history: history, // 'history' object contains all previous turns, without the per-turn reminder
-		config: config
-	});
-
-	// Send message with streaming
-	const stream = await chat.sendMessageStream({
-		message: messageToSendToAI // Send the message with the appended reminder
-	});
-
-	const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
-	// Save model reply to chat history (only the visible part)
-	currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
-	await db.chats.put(currentChat); // Save updated chat with model message
-	settingsService.saveSettings(); // Ensure settings are saved (e.g., API key changes)
+    // Send message with streaming
+    const stream = await chat.sendMessageStream({
+        message: messageToSendToAI // <-- Now passing the message that includes the reminder
+    });
+    
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
+    // Save model reply to chat history
+    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
+    await db.chats.put(currentChat); // Save updated chat with model message
+    settingsService.saveSettings(); // Ensure settings are saved (e.g., API key changes)
 }
-
-
-
 
 async function regenerate(responseElement, db) {
     //basically, we remove every message after the response we wish to regenerate, then send the message again.
