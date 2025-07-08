@@ -1,4 +1,6 @@
-import * as messageService from "./Message.service"
+// FILE: src/services/Chats.service.js
+
+import * as messageService from "./Message.service" // This is where the new function will be!
 import * as helpers from "../utils/helpers"
 import * as personalityService from "./Personality.service";
 import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
@@ -127,12 +129,23 @@ function insertChatEntry(chat, db) {
 }
 
 export async function addChat(title, firstMessage = null, db) {
+    // OLD FORBIDDEN CODE REMOVED: const ai = new GoogleGenAI({ apiKey: settingsService.getSettings().apiKey }); 
+
+    const selectedPersonality = await personalityService.getSelected(); // Get the currently active personality
+
+    // NEW: Use messageService to generate the title, keeping GoogleGenAI instantiation centralized
+    const generatedTitle = await messageService.generateChatTitle(
+        settingsService.getSettings().apiKey,
+        selectedPersonality,
+        firstMessage
+    );
+
     const id = await db.chats.put({
-        title: title,
+        title: generatedTitle, // Use the generated title here
         timestamp: Date.now(),
         content: firstMessage ? [{ role: "user", parts: [{ text: firstMessage }] }] : []
     });
-    insertChatEntry({ title, id }, db);
+    insertChatEntry({ title: generatedTitle, id }, db); // Pass the generated title to insertChatEntry
     console.log("chat added with id: ", id);
 
     // NEW: Select the newly added chat to make it active
