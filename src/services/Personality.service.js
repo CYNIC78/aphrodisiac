@@ -4,7 +4,7 @@ import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
 import { assetManagerService } from "./AssetManager.service.js";
-// --- REVERTED: Removed the incorrect import of settingsService ---
+import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
 
 // Map to store Object URLs for personality images for proper memory management
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
@@ -40,22 +40,50 @@ export async function migratePersonalities(database) {
 }
 
 export async function initialize() {
-    //default personality setup
+    // 1. Add Aphrodite default personality initially (always present)
     const defaultPersonality = { ...getDefault(), id: -1 }; // Ensure Aphrodite has a -1 ID
-    const defaultPersonalityCard = insert(defaultPersonality);
-    defaultPersonalityCard.querySelector("input").click();
+    insert(defaultPersonality); // This adds the card to DOM, but we won't click its radio button yet.
 
-    //load all personalities from local storage
+    // 2. Load and insert all other personalities from DB
     const personalitiesArray = await getAll();
     if (personalitiesArray) {
         for (let personality of personalitiesArray) {
-            const card = insert(personality);
+            insert(personality); // This inserts and attaches listeners
         }
     }
     
-    // Add the "Create New" card at the end
+    // 3. Add the "Create New" card at the end
     const createCard = createAddPersonalityCard();
     document.querySelector("#personalitiesDiv").appendChild(createCard);
+
+    // 4. Determine which personality should be initially selected based on settings
+    const settings = settingsService.getSettings();
+    const lastActivePersonalityId = settings.lastActive.personalityId;
+
+    let personalityToActivateId = -1; // Default to Aphrodite's ID
+    if (lastActivePersonalityId !== null) {
+        const foundPersonality = await get(lastActivePersonalityId);
+        if (foundPersonality) {
+            personalityToActivateId = lastActivePersonalityId;
+        } else {
+            console.warn(`Last active personality with ID ${lastActivePersonalityId} not found. Defaulting to Aphrodite.`);
+            // If not found, personalityToActivateId remains -1 (Aphrodite)
+        }
+    }
+
+    // 5. Physically click the radio button of the target personality
+    // This will trigger the 'change' event listener we add in generateCard and save to settings.
+    const targetCardElement = document.querySelector(`#personality-${personalityToActivateId}`);
+    if (targetCardElement) {
+        const radioButton = targetCardElement.querySelector("input[type='radio'][name='personality']");
+        if (radioButton) {
+            radioButton.click(); 
+        }
+    } else {
+        // Fallback: If for some reason even Aphrodite's card isn't found (shouldn't happen),
+        // ensure settings are updated to reflect the true default.
+        settingsService.setActivePersonalityId(-1);
+    }
 }
 
 export async function getSelected() {
@@ -136,6 +164,15 @@ export async function remove(id) {
     // Delete all assets associated with this character
     await assetManagerService.deleteAssetsByCharacterId(id);
     console.log(`Deleted all assets for personality ID: ${id}`);
+
+    // NEW: If the removed personality was the active one, default to Aphrodite
+    const settings = settingsService.getSettings();
+    if (settings.lastActive.personalityId === id) {
+        const defaultPersonalityCard = document.querySelector("#personality--1");
+        if (defaultPersonalityCard) {
+            defaultPersonalityCard.querySelector("input").click(); // Click Aphrodite's radio button
+        }
+    }
 }
 
 export async function createDraftPersonality() {
@@ -223,6 +260,11 @@ export async function removeAll() {
     const defaultPersonality = { ...getDefault(), id: -1 };
     const defaultPersonalityCard = insert(defaultPersonality);
 
+    // NEW: After clearing all and re-adding Aphrodite, ensure Aphrodite is selected and saved
+    if (defaultPersonalityCard) {
+        defaultPersonalityCard.querySelector('input').click();
+    }
+
     // Re-add the "Create New" card
     const createCard = createAddPersonalityCard();
     if (personalitiesDiv) {
@@ -233,8 +275,13 @@ export async function removeAll() {
 export async function add(personality) {
     const id = await db.personalities.add(personality); // Insert in db
     const newPersonalityWithId = { id: id, ...personality }; // Create full object
-    insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar and append card
+    const newCard = insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar and append card
     
+    // NEW: If adding a new personality, select it automatically
+    if (newCard) {
+        newCard.querySelector('input').click();
+    }
+
     const addCard = document.querySelector("#btn-add-personality");
     if (addCard) {
         document.querySelector("#personalitiesDiv").appendChild(addCard);
@@ -244,7 +291,7 @@ export async function add(personality) {
 
 export async function edit(id, personality) {
     const element = document.querySelector(`#personality-${id}`);
-    const input = element.querySelector("input");
+    const input = element.querySelector("input"); // Get reference to the radio button input
 
     await db.personalities.update(id, personality);
 
@@ -254,8 +301,10 @@ export async function edit(id, personality) {
 
     await loadAndApplyPersonalityAvatar(newCard, updatedPersonality);
 
-    if (input.checked) {
-        document.querySelector(`#personality-${id}`).querySelector("input").click();
+    // NEW: If the edited personality was checked, ensure it remains checked and its ID is saved.
+    // The generateCard function now adds a 'change' listener, so clicking it will save its ID.
+    if (input.checked) { // Check the state of the *original* input element before it was replaced
+        newCard.querySelector("input").click(); // Click the new card's radio button
     }
 }
 
@@ -294,7 +343,12 @@ export function generateCard(personality) {
     const deleteButton = card.querySelector(".btn-delete-card");
     const editButton = card.querySelector(".btn-edit-card");
     const mediaLibraryButton = card.querySelector(".btn-media-library-card"); 
-    const input = card.querySelector("input");
+    const input = card.querySelector("input"); // Get reference to the radio button
+
+    // NEW: Add event listener to the radio button to save active personality ID
+    input.addEventListener("change", () => {
+        settingsService.setActivePersonalityId(personality.id);
+    });
 
     if (shareButton) {
         shareButton.addEventListener("click", (event) => {
@@ -304,13 +358,11 @@ export function generateCard(personality) {
     if (deleteButton) {
         deleteButton.addEventListener("click", (event) => {
             handleButtonClick(event, () => {
-                if (input.checked) {
-                    document.querySelector("#personalitiesDiv").firstElementChild.querySelector('input').click();
-                }
+                // The `remove` function now handles defaulting to Aphrodite and saving the ID.
                 if (personality.id !== undefined && personality.id !== null) {
                     remove(personality.id);
                 }
-                card.remove();
+                card.remove(); // Remove the card from the DOM after handling deletion logic
             });
         });
     }
