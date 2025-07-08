@@ -6,66 +6,69 @@ import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import { db } from './services/Db.service';
 import * as helpers from "./utils/helpers";
-import * as sidebarComponent from "./components/Sidebar.component.js"; // NEW: Import sidebar component
+import * as sidebarComponent from "./components/Sidebar.component.js";
 
 // ======================================
 // === Application Initialization ===
 // ======================================
 
 async function initializeApp() {
-    // 1. Initialize settings (loads preferences from localStorage)
+    // 1. Initialize settings (loads preferences from localStorage FIRST)
     settingsService.initialize();
 
-    // 2. Initialize core services that manage and populate DOM elements
-    //    These services now populate their respective UI sections,
-    //    but *do not* set any active states or navigate themselves yet.
-    await chatsService.initialize(db); // Populates chat entries
-    await personalityService.migratePersonalities(db); // Migrates chat history if needed
-    await personalityService.initialize(); // Populates personality cards
+    // 2. Initialize database
+    // Db.service.js already handles its own initialization on import.
 
-    // 3. Load all other components
-    //    These components mostly attach event listeners and manage local UI elements.
-    //    Use await to ensure they are fully set up before proceeding.
+    // 3. Initialize personality and chat services (populate DOM, but DON'T set active states yet)
+    await personalityService.initialize(); // Creates all personality cards in the DOM
+    await chatsService.initialize(db);     // Creates all chat entries in the DOM
+    await personalityService.migratePersonalities(db); // Migrates chat history if needed (safe to run after populating)
+    
+    // 4. Load all other components
+    // These components primarily attach event listeners and manage local UI elements.
+    // Ensure all are processed.
     const components = import.meta.glob('./components/*.js');
     for (const path in components) {
         await components[path]();
     }
 
-    // 4. Orchestrate the initial UI state based on saved settings
+    // 5. Orchestrate the initial UI state based on loaded settings
     const settings = settingsService.getSettings();
-
-    // First, set the active personality. This will click its radio button
-    // and update settingsService.
-    await personalityService.selectPersonality(settings.lastActive.personalityId);
-
-    // Then, attempt to load the last active chat.
-    // loadChat will update the messages and select the correct personality,
-    // but it *will not* change the sidebar tab.
     const lastActiveChatId = settings.lastActive.chatId;
+    const lastActivePersonalityId = settings.lastActive.personalityId;
+    const lastActiveTabName = settings.lastActive.tab;
+
+    // A. Attempt to restore the last active chat FIRST
+    let chatLoadedSuccessfully = false;
     if (lastActiveChatId !== null) {
         const parsedChatId = parseInt(lastActiveChatId, 10);
-        // Find the radio button for the last active chat
         const radioButton = document.querySelector(`#chat${parsedChatId}`);
         if (radioButton) {
-            // Click it to trigger its 'change' listener, which then calls chatsService.loadChat().
-            // This is crucial for correctly restoring the chat history.
-            radioButton.click();
-            // After loading chat and selecting personality, ensure we are on the Chats tab
-            sidebarComponent.navigateToTabByName('Chats');
+            // Programmatically click the radio button. Its 'change' listener will call
+            // chatsService.loadChat(), which in turn calls personalityService.selectPersonality().
+            // This ensures personality is selected *before* the tab potentially changes.
+            radioButton.click(); 
+            chatLoadedSuccessfully = true;
         } else {
-            // Last active chat ID not found (e.g., chat was deleted)
-            console.warn(`Last active chat with ID ${lastActiveChatId} not found. Starting a new chat.`);
-            chatsService.newChat(); // Clear messages, uncheck active chat
-            sidebarComponent.navigateToTabByName('Personalities'); // Navigate to personalities tab for new start
+            console.warn(`Last active chat with ID ${lastActiveChatId} not found in DB. Starting new chat.`);
         }
-    } else {
-        // No last active chat saved, start a new chat (default behavior)
-        chatsService.newChat(); // Clear messages, uncheck active chat
-        sidebarComponent.navigateToTabByName('Personalities'); // Navigate to personalities tab for new start
     }
-    
-    // Finally, initialize the sidebar's display based on the ultimately selected tab.
-    // This ensures the visual state (active tab, highlight bar) matches the loaded session.
+
+    // B. Now, set the initial sidebar tab and personality if a chat wasn't successfully loaded,
+    //    or if the last active personality needs to be explicitly re-selected (e.g., if it wasn't linked to a chat).
+    if (!chatLoadedSuccessfully) {
+        // If no chat was loaded, default to a new chat and personalties tab
+        chatsService.newChat(); // Clear messages, uncheck chat radio, set activeChatId=null in settings
+        await personalityService.selectPersonality(lastActivePersonalityId); // Try to select the last personality or Aphrodite
+        sidebarComponent.navigateToTabByName('Personalities'); // Always go to Personalities for a new chat
+    } else {
+        // If a chat was loaded, ensure we are on the Chats tab.
+        // The personality for this chat was already set by chatsService.loadChat().
+        sidebarComponent.navigateToTabByName('Chats');
+    }
+
+    // 6. Finally, initialize the sidebar's visual display (highlight bar, etc.).
+    // This MUST be called last for sidebar visuals to be correct based on final tab.
     sidebarComponent.initializeSidebarDisplay();
 }
 
@@ -84,7 +87,7 @@ hideOverlayButton.addEventListener("click", () => overlayService.closeOverlay())
 // New Chat button
 const newChatButton = document.querySelector("#btn-new-chat");
 newChatButton.addEventListener("click", () => {
-    // This will clear the chat and unselect the radio button.
+    // This will clear the chat, unselect the radio button, and set activeChatId=null in settings.
     chatsService.newChat(); 
     // Always navigate to Personalities after clicking 'New Chat'
     sidebarComponent.navigateToTabByName('Personalities');
@@ -97,6 +100,8 @@ clearAllPersonalityButton.addEventListener("click", async () => {
     // which will internally call personalityService.selectPersonality(-1)
     // to update the UI and settings.
     await personalityService.removeAll();
+    // After clearing personalities, ensure we are on the Personalities tab.
+    sidebarComponent.navigateToTabByName('Personalities');
 });
 
 // Delete All Chats button
@@ -120,7 +125,8 @@ importPersonalityButton.addEventListener("click", () => {
         reader.onload = function (e) {
             try {
                 const personality = JSON.parse(e.target.result);
-                personalityService.add(personality); // This will automatically select the new personality
+                // personalityService.add will automatically select the new personality.
+                personalityService.add(personality); 
             } catch (error) {
                 alert("Failed to import personality: Invalid JSON file.");
                 console.error("Error importing personality:", error);
@@ -142,5 +148,3 @@ window.addEventListener("resize", () => {
         }
     }
 });
-
-
