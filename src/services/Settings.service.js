@@ -23,7 +23,7 @@ export function loadSettings() {
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
     modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
-    typingSpeedInput.value = localStorage.getItem("typingSpeed") || 20; // <-- CHANGED DEFAULT TO 20ms
+    typingSpeedInput.value = localStorage.getItem("typingSpeed") || 10; // <-- CHANGED DEFAULT TO 20ms
 }
 
 export function saveSettings() {
