@@ -1,4 +1,4 @@
-// FILE: src/services/Message.service.js
+// FILE: src/services/Setting.service.js
 
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 
