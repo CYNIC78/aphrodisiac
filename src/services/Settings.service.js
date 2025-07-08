@@ -1,3 +1,5 @@
+// FILE: src/services/Message.service.js
+
 import { HarmBlockThreshold, HarmCategory } from "@google/genai";
 
 const ApiKeyInput = document.querySelector("#apiKeyInput");
@@ -14,6 +16,11 @@ const triggerSymbolEndInput = document.querySelector("#triggerSymbolEnd");
 const enableAudioToggle = document.querySelector("#enableAudio");
 const globalVolumeInput = document.querySelector("#globalVolume");
 const globalVolumeLabel = document.querySelector("#label-globalVolume");
+
+// NEW: Internal state variables for last active UI elements
+let _activeTab = 'Chats'; // Default to 'Chats'
+let _activePersonalityId = null; // Default to no specific personality
+let _activeChatId = null; // Default to no specific chat
 
 
 export function initialize() {
@@ -51,6 +58,11 @@ export function loadSettings() {
     enableAudioToggle.checked = localStorage.getItem("enableAudio") !== "false"; // Default to true
     globalVolumeInput.value = localStorage.getItem("globalVolume") || 70; // Default to 70%
     globalVolumeLabel.textContent = globalVolumeInput.value; // Sync label on load
+
+    // NEW: Load last active UI state
+    _activeTab = localStorage.getItem("LAST_ACTIVE_TAB") || 'Chats';
+    _activePersonalityId = localStorage.getItem("LAST_ACTIVE_PERSONALITY_ID"); // May be null
+    _activeChatId = localStorage.getItem("LAST_ACTIVE_CHAT_ID"); // May be null
 }
 
 export function saveSettings() {
@@ -67,10 +79,40 @@ export function saveSettings() {
     localStorage.setItem("triggerSymbolEnd", triggerSymbolEndInput.value);
     localStorage.setItem("enableAudio", enableAudioToggle.checked);
     localStorage.setItem("globalVolume", globalVolumeInput.value);
+
+    // NEW: Save last active UI state
+    localStorage.setItem("LAST_ACTIVE_TAB", _activeTab);
+    if (_activePersonalityId !== null) {
+        localStorage.setItem("LAST_ACTIVE_PERSONALITY_ID", _activePersonalityId);
+    } else {
+        localStorage.removeItem("LAST_ACTIVE_PERSONALITY_ID"); // Clear if no personality selected
+    }
+    if (_activeChatId !== null) {
+        localStorage.setItem("LAST_ACTIVE_CHAT_ID", _activeChatId);
+    } else {
+        localStorage.removeItem("LAST_ACTIVE_CHAT_ID"); // Clear if no chat selected
+    }
 }
 
+// NEW: Setter functions for active UI state
+export function setActiveTab(tabName) {
+    _activeTab = tabName;
+    saveSettings();
+}
+
+export function setActivePersonalityId(id) {
+    _activePersonalityId = id;
+    saveSettings();
+}
+
+export function setActiveChatId(id) {
+    _activeChatId = id;
+    saveSettings();
+}
+
+
 export function getSettings() {
-    // MODIFIED: Return settings in a more organized object
+    // MODIFIED: Return settings in a more organized object, including new UI state
     return {
         apiKey: ApiKeyInput.value,
         maxTokens: maxTokensInput.value,
@@ -92,6 +134,12 @@ export function getSettings() {
         audio: {
             enabled: enableAudioToggle.checked,
             volume: parseInt(globalVolumeInput.value) / 100 // Convert 0-100 slider to 0.0-1.0 for Audio API
+        },
+        // NEW: Return last active UI state
+        lastActive: {
+            tab: _activeTab,
+            personalityId: _activePersonalityId,
+            chatId: _activeChatId
         }
     }
 }
