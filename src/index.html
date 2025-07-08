@@ -159,15 +159,15 @@
                     <div style="margin-top: 1rem;">
                         <label class="setting-label" for="typingSpeed">
                             <span class="material-symbols-outlined">speed</span>
-                            <span>Typing Speed</span>
+                            <span>Typing Delay</span> <!-- CHANGED TEXT HERE -->
                             <span class="material-symbols-outlined tooltip" 
                             style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                            info="Controls the speed of the AI's response typing effect (in milliseconds per character). Lower values are faster, 0 is instant.">
+                            info="Controls the delay between characters for the AI's response (in milliseconds). Higher values mean slower typing, 0 is instant."> <!-- CHANGED INFO TEXT -->
                                 info
                             </span> 
                         </label>
                         <div class="btn-array">
-                            <input type="range" min="0" max="200" id="typingSpeed" class="slider">
+                            <input type="range" min="0" max="100" id="typingSpeed" class="slider"> <!-- CHANGED MAX HERE -->
                             <label id="label-typingSpeed">0</label>
                         </div>
                     </div>
@@ -347,6 +347,12 @@
 			</div>
 		</div>
 	</div>
+
+
+
+
+
+
 
     <script type="module" src="main.js"></script>
 </body>
