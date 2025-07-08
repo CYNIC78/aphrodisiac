@@ -1,3 +1,5 @@
+// FILE: src/services/Message.service.js
+
 //handles sending messages to the api
 
 import { GoogleGenAI } from "@google/genai"
@@ -6,6 +8,9 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
+// NEW: Import the AssetManager service to fetch assets for our commands.
+import * as assetManager from "./AssetManager.service.js";
+
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -47,20 +52,14 @@ export async function send(msg, db) {
     await insertMessage("user", msg, null, null, db);
 
     // --- START: CHARACTER REMINDER LOGIC ---
-    // Get the current chat before modifying its content
     const currentChat = await chatsService.getCurrentChat(db);
-
-    // Save the user's visible message to chat history immediately.
-    // This ensures our chat history accurately reflects what the user sees.
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-    await db.chats.put(currentChat); // Persist the user message to the database
+    await db.chats.put(currentChat);
     // --- END: CHARACTER REMINDER LOGIC ---
 
     helpers.messageContainerScrollToBottom();
-    //model reply
     
     // Create chat history for the AI session.
-    // This 'history' object is built once and passed to the chat session.
     const history = [
         {
             role: "user",
@@ -72,7 +71,6 @@ export async function send(msg, db) {
         }
     ];
     
-    // Add tone examples if available
     if (selectedPersonality.toneExamples) {
         history.push(
             ...selectedPersonality.toneExamples.map((tone) => {
@@ -81,16 +79,12 @@ export async function send(msg, db) {
         );
     }
     
-    // Add chat history from DB to the session history.
-    // We remove the `personality` property as the API expects only `role` and `parts`.
-    // The `currentChat` object now already includes the most recent user message.
     history.push(
         ...currentChat.content.map((msg) => {
             return { role: msg.role, parts: msg.parts }
         })
     );
     
-    // Create chat session (using the correct 'chat' variable name, no re-declaration)
     const chat = ai.chats.create({
         model: settings.model,
         history: history,
@@ -98,30 +92,23 @@ export async function send(msg, db) {
     });
 
     // --- START: CHARACTER REMINDER LOGIC (Injection into current message) ---
-    // Prepare the message to send to the AI, including the hidden reminder.
-    // The reminder is appended to the *current* user message for this turn only.
-    let messageToSendToAI = msg; // This is the user's actual input
+    let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
-        // Append the reminder at the "bottom" of the current message for the AI.
-        // We use \n\n to ensure it's on a new line and stands out clearly to the AI.
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
     // --- END: CHARACTER REMINDER LOGIC ---
     
-    // Send message with streaming
     const stream = await chat.sendMessageStream({
-        message: messageToSendToAI // <-- Now passing the message that includes the reminder
+        message: messageToSendToAI
     });
     
-    // --- START: TYPING SPEED IMPLEMENTATION ---
-    // Pass the typingSpeed setting to insertMessage
-    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed);
-    // --- END: TYPING SPEED IMPLEMENTATION ---
+    // --- MODIFIED: Pass characterId to insertMessage to enable asset triggers ---
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
     // Save model reply to chat history
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
-    await db.chats.put(currentChat); // Save updated chat with model message
-    settingsService.saveSettings(); // Ensure settings are saved (e.g., API key changes)
+    await db.chats.put(currentChat);
+    settingsService.saveSettings();
 }
 
 async function regenerate(responseElement, db) {
@@ -136,8 +123,7 @@ async function regenerate(responseElement, db) {
     await send(message, db);
 }
 
-
-
+// NOTE: This function's editing implementation is basic. It will be enhanced later.
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector(".btn-edit");
     const saveButton = messageElement.querySelector(".btn-save");
@@ -145,20 +131,12 @@ function setupMessageEditing(messageElement, db) {
     
     if (!editButton || !saveButton) return;
     
-    // Handle edit button click
     editButton.addEventListener("click", () => {
-        // Enable editing
         messageText.setAttribute("contenteditable", "true");
         messageText.focus();
-        
-        // Show save button, hide edit button
         editButton.style.display = "none";
         saveButton.style.display = "inline-block";
-        
-        // Store original content to allow cancellation
         messageText.dataset.originalContent = messageText.innerHTML;
-        
-        // Place cursor at the end
         const selection = window.getSelection();
         const range = document.createRange();
         range.selectNodeContents(messageText);
@@ -167,32 +145,46 @@ function setupMessageEditing(messageElement, db) {
         selection.addRange(range);
     });
     
-    // Handle save button click
     saveButton.addEventListener("click", async () => {
-        // Disable editing
         messageText.removeAttribute("contenteditable");
-        
-        // Show edit button, hide save button
         editButton.style.display = "inline-block";
         saveButton.style.display = "none";
         
-        // Get the message index to update the correct message in chat history
         const messageContainer = document.querySelector(".message-container");
         const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
         
-        // Update the chat history in database
         await updateMessageInDatabase(messageElement, messageIndex, db);
+
+        // --- NEW: Re-process triggers after an edit ---
+        const newRawText = messageText.textContent;
+        const settings = settingsService.getSettings();
+        const separator = settings.triggers.separator;
+        let visibleMessage = newRawText;
+        let commandBlock = "";
+
+        if (separator && newRawText.includes(separator)) {
+            const parts = newRawText.split(separator);
+            visibleMessage = parts[0].trim();
+            commandBlock = parts[1] || "";
+        }
+        
+        // Re-render the visible part and re-run commands
+        messageText.innerHTML = marked.parse(visibleMessage, { breaks: true });
+        if (commandBlock) {
+             const currentChat = await chatsService.getCurrentChat(db);
+             const characterId = currentChat.content[messageIndex]?.personalityid;
+             if(characterId !== undefined) {
+                await processCommandBlock(commandBlock, messageElement, characterId);
+             }
+        }
     });
     
-    // Handle keydown events in the editable message
     messageText.addEventListener("keydown", (e) => {
-        // Save on Enter key (without shift for newlines)
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             saveButton.click();
         }
         
-        // Cancel on Escape key
         if (e.key === "Escape") {
             messageText.innerHTML = messageText.dataset.originalContent;
             messageText.removeAttribute("contenteditable");
@@ -204,30 +196,19 @@ function setupMessageEditing(messageElement, db) {
 
 async function updateMessageInDatabase(messageElement, messageIndex, db) {
     if (!db) return;
-    
     try {
-        // Get the updated message text
-        const messageText = messageElement.querySelector(".message-text").innerHTML;
-        const rawText = messageText.replace(/<[^>]*>/g, "").trim(); // Strip HTML for storing in parts
-        
-        // Get the current chat and update the specific message
+        const rawText = messageElement.querySelector(".message-text").textContent; // Use textContent to get raw text
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
-        
-        // Update the message content in the parts array
         currentChat.content[messageIndex].parts[0].text = rawText;
-        
-        // Save the updated chat back to the database
         await db.chats.put(currentChat);
-        console.log("Message updated in database");
     } catch (error) {
         console.error("Error updating message in database:", error);
-        alert("Failed to save your edited message. Please try again.");
     }
 }
 
-// --- START: MODIFIED insertMessage function signature and streaming logic for character-by-character typing ---
-export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0) {
+// --- MODIFIED: Function signature and logic updated for Trigger System ---
+export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
@@ -251,64 +232,63 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             `;
         const refreshButton = newMessage.querySelector(".btn-refresh");
         refreshButton.addEventListener("click", async () => {
-            try {
-                await regenerate(newMessage, db)
-            } catch (error) {
-                if (error.status === 429) {
-                    alert("Error, you have reached the API's rate limit. Please try again later or use the Flash model.");
-                    return;
-                }
-                alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
-                console.error(error);
-            }
+            try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
         });
         const messageContent = newMessage.querySelector(".message-text");
 
         if (!netStream) {
-            // Non-streaming case: render instantly
             messageContent.innerHTML = marked.parse(msg);
         } else {
             let fullRawText = "";
             try {
-                // Step 1: Collect the entire raw text from the stream first.
-                // This ensures we have the full message before starting the controlled typing effect.
                 for await (const chunk of netStream) {
-                    if (chunk && chunk.text) {
-                        fullRawText += chunk.text;
-                    }
+                    if (chunk && chunk.text) { fullRawText += chunk.text; }
                 }
 
-                // Step 2: Now, "type" out the full message character by character.
+                // --- NEW: Trigger Phrase System Logic ---
+                const userSettings = settingsService.getSettings();
+                const separator = userSettings.triggers.separator;
+                let visibleMessage = fullRawText;
+                let commandBlock = "";
+
+                if (separator && fullRawText.includes(separator)) {
+                    const parts = fullRawText.split(separator);
+                    visibleMessage = parts[0].trim(); // Trim whitespace
+                    commandBlock = parts[1] || "";
+                }
+                
+                // MODIFIED: Type out only the visible part
                 if (typingSpeed > 0) {
-                    messageContent.innerHTML = ''; // Clear content initially
+                    messageContent.innerHTML = '';
                     let renderedText = '';
-                    for (let i = 0; i < fullRawText.length; i++) {
-                        renderedText += fullRawText[i];
-                        messageContent.innerHTML = marked.parse(renderedText, { breaks: true }); // Render character-by-character
+                    for (let i = 0; i < visibleMessage.length; i++) {
+                        renderedText += visibleMessage[i];
+                        messageContent.innerHTML = marked.parse(renderedText, { breaks: true });
                         helpers.messageContainerScrollToBottom();
-                        await new Promise(resolve => setTimeout(resolve, typingSpeed)); // Apply delay per character
+                        await new Promise(resolve => setTimeout(resolve, typingSpeed));
                     }
                 } else {
-                    // Instant rendering if typingSpeed is 0
-                    messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                    messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
                     helpers.messageContainerScrollToBottom();
                 }
 
+                // NEW: Process the command block after typing is complete
+                if (commandBlock) {
+                    await processCommandBlock(commandBlock, newMessage, characterId);
+                }
+
                 hljs.highlightAll();
-                helpers.messageContainerScrollToBottom(); // Final scroll to ensure bottom
+                helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
+                // IMPORTANT: Return the FULL RAW text so it's saved correctly to the database for editing.
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
-                alert("Error processing response: " + error);
                 console.error("Stream error:", error);
-                // In case of error during streaming/rendering, still display collected text
                 messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             }
         }
-    }
-    //handle user's message, expect encoded
-    else {
+    } else {
         const messageRole = "You:";
         newMessage.innerHTML = `
                 <div class="message-header">
@@ -323,8 +303,67 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 `;
     }
     hljs.highlightAll();
-    
-    // Setup edit functionality for the message
     setupMessageEditing(newMessage, db);
 }
-// --- END: MODIFIED insertMessage function signature and streaming logic for character-by-character typing ---
+
+// --- NEW: Helper function to process the command block ---
+async function processCommandBlock(commandBlock, messageElement, characterId) {
+    if (characterId === null) {
+        console.warn("Cannot process commands: Invalid characterId.");
+        return;
+    }
+
+    const settings = settingsService.getSettings();
+    // Use dynamic symbols from settings to build the regex
+    const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
+    let match;
+
+    while ((match = commandRegex.exec(commandBlock)) !== null) {
+        const command = match[1].trim().toLowerCase();
+        const value = match[2].trim();
+
+        switch (command) {
+            case 'image': // Changed from 'avatar' to 'image' for consistency
+                try {
+                    const asset = await assetManager.getAssetByTag(value, 'image', characterId);
+                    if (asset && asset.data) {
+                        const pfpElement = messageElement.querySelector('.pfp');
+                        if (pfpElement) { pfpElement.src = asset.data; }
+                        
+                        const personalityCard = document.querySelector(`#personality-${characterId}`);
+                        if(personalityCard) {
+                            const cardImg = personalityCard.querySelector('.background-img');
+                            if(cardImg) {
+                                cardImg.style.opacity = 0;
+                                setTimeout(() => {
+                                    cardImg.src = asset.data;
+                                    cardImg.style.opacity = 1;
+                                }, 200);
+                            }
+                        }
+                    } else {
+                        console.warn(`Image asset with tag "${value}" not found for character ${characterId}.`);
+                    }
+                } catch (e) { console.error(`Error processing image command:`, e); }
+                break;
+
+            case 'audio':
+                if (settings.audio.enabled) {
+                    try {
+                        const asset = await assetManager.getAssetByTag(value, 'audio', characterId);
+                        if (asset && asset.data) {
+                            const audio = new Audio(asset.data);
+                            audio.volume = settings.audio.volume;
+                            audio.play().catch(e => console.error("Audio playback failed:", e));
+                        } else {
+                            console.warn(`Audio asset with tag "${value}" not found for character ${characterId}.`);
+                        }
+                    } catch (e) { console.error(`Error processing audio command:`, e); }
+                }
+                break;
+
+            default:
+                console.warn(`Unknown command: "${command}"`);
+        }
+    }
+}
