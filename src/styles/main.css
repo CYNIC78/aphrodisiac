@@ -828,7 +828,7 @@ input[name="currentChat"][value="none"] {
 
 /* MODIFIED: Changed div to direct child selector > */
 .generation-settings > div,
-.trigger-settings > div {
+.trigger-settings > div:not(.trigger-symbols-wrapper) {
     display: flex;
     flex-direction: column;
     justify-content: center;
