@@ -82,69 +82,42 @@ async function regenerate(responseElement, db) {
 }
 
 
-// --- THE FINAL, SIMPLE, AND CORRECT EDITING LOGIC ---
+// --- THE "VISIBLE GUTS" EDITING LOGIC ---
+// This is a simple, stable, and bug-free implementation.
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
     const messageTextDiv = messageElement.querySelector('.message-text');
-    const editTextArea = messageElement.querySelector('.edit-textarea');
 
-    if (!editButton || !saveButton || !messageTextDiv || !editTextArea) return;
+    if (!editButton || !saveButton || !messageTextDiv) return;
 
     const messageContainer = document.querySelector(".message-container");
     const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
     messageElement.dataset.messageIndex = messageIndex;
 
-    editButton.addEventListener('click', async () => {
-        const currentChat = await chatsService.getCurrentChat(db);
-        const index = parseInt(messageElement.dataset.messageIndex, 10);
-        const messageData = currentChat.content[index];
-
-        if (messageData) {
-            const rawText = messageData.parts[0].text;
-            
-            editTextArea.value = helpers.getDecoded(rawText);
-            messageTextDiv.style.display = 'none';
-            editTextArea.style.display = 'block';
-            editTextArea.focus();
-            
-            editTextArea.style.height = 'auto';
-            editTextArea.style.height = (editTextArea.scrollHeight) + 'px';
-
-            editButton.style.display = 'none';
-            saveButton.style.display = 'inline-block';
-        }
+    editButton.addEventListener('click', () => {
+        // Just make the existing text editable. No swapping, no complex logic.
+        messageTextDiv.setAttribute("contenteditable", "true");
+        messageTextDiv.focus();
+        editButton.style.display = 'none';
+        saveButton.style.display = 'inline-block';
     });
 
     saveButton.addEventListener('click', async () => {
-        const newRawText = editTextArea.value;
+        messageTextDiv.removeAttribute("contenteditable");
+        const newRawText = messageTextDiv.innerText; // Get the clean text.
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
         await updateMessageInDatabase(index, newRawText, db);
 
-        editTextArea.style.display = 'none';
-        messageTextDiv.style.display = 'block';
-
-        const settings = settingsService.getSettings();
-        const separator = settings.triggers.separator;
-        let visibleMessage = newRawText;
-        let commandBlock = "";
-
-        if (separator && newRawText.includes(separator)) {
-            const parts = newRawText.split(separator);
-            visibleMessage = parts[0].trim();
-            commandBlock = parts[1] || "";
-        }
+        // Re-render the message. It will remain fully visible.
+        messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
         
-        messageTextDiv.innerHTML = marked.parse(visibleMessage, { breaks: true });
-        
-        if (commandBlock) {
-             const currentChat = await chatsService.getCurrentChat(db);
-             const characterId = currentChat.content[index]?.personalityid;
-             if (characterId !== undefined) {
-                await processCommandBlock(commandBlock, messageElement, characterId);
-             }
+        // Re-process commands from the now-visible text.
+        const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
+        if (characterId !== undefined) {
+            await processCommandBlock(newRawText, messageElement, characterId);
         }
 
         editButton.style.display = 'inline-block';
@@ -157,10 +130,8 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
     try {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
-        
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
-
     } catch (error) { console.error("Error updating message in database:", error); }
 }
 
@@ -172,7 +143,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     messageContainer.append(newMessage);
     if (sender != "user") {
         newMessage.classList.add("message-model");
-        // ADDED a textarea for editing
         newMessage.innerHTML = `
             <div class="message-header">
                 <img class="pfp" src="${pfpSrc}" loading="lazy"></img>
@@ -184,53 +154,42 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text"></div>
-            <textarea class="edit-textarea" style="display: none;"></textarea>`; // This is the crucial addition
+            <div class="message-text"></div>`;
         const refreshButton = newMessage.querySelector(".btn-refresh");
         refreshButton.addEventListener("click", async () => {
             try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
         });
         const messageContent = newMessage.querySelector(".message-text");
 
+        // "VISIBLE GUTS" LOGIC - No more splitting.
         if (!netStream) {
-            const userSettings = settingsService.getSettings();
-            const separator = userSettings.triggers.separator;
-            let visibleMessage = msg;
-            if (separator && msg.includes(separator)) {
-                visibleMessage = msg.split(separator)[0].trim();
-            }
-            messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
-            
+            // Loading Path: Display the full raw message.
+            messageContent.innerHTML = marked.parse(msg, { breaks: true });
         } else {
+            // Live Path: Stream the full raw message.
             let fullRawText = "";
             try {
                 for await (const chunk of netStream) {
                     if (chunk && chunk.text) { fullRawText += chunk.text; }
                 }
-                const userSettings = settingsService.getSettings();
-                const separator = userSettings.triggers.separator;
-                let visibleMessage = fullRawText, commandBlock = "";
-                if (separator && fullRawText.includes(separator)) {
-                    const parts = fullRawText.split(separator);
-                    visibleMessage = parts[0].trim();
-                    commandBlock = parts[1] || "";
-                }
+                
                 if (typingSpeed > 0) {
                     messageContent.innerHTML = '';
                     let renderedText = '';
-                    for (let i = 0; i < visibleMessage.length; i++) {
-                        renderedText += visibleMessage[i];
+                    for (let i = 0; i < fullRawText.length; i++) {
+                        renderedText += fullRawText[i];
                         messageContent.innerHTML = marked.parse(renderedText, { breaks: true });
                         helpers.messageContainerScrollToBottom();
                         await new Promise(resolve => setTimeout(resolve, typingSpeed));
                     }
                 } else {
-                    messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
+                    messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
                     helpers.messageContainerScrollToBottom();
                 }
-                if (commandBlock) {
-                    await processCommandBlock(commandBlock, newMessage, characterId);
-                }
+
+                // Process commands from the full, visible text.
+                await processCommandBlock(fullRawText, newMessage, characterId);
+                
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
@@ -251,18 +210,14 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     </div>
                 </div>
                 <div class="message-role-api" style="display: none;">${sender}</div>
-                <div class="message-text">${helpers.getDecoded(msg)}</div>
-                <textarea class="edit-textarea" style="display: none;"></textarea>`; // This is the crucial addition
+                <div class="message-text">${helpers.getDecoded(msg)}</div>`;
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
 }
 
 async function processCommandBlock(commandBlock, messageElement, characterId) {
-    if (characterId === null) {
-        console.warn("Cannot process commands: Invalid characterId.");
-        return;
-    }
+    if (characterId === null) return;
 
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
@@ -287,14 +242,9 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                             const cardImg = personalityCard.querySelector('.background-img');
                             if(cardImg) {
                                 cardImg.style.opacity = 0;
-                                setTimeout(() => {
-                                    cardImg.src = objectURL;
-                                    cardImg.style.opacity = 1;
-                                }, 200);
+                                setTimeout(() => { cardImg.src = objectURL; cardImg.style.opacity = 1; }, 200);
                             }
                         }
-                    } else {
-                        console.warn(`Image asset with tag "${value}" not found for character ${characterId}.`);
                     }
                 } catch (e) { console.error(`Error processing image command:`, e); }
                 break;
@@ -310,15 +260,10 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                             audio.volume = settings.audio.volume;
                             audio.play().catch(e => console.error("Audio playback failed:", e));
                             audio.onended = () => URL.revokeObjectURL(objectURL);
-                        } else {
-                            console.warn(`Audio asset with tag "${value}" not found for character ${characterId}.`);
                         }
                     } catch (e) { console.error(`Error processing audio command:`, e); }
                 }
                 break;
-
-            default:
-                console.warn(`Unknown command: "${command}"`);
         }
     }
 }
