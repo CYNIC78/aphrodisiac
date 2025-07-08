@@ -1,4 +1,3 @@
-// FILE: src/main.js
 
 import * as personalityService from "./services/Personality.service";
 import * as settingsService from "./services/Settings.service";
@@ -6,7 +5,6 @@ import * as overlayService from './services/Overlay.service';
 import * as chatsService from './services/Chats.service';
 import { db } from './services/Db.service';
 import * as helpers from "./utils/helpers";
-import * as sidebarComponent from "./components/Sidebar.component.js"; // NEW: Import sidebar component
 
 //load all component code
 const components = import.meta.glob('./components/*.js');
@@ -28,10 +26,10 @@ hideOverlayButton.addEventListener("click", () => overlayService.closeOverlay())
 
 const newChatButton = document.querySelector("#btn-new-chat");
 newChatButton.addEventListener("click", () => {
-    // OLD: if (!chatsService.getCurrentChatId()) { return } - REMOVED: New Chat should always work.
+    if (!chatsService.getCurrentChatId()) {
+        return
+    }
     chatsService.newChat();
-    // NEW: Navigate to the Personalities tab after starting a new chat
-    sidebarComponent.navigateToTabByName('Personalities');
 });
 
 const clearAllButton = document.querySelector("#btn-clearall-personality");
@@ -70,3 +68,5 @@ window.addEventListener("resize", () => {
         }
     }
 });
+
+

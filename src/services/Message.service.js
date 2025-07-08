@@ -17,7 +17,7 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey }); // KEEP: This is the ONLY place allowed to instantiate GoogleGenAI for main chat.
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
@@ -26,35 +26,21 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
     
-    let chatToUpdate = null; // Initialize chatToUpdate
-
-    // Original logic to create a new chat if none is current.
-    // We ensure `chatToUpdate` is set correctly whether a new chat is made or an existing one is found.
-    const currentChatFromService = await chatsService.getCurrentChat(db);
-    if (!currentChatFromService) { 
-        const title = await generateChatTitle(settings.apiKey, selectedPersonality, msg); // Use the new function to generate title
-        const newChatId = await chatsService.addChat(title, null, db); // addChat returns the ID
-        document.querySelector(`#chat${newChatId}`).click(); // click() triggers change event -> loads chat & updates settings
-        
-        // IMPORTANT: Directly get the newly created chat by its ID here,
-        // instead of relying on getCurrentChat() immediately, which might be stale.
-        chatToUpdate = await chatsService.getChatById(newChatId, db); 
-    } else {
-        chatToUpdate = currentChatFromService;
-    }
-
-    // Now, ensure chatToUpdate is not null before proceeding
-    if (!chatToUpdate) {
-        console.error("Failed to get a valid chat object to update after user message.");
-        alert("Error: Could not get chat to save message. Please try again.");
-        return;
+    if (!await chatsService.getCurrentChat(db)) { 
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
+        });
+        const title = response.text;
+        const id = await chatsService.addChat(title, null, db);
+        document.querySelector(`#chat${id}`).click();
     }
 
     await insertMessage("user", msg, null, null, db);
 
-    // Use chatToUpdate directly
-    chatToUpdate.content.push({ role: "user", parts: [{ text: msg }] });
-    await db.chats.put(chatToUpdate); // Save the updated chat
+    const currentChat = await chatsService.getCurrentChat(db);
+    currentChat.content.push({ role: "user", parts: [{ text: msg }] });
+    await db.chats.put(currentChat);
 
     helpers.messageContainerScrollToBottom();
     
@@ -67,7 +53,7 @@ export async function send(msg, db) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(...chatToUpdate.content.map(msg => ({ role: msg.role, parts: msg.parts }))); // Use chatToUpdate for history
+    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
     
     const chat = ai.chats.create({ model: settings.model, history, config });
 
@@ -80,9 +66,8 @@ export async function send(msg, db) {
     
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
-    // Use chatToUpdate for pushing model response as well
-    chatToUpdate.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
-    await db.chats.put(chatToUpdate); // Save the updated chat
+    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
+    await db.chats.put(currentChat);
     settingsService.saveSettings();
 }
 
@@ -90,12 +75,6 @@ async function regenerate(responseElement, db) {
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    // Ensure chat is not null before accessing content
-    if (!chat) {
-        console.error("Chat object is null during regeneration attempt.");
-        alert("Error: Cannot regenerate, chat not found. Please start a new chat.");
-        return;
-    }
     chat.content = chat.content.slice(0, elementIndex - 1);
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
@@ -136,9 +115,9 @@ function setupMessageEditing(messageElement, db) {
         messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
         
         // Re-process commands from the now-visible text.
-        const currentChatForEdit = await chatsService.getCurrentChat(db);
-        if (currentChatForEdit && currentChatForEdit.content[index]?.personalityid !== undefined) { // Null check currentChatForEdit
-            await processCommandBlock(newRawText, messageElement, currentChatForEdit.content[index].personalityid);
+        const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
+        if (characterId !== undefined) {
+            await processCommandBlock(newRawText, messageElement, characterId);
         }
 
         editButton.style.display = 'inline-block';
@@ -150,7 +129,7 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
     try {
         const currentChat = await chatsService.getCurrentChat(db);
-        if (!currentChat || !currentChat.content[messageIndex]) return; // Null check currentChat
+        if (!currentChat || !currentChat.content[messageIndex]) return;
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
     } catch (error) { console.error("Error updating message in database:", error); }
@@ -330,35 +309,5 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                 }
                 break;
         }
-    }
-}
-
-/**
- * Generates a chat title using the Google Gemini API.
- * This function centralizes API calls for title generation, respecting Rule 3.
- * @param {string} apiKey The Google Gemini API key.
- * @param {object} personality The currently selected personality object.
- * @param {string} firstMessage The user's first message in the chat.
- * @returns {Promise<string>} The generated chat title.
- */
-export async function generateChatTitle(apiKey, personality, firstMessage) {
-    const ai = new GoogleGenAI({ apiKey: apiKey }); // ALLOWED: This file is authorized to instantiate GoogleGenAI.
-    
-    let titlePrompt = `You are to act as a generator for short, concise chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else.`;
-    if (personality) {
-        titlePrompt += ` This chat is with the personality named "${personality.name}", whose description is "${personality.description}". Try to incorporate the personality's theme or name if relevant.`;
-    }
-    titlePrompt += ` The user's first message is: "${firstMessage}".`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash', // Still use Flash for quick title generation
-            contents: titlePrompt,
-        });
-        return response.text;
-    } catch (error) {
-        console.error("Error generating chat title:", error);
-        // Fallback if title generation fails (e.g., API key issue, network error)
-        return `Chat with ${personality ? personality.name : 'AI'}`; 
     }
 }
