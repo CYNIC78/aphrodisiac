@@ -1,7 +1,7 @@
 //handles sending messages to the api
 
 import { GoogleGenAI } from "@google/genai"
-import { marked } = from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js"; // <-- FIXED THIS LINE
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
