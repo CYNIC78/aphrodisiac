@@ -82,8 +82,6 @@ async function regenerate(responseElement, db) {
 }
 
 
-// --- FINAL, SUPERIOR FIX: Elegant in-place editing ---
-
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
@@ -102,7 +100,7 @@ function setupMessageEditing(messageElement, db) {
 
         if (messageData) {
             const rawText = messageData.parts[0].text;
-            messageTextDiv.innerHTML = helpers.getDecoded(rawText); // Set the raw text, not rendered HTML
+            messageTextDiv.innerText = helpers.getDecoded(rawText); // Use innerText to avoid HTML issues
             
             messageTextDiv.setAttribute("contenteditable", "true");
             messageTextDiv.focus();
@@ -118,7 +116,6 @@ function setupMessageEditing(messageElement, db) {
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
 
-        // THE KEY FIX: Use .innerText to get the clean text without any HTML tags.
         const newRawText = messageTextDiv.innerText; 
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
@@ -135,7 +132,6 @@ function setupMessageEditing(messageElement, db) {
             commandBlock = parts[1] || "";
         }
         
-        // Re-render the visible part using the clean text
         messageTextDiv.innerHTML = marked.parse(visibleMessage, { breaks: true });
         
         if (commandBlock) {
@@ -157,7 +153,6 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
         
-        // Save the clean, raw text back to the database
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
 
@@ -170,6 +165,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
+
     if (sender != "user") {
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
@@ -189,9 +185,26 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
         });
         const messageContent = newMessage.querySelector(".message-text");
+
+        // --- FINAL POLISH: This block now handles both "loading" and "live" messages ---
         if (!netStream) {
-            messageContent.innerHTML = marked.parse(msg);
+            // This is the "Loading Path" for old messages from the database.
+            // We apply the same splitting logic here.
+            const userSettings = settingsService.getSettings();
+            const separator = userSettings.triggers.separator;
+            let visibleMessage = msg, commandBlock = "";
+
+            if (separator && msg.includes(separator)) {
+                const parts = msg.split(separator);
+                visibleMessage = parts[0].trim();
+                commandBlock = parts[1] || "";
+            }
+            messageContent.innerHTML = marked.parse(visibleMessage, { breaks: true });
+            
+            // Note: We don't process commands for old messages to prevent re-triggering sounds/actions on every load.
+            // This is the desired behavior. The initial trigger happened when the message was first received.
         } else {
+            // This is the "Live Path" for new messages from the stream.
             let fullRawText = "";
             try {
                 for await (const chunk of netStream) {
