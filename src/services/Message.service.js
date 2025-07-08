@@ -8,9 +8,7 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// --- FIX: Correctly import the assetManagerService instance ---
-import { assetManagerService } from "./AssetManager.service.js";
-
+// THIS FILE NO LONGER IMPORTS THE ASSET MANAGER.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -161,7 +159,8 @@ function setupMessageEditing(messageElement, db) {
              const currentChat = await chatsService.getCurrentChat(db);
              const characterId = currentChat.content[messageIndex]?.personalityid;
              if(characterId !== undefined) {
-                await processCommandBlock(commandBlock, messageElement, characterId);
+                // CORRECTLY DELEGATE to the new function in Personality.service
+                personalityService.processTriggersForMessage(commandBlock, messageElement, characterId);
              }
         }
     });
@@ -257,7 +256,8 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 }
 
                 if (commandBlock) {
-                    await processCommandBlock(commandBlock, newMessage, characterId);
+                    // CORRECTLY DELEGATE to the new function in Personality.service
+                    personalityService.processTriggersForMessage(commandBlock, newMessage, characterId);
                 }
 
                 hljs.highlightAll();
@@ -286,66 +286,4 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
-}
-
-async function processCommandBlock(commandBlock, messageElement, characterId) {
-    if (characterId === null) {
-        console.warn("Cannot process commands: Invalid characterId.");
-        return;
-    }
-
-    const settings = settingsService.getSettings();
-    const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
-    let match;
-
-    while ((match = commandRegex.exec(commandBlock)) !== null) {
-        const command = match[1].trim().toLowerCase();
-        const value = match[2].trim();
-
-        switch (command) {
-            case 'image':
-                try {
-                    // --- FIX: Use the correct service name 'assetManagerService' ---
-                    const asset = await assetManagerService.getAssetByTag(value, 'image', characterId);
-                    if (asset && asset.data) {
-                        const pfpElement = messageElement.querySelector('.pfp');
-                        if (pfpElement) { pfpElement.src = asset.data; }
-                        
-                        const personalityCard = document.querySelector(`#personality-${characterId}`);
-                        if(personalityCard) {
-                            const cardImg = personalityCard.querySelector('.background-img');
-                            if(cardImg) {
-                                cardImg.style.opacity = 0;
-                                setTimeout(() => {
-                                    cardImg.src = asset.data;
-                                    cardImg.style.opacity = 1;
-                                }, 200);
-                            }
-                        }
-                    } else {
-                        console.warn(`Image asset with tag "${value}" not found for character ${characterId}.`);
-                    }
-                } catch (e) { console.error(`Error processing image command:`, e); }
-                break;
-
-            case 'audio':
-                if (settings.audio.enabled) {
-                    try {
-                        // --- FIX: Use the correct service name 'assetManagerService' ---
-                        const asset = await assetManagerService.getAssetByTag(value, 'audio', characterId);
-                        if (asset && asset.data) {
-                            const audio = new Audio(asset.data);
-                            audio.volume = settings.audio.volume;
-                            audio.play().catch(e => console.error("Audio playback failed:", e));
-                        } else {
-                            console.warn(`Audio asset with tag "${value}" not found for character ${characterId}.`);
-                        }
-                    } catch (e) { console.error(`Error processing audio command:`, e); }
-                }
-                break;
-
-            default:
-                console.warn(`Unknown command: "${command}"`);
-        }
-    }
 }
