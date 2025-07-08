@@ -155,6 +155,23 @@
                             <label for="autoscroll">Autoscroll</label>
                         </div>
                     </div>
+                    <!-- START: NEW TYPING SPEED SETTING -->
+                    <div style="margin-top: 1rem;">
+                        <label class="setting-label" for="typingSpeed">
+                            <span class="material-symbols-outlined">speed</span>
+                            <span>Typing Speed</span>
+                            <span class="material-symbols-outlined tooltip" 
+                            style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                            info="Controls the speed of the AI's response typing effect (in milliseconds per character). Lower values are faster, 0 is instant.">
+                                info
+                            </span> 
+                        </label>
+                        <div class="btn-array">
+                            <input type="range" min="0" max="200" id="typingSpeed" class="slider">
+                            <label id="label-typingSpeed">0</label>
+                        </div>
+                    </div>
+                    <!-- END: NEW TYPING SPEED SETTING -->
                 </div>
             </div>
 
@@ -330,12 +347,6 @@
 			</div>
 		</div>
 	</div>
-
-
-
-
-
-
 
     <script type="module" src="main.js"></script>
 </body>

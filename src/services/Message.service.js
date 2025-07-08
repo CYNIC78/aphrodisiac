@@ -1,7 +1,7 @@
 //handles sending messages to the api
 
 import { GoogleGenAI } from "@google/genai"
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import { marked } = from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
@@ -113,7 +113,11 @@ export async function send(msg, db) {
         message: messageToSendToAI // <-- Now passing the message that includes the reminder
     });
     
-    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
+    // --- START: TYPING SPEED IMPLEMENTATION ---
+    // Pass the typingSpeed setting to insertMessage
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed);
+    // --- END: TYPING SPEED IMPLEMENTATION ---
+
     // Save model reply to chat history
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat); // Save updated chat with model message
@@ -222,7 +226,8 @@ async function updateMessageInDatabase(messageElement, messageIndex, db) {
     }
 }
 
-export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null) {
+// --- START: MODIFIED insertMessage function signature and streaming logic ---
+export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0) {
     //create new message div for the user's message then append to message container's top
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
@@ -273,6 +278,12 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                         rawText += chunk.text;
                         messageContent.innerHTML = marked.parse(rawText, { breaks: true }); //convert md to HTML
                         helpers.messageContainerScrollToBottom();
+                        
+                        // Apply typing speed delay here
+                        if (typingSpeed > 0) {
+                            // Delay based on typingSpeed (milliseconds per character)
+                            await new Promise(resolve => setTimeout(resolve, typingSpeed * chunk.text.length));
+                        }
                     }
                 }
                 hljs.highlightAll();
@@ -306,3 +317,4 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     // Setup edit functionality for the message
     setupMessageEditing(newMessage, db);
 }
+// --- END: MODIFIED insertMessage function signature and streaming logic ---

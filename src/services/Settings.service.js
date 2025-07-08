@@ -5,6 +5,7 @@ const maxTokensInput = document.querySelector("#maxTokens");
 const temperatureInput = document.querySelector("#temperature");
 const modelSelect = document.querySelector("#selectedModel");
 const autoscrollToggle = document.querySelector("#autoscroll");
+const typingSpeedInput = document.querySelector("#typingSpeed"); // <-- NEW LINE
 
 export function initialize() {
     loadSettings();
@@ -13,6 +14,7 @@ export function initialize() {
     temperatureInput.addEventListener("input", saveSettings);
     modelSelect.addEventListener("change", saveSettings);
     autoscrollToggle.addEventListener("change", saveSettings);
+    typingSpeedInput.addEventListener("input", saveSettings); // <-- NEW LINE
 }
 
 export function loadSettings() {
@@ -21,6 +23,7 @@ export function loadSettings() {
     temperatureInput.value = localStorage.getItem("TEMPERATURE") || 70;
     modelSelect.value = localStorage.getItem("model") || "gemini-2.0-flash";
     autoscrollToggle.checked = localStorage.getItem("autoscroll") === "true";
+    typingSpeedInput.value = localStorage.getItem("typingSpeed") || 50; // <-- NEW LINE: Default to 50ms per character
 }
 
 export function saveSettings() {
@@ -29,6 +32,7 @@ export function saveSettings() {
     localStorage.setItem("TEMPERATURE", temperatureInput.value);
     localStorage.setItem("model", modelSelect.value);
     localStorage.setItem("autoscroll", autoscrollToggle.checked);
+    localStorage.setItem("typingSpeed", typingSpeedInput.value); // <-- NEW LINE
 }
 
 export function getSettings() {
@@ -44,6 +48,7 @@ export function getSettings() {
         ],
         model: modelSelect.value,
         autoscroll: autoscrollToggle.checked,
+        typingSpeed: parseInt(typingSpeedInput.value), // <-- NEW LINE: Parse to int for use as a number
     }
 }
 
