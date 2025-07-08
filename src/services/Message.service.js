@@ -26,23 +26,35 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
     
-    // REMOVED FORBIDDEN/REDUNDANT LOGIC: This check and title generation is now handled
-    // by chatsService.addChat() before send() is even called for new chats.
-    // if (!await chatsService.getCurrentChat(db)) { 
-    //     const response = await ai.models.generateContent({
-    //         model: 'gemini-2.0-flash',
-    //         contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-    //     });
-    //     const title = response.text;
-    //     const id = await chatsService.addChat(title, null, db);
-    //     document.querySelector(`#chat${id}`).click();
-    // }
+    let chatToUpdate = null; // Initialize chatToUpdate
+
+    // Original logic to create a new chat if none is current.
+    // We ensure `chatToUpdate` is set correctly whether a new chat is made or an existing one is found.
+    const currentChatFromService = await chatsService.getCurrentChat(db);
+    if (!currentChatFromService) { 
+        const title = await generateChatTitle(settings.apiKey, selectedPersonality, msg); // Use the new function to generate title
+        const newChatId = await chatsService.addChat(title, null, db); // addChat returns the ID
+        document.querySelector(`#chat${newChatId}`).click(); // click() triggers change event -> loads chat & updates settings
+        
+        // IMPORTANT: Directly get the newly created chat by its ID here,
+        // instead of relying on getCurrentChat() immediately, which might be stale.
+        chatToUpdate = await chatsService.getChatById(newChatId, db); 
+    } else {
+        chatToUpdate = currentChatFromService;
+    }
+
+    // Now, ensure chatToUpdate is not null before proceeding
+    if (!chatToUpdate) {
+        console.error("Failed to get a valid chat object to update after user message.");
+        alert("Error: Could not get chat to save message. Please try again.");
+        return;
+    }
 
     await insertMessage("user", msg, null, null, db);
 
-    const currentChat = await chatsService.getCurrentChat(db);
-    currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-    await db.chats.put(currentChat);
+    // Use chatToUpdate directly
+    chatToUpdate.content.push({ role: "user", parts: [{ text: msg }] });
+    await db.chats.put(chatToUpdate); // Save the updated chat
 
     helpers.messageContainerScrollToBottom();
     
@@ -55,7 +67,7 @@ export async function send(msg, db) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
+    history.push(...chatToUpdate.content.map(msg => ({ role: msg.role, parts: msg.parts }))); // Use chatToUpdate for history
     
     const chat = ai.chats.create({ model: settings.model, history, config });
 
@@ -68,8 +80,9 @@ export async function send(msg, db) {
     
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
-    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
-    await db.chats.put(currentChat);
+    // Use chatToUpdate for pushing model response as well
+    chatToUpdate.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
+    await db.chats.put(chatToUpdate); // Save the updated chat
     settingsService.saveSettings();
 }
 
@@ -77,6 +90,12 @@ async function regenerate(responseElement, db) {
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
+    // Ensure chat is not null before accessing content
+    if (!chat) {
+        console.error("Chat object is null during regeneration attempt.");
+        alert("Error: Cannot regenerate, chat not found. Please start a new chat.");
+        return;
+    }
     chat.content = chat.content.slice(0, elementIndex - 1);
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
@@ -117,9 +136,9 @@ function setupMessageEditing(messageElement, db) {
         messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
         
         // Re-process commands from the now-visible text.
-        const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
-        if (characterId !== undefined) {
-            await processCommandBlock(newRawText, messageElement, characterId);
+        const currentChatForEdit = await chatsService.getCurrentChat(db);
+        if (currentChatForEdit && currentChatForEdit.content[index]?.personalityid !== undefined) { // Null check currentChatForEdit
+            await processCommandBlock(newRawText, messageElement, currentChatForEdit.content[index].personalityid);
         }
 
         editButton.style.display = 'inline-block';
@@ -131,7 +150,7 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
     try {
         const currentChat = await chatsService.getCurrentChat(db);
-        if (!currentChat || !currentChat.content[messageIndex]) return;
+        if (!currentChat || !currentChat.content[messageIndex]) return; // Null check currentChat
         currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
         await db.chats.put(currentChat);
     } catch (error) { console.error("Error updating message in database:", error); }
