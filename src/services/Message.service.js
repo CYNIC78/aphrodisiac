@@ -8,7 +8,7 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// NO AssetManager import here. It will be loaded on-demand.
+// NO AssetManager import here. It is loaded on-demand.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -231,14 +231,12 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     setupMessageEditing(newMessage, db);
 }
 
-// === DEFINITIVE FIX: Command processing logic is back inside Message.service.js ===
 async function processCommandBlock(commandBlock, messageElement, characterId) {
     if (characterId === null) {
         console.warn("Cannot process commands: Invalid characterId.");
         return;
     }
 
-    // On-demand import prevents circular dependency issues.
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
     const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
@@ -251,8 +249,11 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
         switch (command) {
             case 'image':
                 try {
-                    const asset = await assetManagerService.getAssetByTag(value, 'image', characterId);
-                    if (asset && asset.data instanceof Blob) {
+                    // --- DEFINITIVE FIX: Calling the CORRECT function name ---
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'image'], characterId);
+                    // --- DEFINITIVE FIX: Check if assets were found and get the first one ---
+                    if (assets && assets.length > 0) {
+                        const asset = assets[0]; // Use the first matching asset
                         const objectURL = URL.createObjectURL(asset.data);
                         const pfpElement = messageElement.querySelector('.pfp');
                         if (pfpElement) pfpElement.src = objectURL;
@@ -276,8 +277,11 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
             case 'audio':
                 if (settings.audio.enabled) {
                     try {
-                        const asset = await assetManagerService.getAssetByTag(value, 'audio', characterId);
-                        if (asset && asset.data instanceof Blob) {
+                        // --- DEFINITIVE FIX: Calling the CORRECT function name ---
+                        const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                        // --- DEFINITIVE FIX: Check if assets were found and get the first one ---
+                        if (assets && assets.length > 0) {
+                            const asset = assets[0];
                             const objectURL = URL.createObjectURL(asset.data);
                             const audio = new Audio(objectURL);
                             audio.volume = settings.audio.volume;
