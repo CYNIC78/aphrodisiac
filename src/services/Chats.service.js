@@ -4,7 +4,7 @@ import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import * as personalityService from "./Personality.service";
 import * as settingsService from "./Settings.service.js";
-import * as sidebarComponent from "../components/Sidebar.component.js"; // NEW: Import sidebar component
+import * as sidebarComponent from "../components/Sidebar.component.js"; // Import sidebar component (used by main.js via this service)
 
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
@@ -33,6 +33,11 @@ export async function getAllChatIdentifiers(db) {
     }
 }
 
+/**
+ * Initializes the chat history sidebar by rendering all chat entries.
+ * Does NOT load any specific chat or set any active state; that's handled by main.js.
+ * @param {IDBDatabase} db The IndexedDB database instance.
+ */
 export async function initialize(db) {
     const chatContainer = document.querySelector("#chatHistorySection");
     chatContainer.innerHTML = "";
@@ -40,38 +45,7 @@ export async function initialize(db) {
     for (let chat of chats) {
         insertChatEntry(chat, db); // This creates the radio buttons for all chats
     }
-
-    const settings = settingsService.getSettings();
-    const lastActiveChatId = settings.lastActive.chatId; // This is a string from localStorage
-
-    let chatToLoadId = null;
-
-    if (lastActiveChatId !== null) {
-        const parsedId = parseInt(lastActiveChatId, 10);
-        // Check if a chat with this ID actually exists in the current list of chats
-        const foundChat = chats.find(c => c.id === parsedId);
-        if (foundChat) {
-            chatToLoadId = parsedId;
-        } else {
-            console.warn(`Last active chat with ID ${lastActiveChatId} not found. Starting a new chat.`);
-        }
-    }
-
-    if (chatToLoadId !== null) {
-        // Find the radio button for the chat and click it to load and select it
-        const radioButton = document.querySelector(`#chat${chatToLoadId}`);
-        if (radioButton) {
-            radioButton.click(); // This will trigger the change listener, load the chat, and save its ID
-        } else {
-            // This case implies the chat entry was not inserted, which shouldn't happen if foundChat was true.
-            // As a fallback, ensure a new chat is started and settings updated.
-            console.warn(`Radio button for chat ID ${chatToLoadId} not found. Starting a new chat.`);
-            newChat();
-        }
-    } else {
-        // No last active chat or it was not found, start a new chat.
-        newChat();
-    }
+    // All initial chat loading/selection logic moved to main.js
 }
 
 function insertChatEntry(chat, db) {
@@ -116,8 +90,9 @@ function insertChatEntry(chat, db) {
 
 
     chatRadioButton.addEventListener("change", async () => {
-        // NEW: Save the active chat ID to settings
+        // Save the active chat ID to settings
         settingsService.setActiveChatId(chat.id);
+        // Load the chat content. UI navigation (tab/personality) is handled externally after this.
         await loadChat(chat.id, db);
         if (window.innerWidth < 1032) {
             helpers.hideElement(sidebar);
@@ -138,7 +113,7 @@ export async function addChat(title, firstMessage = null, db) {
     insertChatEntry({ title, id }, db);
     console.log("chat added with id: ", id);
 
-    // NEW: Select the newly added chat to make it active
+    // Select the newly added chat to make it active
     const newChatRadioButton = document.querySelector(`#chat${id}`);
     if (newChatRadioButton) {
         newChatRadioButton.click(); // This will trigger its 'change' listener and call loadChat and save its ID
@@ -158,7 +133,10 @@ export async function getCurrentChat(db) {
 export async function deleteAllChats(db) {
     await db.chats.clear();
     // After clearing, initialize again, which will default to a new chat and update settings.
-    initialize(db);
+    await initialize(db); // Ensure initialization completes before proceeding
+    // After re-initializing with an empty chat list, explicitly start a new chat.
+    // This will correctly clear active chat ID in settings.
+    newChat(); 
 }
 
 
@@ -168,21 +146,31 @@ export async function deleteChat(id, db) {
         // If the deleted chat was the currently selected one, start a new chat
         newChat();
     }
-    initialize(db); // Re-initialize to update the chat list and potentially re-select a chat
+    await initialize(db); // Re-initialize to update the chat list and potentially re-select a chat by main.js
 }
 
+/**
+ * Clears the message display and unchecks the current chat selection.
+ * Does NOT perform any tab navigation; that's handled externally.
+ */
 export function newChat() {
     messageContainer.innerHTML = "";
     const currentCheckedRadio = document.querySelector("input[name='currentChat']:checked");
     if (currentCheckedRadio) {
         currentCheckedRadio.checked = false; // Uncheck the currently active one
     }
-    // NEW: Update settings to reflect that no chat is currently selected
+    // Update settings to reflect that no chat is currently selected
     settingsService.setActiveChatId(null);
-    // NEW: Navigate to the Personalities tab when starting a new chat
-    sidebarComponent.navigateToTabByName('Personalities');
+    // Navigation to Personalities tab is now handled by main.js after calling newChat()
 }
 
+/**
+ * Loads and renders the messages of a specific chat into the main display.
+ * Also determines and sets the active personality based on the chat's history.
+ * Does NOT handle sidebar tab navigation; that's handled externally (by main.js).
+ * @param {number} chatID The ID of the chat to load.
+ * @param {IDBDatabase} db The IndexedDB database instance.
+ */
 export async function loadChat(chatID, db) {
     try {
         if (!chatID) {
@@ -191,7 +179,7 @@ export async function loadChat(chatID, db) {
         messageContainer.innerHTML = "";
         const chat = await getChatById(chatID, db);
 
-        // NEW: Find the personality from the LAST AI message in the chat
+        // Find the personality from the LAST AI message in the chat
         let lastPersonalityId = null;
         for (let i = chat.content.length - 1; i >= 0; i--) {
             const msg = chat.content[i];
@@ -201,16 +189,11 @@ export async function loadChat(chatID, db) {
             }
         }
 
-        // NEW: If a personality was found, set it as active and navigate to the Personalities tab
-        if (lastPersonalityId !== null) {
-            settingsService.setActivePersonalityId(lastPersonalityId);
-            sidebarComponent.navigateToTabByName('Personalities');
-        } else {
-            // If no AI message with a personality was found (e.g., empty chat or only user messages),
-            // ensure we are on the chats tab and default to Aphrodite.
-            sidebarComponent.navigateToTabByName('Chats'); // Ensure we are on the chats tab
-            settingsService.setActivePersonalityId(-1); // Default to Aphrodite
-        }
+        // Set the active personality using the dedicated personalityService function.
+        // This will update personality UI and settings.
+        await personalityService.selectPersonality(lastPersonalityId);
+        // Tab navigation (to 'Personalities' or 'Chats') is now handled by main.js after this function completes.
+
 
         // Now, proceed to render the chat messages
         for (const msg of chat.content) {
