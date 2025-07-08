@@ -1,7 +1,7 @@
 //handles sending messages to the api
 
 import { GoogleGenAI } from "@google/genai"
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js"; // <-- FIXED THIS LINE
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
@@ -226,14 +226,13 @@ async function updateMessageInDatabase(messageElement, messageIndex, db) {
     }
 }
 
-// --- START: MODIFIED insertMessage function signature and streaming logic ---
+// --- START: MODIFIED insertMessage function signature and streaming logic for character-by-character typing ---
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0) {
-    //create new message div for the user's message then append to message container's top
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
-    //handle model's message
+
     if (sender != "user") {
         newMessage.classList.add("message-model");
         const messageRole = selectedPersonalityTitle;
@@ -264,36 +263,47 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             }
         });
         const messageContent = newMessage.querySelector(".message-text");
-        //no streaming necessary if not receiving answer
+
         if (!netStream) {
+            // Non-streaming case: render instantly
             messageContent.innerHTML = marked.parse(msg);
-        }
-        else {
-            let rawText = "";
+        } else {
+            let fullRawText = "";
             try {
-                // In the new API, we receive an iterable stream
+                // Step 1: Collect the entire raw text from the stream first.
+                // This ensures we have the full message before starting the controlled typing effect.
                 for await (const chunk of netStream) {
-                    // The chunks will have text property that contains content
                     if (chunk && chunk.text) {
-                        rawText += chunk.text;
-                        messageContent.innerHTML = marked.parse(rawText, { breaks: true }); //convert md to HTML
-                        helpers.messageContainerScrollToBottom();
-                        
-                        // Apply typing speed delay here
-                        if (typingSpeed > 0) {
-                            // Delay based on typingSpeed (milliseconds per character)
-                            await new Promise(resolve => setTimeout(resolve, typingSpeed * chunk.text.length));
-                        }
+                        fullRawText += chunk.text;
                     }
                 }
+
+                // Step 2: Now, "type" out the full message character by character.
+                if (typingSpeed > 0) {
+                    messageContent.innerHTML = ''; // Clear content initially
+                    let renderedText = '';
+                    for (let i = 0; i < fullRawText.length; i++) {
+                        renderedText += fullRawText[i];
+                        messageContent.innerHTML = marked.parse(renderedText, { breaks: true }); // Render character-by-character
+                        helpers.messageContainerScrollToBottom();
+                        await new Promise(resolve => setTimeout(resolve, typingSpeed)); // Apply delay per character
+                    }
+                } else {
+                    // Instant rendering if typingSpeed is 0
+                    messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                    helpers.messageContainerScrollToBottom();
+                }
+
                 hljs.highlightAll();
-                helpers.messageContainerScrollToBottom();
+                helpers.messageContainerScrollToBottom(); // Final scroll to ensure bottom
                 setupMessageEditing(newMessage, db);
-                return { HTML: messageContent.innerHTML, md: rawText };
+                return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
                 alert("Error processing response: " + error);
                 console.error("Stream error:", error);
-                return { HTML: messageContent.innerHTML, md: rawText };
+                // In case of error during streaming/rendering, still display collected text
+                messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                return { HTML: messageContent.innerHTML, md: fullRawText };
             }
         }
     }
@@ -317,4 +327,4 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     // Setup edit functionality for the message
     setupMessageEditing(newMessage, db);
 }
-// --- END: MODIFIED insertMessage function signature and streaming logic ---
+// --- END: MODIFIED insertMessage function signature and streaming logic for character-by-character typing ---
