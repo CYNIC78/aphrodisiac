@@ -249,8 +249,11 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                                 requestAnimationFrame(() => {
                                     pfpElement.src = objectURL; // Swap the image source
                                     pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
-                                    URL.revokeObjectURL(objectURL); // Clean up the Blob URL
                                 });
+                                // Defer revoking to ensure the browser has fully processed the image
+                                setTimeout(() => {
+                                    URL.revokeObjectURL(objectURL);
+                                }, 500); // 500ms should be plenty for loading + 250ms fade-in
                             };
                             tempImage.onerror = () => {
                                 console.error("Failed to load new avatar image for message:", objectURL);
@@ -273,8 +276,11 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                                     requestAnimationFrame(() => {
                                         cardImg.src = objectURL; // Swap the image source
                                         cardImg.classList.remove('hide-for-swap'); // Let CSS fade it in
-                                        URL.revokeObjectURL(objectURL); // Clean up the Blob URL
                                     });
+                                    // Defer revoking to ensure the browser has fully processed the image
+                                    setTimeout(() => {
+                                        URL.revokeObjectURL(objectURL);
+                                    }, 500); // 500ms should be plenty for loading + 250ms fade-in
                                 };
                                 tempImage.onerror = () => {
                                     console.error("Failed to load personality card image:", objectURL);
