@@ -82,18 +82,44 @@ export async function send(msg, db) {
         config: config
     });
     
-    // Send message with streaming
-    const stream = await chat.sendMessageStream({
-        message: msg
-    });
-    
-    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
-    //save chat history and settings
-    currentChat.content.push({ role: "user", parts: [{ text: msg }] });
-    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
-    await db.chats.put(currentChat);
-    settingsService.saveSettings();
+ 
+
+// Save user message to chat history *before* appending reminder for AI
+// This ensures only the visible user message is saved.
+	currentChat.content.push({ role: "user", parts: [{ text: msg }] });
+	await db.chats.put(currentChat); // Save updated chat with user message
+
+	helpers.messageContainerScrollToBottom();
+	//model reply
+
+	// Prepare the message to send to the AI, potentially including the hidden reminder
+	let messageToSendToAI = msg;
+	if (selectedPersonality.reminder) {
+		// Append the reminder at the "bottom" of the current message for the AI
+		messageToSendToAI += `\n\nREMINDER: ${selectedPersonality.reminder}`;
+	}
+
+	// Create chat session (history remains as constructed earlier, without reminder)
+	const chat = ai.chats.create({
+		model: settings.model,
+		history: history, // 'history' object contains all previous turns, without the per-turn reminder
+		config: config
+	});
+
+	// Send message with streaming
+	const stream = await chat.sendMessageStream({
+		message: messageToSendToAI // Send the message with the appended reminder
+	});
+
+	const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image);
+	// Save model reply to chat history (only the visible part)
+	currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
+	await db.chats.put(currentChat); // Save updated chat with model message
+	settingsService.saveSettings(); // Ensure settings are saved (e.g., API key changes)
 }
+
+
+
 
 async function regenerate(responseElement, db) {
     //basically, we remove every message after the response we wish to regenerate, then send the message again.

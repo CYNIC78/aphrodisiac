@@ -75,7 +75,8 @@ You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to
         0, // sensuality
         false, // internetEnabled
         false, // roleplayEnabled
-        []
+		'', // reminder
+        [] // toneExamples
     );
 }
 
