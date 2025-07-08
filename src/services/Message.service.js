@@ -253,7 +253,7 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                                 // Defer revoking to ensure the browser has fully processed the image
                                 setTimeout(() => {
                                     URL.revokeObjectURL(objectURL);
-                                }, 500); // 500ms should be plenty for loading + 250ms fade-in
+                                }, 750); // 750ms should be plenty for loading + 500ms fade-in
                             };
                             tempImage.onerror = () => {
                                 console.error("Failed to load new avatar image for message:", objectURL);
