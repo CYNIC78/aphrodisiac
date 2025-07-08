@@ -1,7 +1,10 @@
+// FILE: src/services/Chats.service.js
+
 import * as messageService from "./Message.service"
 import * as helpers from "../utils/helpers"
 import * as personalityService from "./Personality.service";
-import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
+import * as settingsService from "./Settings.service.js";
+import * as sidebarComponent from "../components/Sidebar.component.js"; // NEW: Import sidebar component
 
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
@@ -176,6 +179,8 @@ export function newChat() {
     }
     // NEW: Update settings to reflect that no chat is currently selected
     settingsService.setActiveChatId(null);
+    // NEW: Navigate to the Personalities tab when starting a new chat
+    sidebarComponent.navigateToTabByName('Personalities');
 }
 
 export async function loadChat(chatID, db) {
@@ -185,6 +190,29 @@ export async function loadChat(chatID, db) {
         }
         messageContainer.innerHTML = "";
         const chat = await getChatById(chatID, db);
+
+        // NEW: Find the personality from the LAST AI message in the chat
+        let lastPersonalityId = null;
+        for (let i = chat.content.length - 1; i >= 0; i--) {
+            const msg = chat.content[i];
+            if (msg.role === "model" && msg.personalityid !== undefined && msg.personalityid !== null) {
+                lastPersonalityId = msg.personalityid;
+                break; // Found the last one, stop searching
+            }
+        }
+
+        // NEW: If a personality was found, set it as active and navigate to the Personalities tab
+        if (lastPersonalityId !== null) {
+            settingsService.setActivePersonalityId(lastPersonalityId);
+            sidebarComponent.navigateToTabByName('Personalities');
+        } else {
+            // If no AI message with a personality was found (e.g., empty chat or only user messages),
+            // ensure we are on the chats tab and default to Aphrodite.
+            sidebarComponent.navigateToTabByName('Chats'); // Ensure we are on the chats tab
+            settingsService.setActivePersonalityId(-1); // Default to Aphrodite
+        }
+
+        // Now, proceed to render the chat messages
         for (const msg of chat.content) {
             if (msg.role === "model") {
                 const personality = msg.personalityid ?

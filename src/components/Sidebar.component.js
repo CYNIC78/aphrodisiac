@@ -52,6 +52,17 @@ function handleTabNavigation(tabElement) {
     settingsService.setActiveTab(tabElement.textContent);
 }
 
+// NEW: Exported function to programmatically navigate to a sidebar tab by its text content
+export function navigateToTabByName(tabName) {
+    const targetTab = Array.from(tabs).find(tab => tab.textContent === tabName);
+    if (targetTab) {
+        handleTabNavigation(targetTab);
+    } else {
+        console.warn(`Attempted to navigate to unknown tab: "${tabName}"`);
+    }
+}
+
+
 // === INITIAL SETUP ON PAGE LOAD ===
 // This section ensures the sidebar is in the correct state immediately when the page loads.
 
