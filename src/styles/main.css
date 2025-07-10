@@ -100,7 +100,7 @@ form {
 /* === FIX 1: FORM DIMENSIONS === */
 #form-add-personality {
     display: none;
-    /*width: 72rem; */
+    width: 72rem;
     max-width: 95vw; /* Don't get wider than the screen */
     height: 100%; /* Fill the parent container */
 }
@@ -178,6 +178,19 @@ form {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    /* NEW: Default max-width for most steps, and centers them */
+    max-width: 900px; /* Adjust this value as needed for comfortable reading width */
+    width: 100%; /* Ensures it respects max-width and can shrink */
+    align-self: center; /* Centers the step within the wider stepper-content */
+}
+
+/* Override for the Asset Manager step to allow it to be wider */
+#media-library-step {
+    /* Ensures this specific step takes full available height */
+    height: 100%;
+    width: 100%; /* Keep this */
+    max-width: 100%; /* Crucial: Allows it to ignore the general .step max-width */
+    align-self: stretch; /* Makes it stretch to fill the parent's width */
 }
 
 .step:not(.active) {
@@ -1505,9 +1518,9 @@ input[name="currentChat"][value="none"] {
 }
 
 .asset-details-section {
-    flex: 1; /* Shorthand for flex-grow: 1, flex-shrink: 1, flex-basis: 0% */
-    min-width: 280px; /* A slightly smaller minimum width for flexibility */
-    max-width: 450px; /* A reasonable max width */
+    flex: 1 1 300px; /* Allow details panel to grow and shrink, with a base of 400px */
+    min-width: 300px;
+    max-width: 500px; /* Provide a max width for large screens */
 }
 
 /* Headers within columns */
