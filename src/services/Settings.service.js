@@ -155,4 +155,3 @@ Your main goal is to seamlessly weave the commands from the 'tagPrompt' into you
 `;
     return systemPrompt.trim();
 }
-}
