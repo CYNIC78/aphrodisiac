@@ -256,70 +256,64 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
         const value = match[2].trim();
 
         switch (command) {
-            case 'image':
+            case 'avatar':
                 try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'image'], characterId);
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
-                        
-                        // === START OF REPLACED CODE BLOCK (PFP) ===
+
+                        // --- Update Message PFP with Full, Correct Logic ---
                         const pfpElement = messageElement.querySelector('.pfp');
                         if (pfpElement) {
                             const tempImage = new Image();
-                            tempImage.src = objectURL; // Start loading the new image in the background
+                            tempImage.src = objectURL;
                             
                             tempImage.onload = () => {
-                                // Once the new image is fully loaded:
-                                pfpElement.classList.add('hide-for-swap'); // Instantly hide the current PFP
-                                // Use requestAnimationFrame to ensure CSS applies before source change
+                                pfpElement.classList.add('hide-for-swap');
                                 requestAnimationFrame(() => {
-                                    pfpElement.src = objectURL; // Swap the image source
-                                    pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                    pfpElement.src = objectURL;
+                                    pfpElement.classList.remove('hide-for-swap');
                                 });
-                                // Defer revoking to ensure the browser has fully processed the imag
+                                // Defer revoking to ensure the browser has fully processed the image
                                 setTimeout(() => {
                                     URL.revokeObjectURL(objectURL);
-                                }, 750); // 750ms should be plenty for loading + 500ms fade-in
+                                }, 750);
                             };
                             tempImage.onerror = () => {
                                 console.error("Failed to load new avatar image for message:", objectURL);
-                                URL.revokeObjectURL(objectURL); // Still revoke if failed to load
+                                URL.revokeObjectURL(objectURL);
                             };
                         }
-                        // === END OF REPLACED CODE BLOCK (PFP) ===
 
-                        // === START OF REPLACED CODE BLOCK (Personality Card) ===
+                        // --- Update Sidebar Personality Card with Full, Correct Logic ---
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
-                        if(personalityCard) {
+                        if (personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
-                            if(cardImg) {
-                                const tempImage = new Image();
-                                tempImage.src = objectURL; // Preload new image for the card
-    
-                                tempImage.onload = () => {
-                                    // Once the new image is fully loaded:
-                                    cardImg.classList.add('hide-for-swap'); // Instantly hide the current card image
+                            if (cardImg) {
+                                // Create a separate temp image to avoid conflicts
+                                const tempCardImage = new Image();
+                                tempCardImage.src = objectURL;
+                                
+                                tempCardImage.onload = () => {
+                                    cardImg.classList.add('hide-for-swap');
                                     requestAnimationFrame(() => {
-                                        cardImg.src = objectURL; // Swap the image source
-                                        cardImg.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                        cardImg.src = objectURL;
+                                        cardImg.classList.remove('hide-for-swap');
                                     });
-                                    // Defer revoking to ensure the browser has fully processed the image
-                                    setTimeout(() => {
-                                        URL.revokeObjectURL(objectURL);
-                                    }, 750); // 750ms should be plenty for loading + 500ms fade-in
+                                    // No need for a second revoke, it's the same URL
                                 };
-                                tempImage.onerror = () => {
+                                tempCardImage.onerror = () => {
                                     console.error("Failed to load personality card image:", objectURL);
-                                    URL.revokeObjectURL(objectURL);
+                                    // No need for a second revoke here either
                                 };
                             }
                         }
-                        // === END OF REPLACED CODE BLOCK (Personality Card) ===
                     }
-                } catch (e) { console.error(`Error processing image command:`, e); }
+                } catch (e) { console.error(`Error processing [avatar] command:`, e); }
                 break;
 
+            case 'sfx':
             case 'audio':
                 if (settings.audio.enabled) {
                     try {
@@ -332,7 +326,7 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                             audio.play().catch(e => console.error("Audio playback failed:", e));
                             audio.onended = () => URL.revokeObjectURL(objectURL);
                         }
-                    } catch (e) { console.error(`Error processing audio command:`, e); }
+                    } catch (e) { console.error(`Error processing [audio/sfx] command:`, e); }
                 }
                 break;
         }
