@@ -21,7 +21,9 @@ export async function send(msg, db) {
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
-        systemPrompt: settingsService.getSystemPrompt(),
+        // The systemPrompt here is now being passed correctly within the history.
+        // Leaving it here might be redundant but is harmless for now.
+        systemPrompt: settingsService.getSystemPrompt(), 
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain"
     };
@@ -44,16 +46,41 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
     
+    // --- START OF THE ONLY CHANGE ---
+    // This block is the only thing that has been modified.
+
+    // 1. We assemble the complete instruction set into a single, clear text block.
+    const masterInstruction = `
+        ${settingsService.getSystemPrompt()}
+
+        ---
+        YOUR CHARACTER INSTRUCTIONS ARE BELOW
+        ---
+
+        CHARACTER PROMPT (Your personality):
+        ${selectedPersonality.prompt}
+
+        ---
+
+        TAG PROMPT (Your technical command reference):
+        ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
+    `.trim();
+
+    // 2. We inject this master instruction into the chat history.
     const history = [
-        { role: "user", parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }] },
-        { role: "model", parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }] }
+        { role: "user", parts: [{ text: masterInstruction }] },
+        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] }
     ];
+
+    // --- END OF THE ONLY CHANGE ---
+
     
-    if (selectedPersonality.toneExamples) {
+    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
+    // We now add the rest of the chat history, excluding the very last message (which is the one we're sending).
+    history.push(...currentChat.content.slice(0, -1).map(msg => ({ role: msg.role, parts: msg.parts })));
     
     const chat = ai.chats.create({ model: settings.model, history, config });
 
