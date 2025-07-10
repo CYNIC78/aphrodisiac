@@ -1,11 +1,14 @@
 // FILE: src/services/Message.service.js
 
-import { GoogleGenAI } from "@google/genai";
+//handles sending messages to the api
+
+import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
+// NO AssetManager import here. It is loaded on-demand.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -14,32 +17,21 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    // REVERTED TO WORKING SYNTAX
-    const genAI = new GoogleGenAI({ apiKey: settings.apiKey });
-
-    const systemInstruction = {
-        role: "system",
-        parts: [
-            { text: settingsService.getSystemPrompt() },
-            { text: "---" },
-            { text: `CHARACTER PROMPT (Your personality):\n${selectedPersonality.prompt}` },
-            { text: "---" },
-            { text: `TAG PROMPT (Your technical command reference):\n${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}` }
-        ]
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    const config = {
+        maxOutputTokens: parseInt(settings.maxTokens),
+        temperature: settings.temperature / 100,
+        systemPrompt: settingsService.getSystemPrompt(),
+        safetySettings: settings.safetySettings,
+        responseMimeType: "text/plain"
     };
-
-    const model = genAI.getGenerativeModel({
-        model: settings.model,
-        systemInstruction: systemInstruction,
-        safetySettings: settings.safetySettings
-    });
-
-    if (!await chatsService.getCurrentChat(db)) {
-        const titleGenModel = genAI.getGenerativeModel({ model: "gemini-pro" });
-        const prompt = "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg;
-        const result = await titleGenModel.generateContent(prompt);
-        const response = await result.response;
-        const title = response.text();
+    
+    if (!await chatsService.getCurrentChat(db)) { 
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
+        });
+        const title = response.text;
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
@@ -52,33 +44,27 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
     
-    const history = [];
-    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0] !== '') {
-        history.push({ role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] });
+    const history = [
+        { role: "user", parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }] },
+        { role: "model", parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }] }
+    ];
+    
+    if (selectedPersonality.toneExamples) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(...currentChat.content.slice(0, -1).map(message => ({
-        role: message.role,
-        parts: message.parts,
-    })));
+    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
     
-    const chat = model.startChat({
-        history: history,
-        generationConfig: {
-            maxOutputTokens: parseInt(settings.maxTokens),
-            temperature: settings.temperature,
-        }
-    });
+    const chat = ai.chats.create({ model: settings.model, history, config });
 
     let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
-        messageToSendToAI += `\n\n[SYSTEM REMINDER: ${selectedPersonality.reminder}]`;
+        messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
     
-    const result = await chat.sendMessageStream(messageToSendToAI);
+    const stream = await chat.sendMessageStream({ message: messageToSendToAI });
     
-    const reply = await insertMessage("model", "", selectedPersonality.name, result.stream, db, selectedPersonality.image, settings.typingSpeed, characterId);
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
@@ -89,12 +75,15 @@ async function regenerate(responseElement, db) {
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    // TYPO FIX: The variable 'a' was a mistake. It is now correctly '1'.
-    chat.content = chat.content.slice(0, elementIndex - 1); 
+    chat.content = chat.content.slice(0, elementIndex - 1);
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
     await send(message, db);
 }
+
+
+// --- THE "VISIBLE GUTS" EDITING LOGIC ---
+// This is a simple, stable, and bug-free implementation.
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
@@ -108,6 +97,7 @@ function setupMessageEditing(messageElement, db) {
     messageElement.dataset.messageIndex = messageIndex;
 
     editButton.addEventListener('click', () => {
+        // Just make the existing text editable. No swapping, no complex logic.
         messageTextDiv.setAttribute("contenteditable", "true");
         messageTextDiv.focus();
         editButton.style.display = 'none';
@@ -116,13 +106,15 @@ function setupMessageEditing(messageElement, db) {
 
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText;
+        const newRawText = messageTextDiv.innerText; // Get the clean text.
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
         await updateMessageInDatabase(index, newRawText, db);
 
+        // Re-render the message. It will remain fully visible.
         messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
         
+        // Re-process commands from the now-visible text.
         const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
         if (characterId !== undefined) {
             await processCommandBlock(newRawText, messageElement, characterId);
@@ -142,6 +134,7 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         await db.chats.put(currentChat);
     } catch (error) { console.error("Error updating message in database:", error); }
 }
+
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
@@ -168,14 +161,16 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         });
         const messageContent = newMessage.querySelector(".message-text");
 
+        // "VISIBLE GUTS" LOGIC - No more splitting.
         if (!netStream) {
+            // Loading Path: Display the full raw message.
             messageContent.innerHTML = marked.parse(msg, { breaks: true });
         } else {
+            // Live Path: Stream the full raw message.
             let fullRawText = "";
             try {
                 for await (const chunk of netStream) {
-                    const chunkText = chunk.text();
-                    if (chunkText) { fullRawText += chunkText; }
+                    if (chunk && chunk.text) { fullRawText += chunk.text; }
                 }
                 
                 if (typingSpeed > 0) {
@@ -192,6 +187,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     helpers.messageContainerScrollToBottom();
                 }
 
+                // Process commands from the full, visible text.
                 await processCommandBlock(fullRawText, newMessage, characterId);
                 
                 hljs.highlightAll();
@@ -233,23 +229,70 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
         const value = match[2].trim();
 
         switch (command) {
-            case 'avatar':
-                 try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'avatar', 'image'], characterId);
+            case 'image':
+                try {
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'image'], characterId);
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
+                        
+                        // === START OF REPLACED CODE BLOCK (PFP) ===
                         const pfpElement = messageElement.querySelector('.pfp');
-                        if (pfpElement) pfpElement.src = objectURL;
+                        if (pfpElement) {
+                            const tempImage = new Image();
+                            tempImage.src = objectURL; // Start loading the new image in the background
+                            
+                            tempImage.onload = () => {
+                                // Once the new image is fully loaded:
+                                pfpElement.classList.add('hide-for-swap'); // Instantly hide the current PFP
+                                // Use requestAnimationFrame to ensure CSS applies before source change
+                                requestAnimationFrame(() => {
+                                    pfpElement.src = objectURL; // Swap the image source
+                                    pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                });
+                                // Defer revoking to ensure the browser has fully processed the image
+                                setTimeout(() => {
+                                    URL.revokeObjectURL(objectURL);
+                                }, 750); // 750ms should be plenty for loading + 500ms fade-in
+                            };
+                            tempImage.onerror = () => {
+                                console.error("Failed to load new avatar image for message:", objectURL);
+                                URL.revokeObjectURL(objectURL); // Still revoke if failed to load
+                            };
+                        }
+                        // === END OF REPLACED CODE BLOCK (PFP) ===
+
+                        // === START OF REPLACED CODE BLOCK (Personality Card) ===
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
                         if(personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
-                            if(cardImg) cardImg.src = objectURL;
+                            if(cardImg) {
+                                const tempImage = new Image();
+                                tempImage.src = objectURL; // Preload new image for the card
+    
+                                tempImage.onload = () => {
+                                    // Once the new image is fully loaded:
+                                    cardImg.classList.add('hide-for-swap'); // Instantly hide the current card image
+                                    requestAnimationFrame(() => {
+                                        cardImg.src = objectURL; // Swap the image source
+                                        cardImg.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                    });
+                                    // Defer revoking to ensure the browser has fully processed the image
+                                    setTimeout(() => {
+                                        URL.revokeObjectURL(objectURL);
+                                    }, 750); // 750ms should be plenty for loading + 500ms fade-in
+                                };
+                                tempImage.onerror = () => {
+                                    console.error("Failed to load personality card image:", objectURL);
+                                    URL.revokeObjectURL(objectURL);
+                                };
+                            }
                         }
+                        // === END OF REPLACED CODE BLOCK (Personality Card) ===
                     }
-                } catch (e) { console.error(`Error processing avatar command:`, e); }
+                } catch (e) { console.error(`Error processing image command:`, e); }
                 break;
-            case 'sfx':
+
             case 'audio':
                 if (settings.audio.enabled) {
                     try {

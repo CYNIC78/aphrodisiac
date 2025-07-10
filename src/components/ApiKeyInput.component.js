@@ -1,5 +1,3 @@
-// FILE: src/components/ApiKeyInput.component.js
-
 import { GoogleGenAI } from "@google/genai";
 
 const apiKeyInput = document.querySelector("#apiKeyInput");
@@ -11,19 +9,13 @@ apiKeyInput.addEventListener("input", () => {
     }
     debounceTimer = setTimeout(async () => {
         const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) {
-            apiKeyInput.classList.remove("api-key-valid", "api-key-invalid");
-            document.querySelector(".api-key-error").style.display = "none";
-            return;
-        }
-
-        // REVERTED TO WORKING SYNTAX
-        const genAI = new GoogleGenAI({ apiKey: apiKey });
-        
+        const ai = new GoogleGenAI({ apiKey: apiKey });
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-            await model.generateContent("test");
-
+            // Test the API key with a simple query
+            await ai.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: "test"
+            });
             apiKeyInput.classList.add("api-key-valid");
             apiKeyInput.classList.remove("api-key-invalid");
             document.querySelector(".api-key-error").style.display = "none";
@@ -31,7 +23,6 @@ apiKeyInput.addEventListener("input", () => {
             apiKeyInput.classList.add("api-key-invalid");
             apiKeyInput.classList.remove("api-key-valid");
             document.querySelector(".api-key-error").style.display = "flex";
-            console.error("API Key validation error:", error);
         }
-    }, 1500);
+    }, 2000);
 });
