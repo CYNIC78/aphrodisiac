@@ -250,7 +250,7 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                                     pfpElement.src = objectURL; // Swap the image source
                                     pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
                                 });
-                                // Defer revoking to ensure the browser has fully processed the image
+                                // Defer revoking to ensure the browser has fully processed the imag
                                 setTimeout(() => {
                                     URL.revokeObjectURL(objectURL);
                                 }, 750); // 750ms should be plenty for loading + 500ms fade-in
