@@ -1,14 +1,14 @@
 // FILE: src/services/Message.service.js
 
-//handles sending messages to the api
-
 import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// NO AssetManager import here. It is loaded on-demand.
+
+// NEW: Global Map to store executed commands per message element for idempotency
+const executedCommandsMap = new Map(); // Map<messageElement, Set<fullTagString>>
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -21,8 +21,6 @@ export async function send(msg, db) {
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
-        // The systemPrompt here is now being passed correctly within the history.
-        // Leaving it here might be redundant but is harmless for now.
         systemPrompt: settingsService.getSystemPrompt(), 
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain"
@@ -46,10 +44,7 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
     
-    // --- START OF THE ONLY CHANGE ---
-    // This block is the only thing that has been modified.
-
-    // 1. We assemble the complete instruction set into a single, clear text block.
+    // --- START OF ONLY CHANGE TO PROMPT STRUCTURE (RESTORED FROM PREVIOUS WORKING VERSION) ---
     const masterInstruction = `
         ${settingsService.getSystemPrompt()}
 
@@ -66,20 +61,16 @@ export async function send(msg, db) {
         ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
     `.trim();
 
-    // 2. We inject this master instruction into the chat history.
     const history = [
         { role: "user", parts: [{ text: masterInstruction }] },
         { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] }
     ];
-
-    // --- END OF THE ONLY CHANGE ---
-
+    // --- END OF ONLY CHANGE TO PROMPT STRUCTURE ---
     
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    // We now add the rest of the chat history, excluding the very last message (which is the one we're sending).
     history.push(...currentChat.content.slice(0, -1).map(msg => ({ role: msg.role, parts: msg.parts })));
     
     const chat = ai.chats.create({ model: settings.model, history, config });
@@ -91,6 +82,7 @@ export async function send(msg, db) {
     
     const stream = await chat.sendMessageStream({ message: messageToSendToAI });
     
+    // Pass the selectedPersonality.id (characterId) to insertMessage for tag processing
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
@@ -110,8 +102,7 @@ async function regenerate(responseElement, db) {
 
 
 // --- THE "VISIBLE GUTS" EDITING LOGIC ---
-// This is a simple, stable, and bug-free implementation.
-
+// MODIFIED: setupMessageEditing function
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
@@ -119,16 +110,22 @@ function setupMessageEditing(messageElement, db) {
 
     if (!editButton || !saveButton || !messageTextDiv) return;
 
-    const messageContainer = document.querySelector(".message-container");
-    const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
-    messageElement.dataset.messageIndex = messageIndex;
+    messageElement.dataset.messageIndex = Array.from(messageElement.parentElement.children).indexOf(messageElement);
 
-    editButton.addEventListener('click', () => {
-        // Just make the existing text editable. No swapping, no complex logic.
+    // MODIFIED: Make the event listener async to await DB operations
+    editButton.addEventListener('click', async () => { 
         messageTextDiv.setAttribute("contenteditable", "true");
         messageTextDiv.focus();
         editButton.style.display = 'none';
         saveButton.style.display = 'inline-block';
+
+        // NEW LOGIC: Load the raw message text from the database for editing
+        const messageIndex = parseInt(messageElement.dataset.messageIndex, 10);
+        const currentChat = await chatsService.getCurrentChat(db);
+        if (currentChat && currentChat.content[messageIndex]) {
+            const rawMessageText = helpers.getDecoded(currentChat.content[messageIndex].parts[0].text);
+            messageTextDiv.innerText = rawMessageText; // Set innerText to keep plain text for editing
+        }
     });
 
     saveButton.addEventListener('click', async () => {
@@ -141,10 +138,13 @@ function setupMessageEditing(messageElement, db) {
         // Re-render the message. It will remain fully visible.
         messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
         
-        // Re-process commands from the now-visible text.
+        // When editing and saving, we need to clear the executed commands for this message
+        // so that commands re-execute on save if the user edited them.
+        executedCommandsMap.delete(messageElement);
+        // Then re-process commands from the now-visible text.
         const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
         if (characterId !== undefined) {
-            await processCommandBlock(newRawText, messageElement, characterId);
+            await processCommandBlock(newRawText, messageElement, characterId, executedCommandsMap.get(messageElement) || new Set()); // Pass the set
         }
 
         editButton.style.display = 'inline-block';
@@ -168,6 +168,11 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
+
+    // NEW: Initialize a Set for executed commands for THIS specific message.
+    const executedCommandsSet = new Set();
+    executedCommandsMap.set(newMessage, executedCommandsSet);
+
     if (sender != "user") {
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
@@ -184,24 +189,41 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             <div class="message-text"></div>`;
         const refreshButton = newMessage.querySelector(".btn-refresh");
         refreshButton.addEventListener("click", async () => {
-            try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
+            try { 
+                // Clear executed commands for regeneration to ensure all commands refire
+                executedCommandsMap.delete(newMessage);
+                await regenerate(newMessage, db);
+            } catch (error) { console.error(error); alert("Error during regeneration."); }
         });
         const messageContent = newMessage.querySelector(".message-text");
 
-        // "VISIBLE GUTS" LOGIC - No more splitting.
         if (!netStream) {
-            // Loading Path: Display the full raw message.
             messageContent.innerHTML = marked.parse(msg, { breaks: true });
+            // For non-streaming loads, still process commands (e.g., from chat history)
+            await processCommandBlock(msg, newMessage, characterId, executedCommandsSet); // Pass the set
         } else {
-            // Live Path: Stream the full raw message.
             let fullRawText = "";
             try {
                 for await (const chunk of netStream) {
-                    if (chunk && chunk.text) { fullRawText += chunk.text; }
+                    if (chunk && chunk.text) { 
+                        fullRawText += chunk.text; 
+                        
+                        // NEW: Process commands after each chunk is added to the raw text.
+                        // This will execute commands and hide tags more frequently.
+                        // We pass the full raw text, the message element, character ID, and the executed commands set.
+                        messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                        helpers.messageContainerScrollToBottom();
+                        await processCommandBlock(fullRawText, newMessage, characterId, executedCommandsSet);
+                    }
                 }
                 
+                // FINAL RENDER (if typingSpeed enabled, it's already rendered character by character within the loop)
+                // If typingSpeed > 0, the content is already built char by char.
+                // If typingSpeed == 0, the whole message is parsed at once after stream is done.
                 if (typingSpeed > 0) {
-                    messageContent.innerHTML = '';
+                    // This loop will now type out the 'fullRawText' *after* tags have been hidden in `processCommandBlock`.
+                    // The tags might still be visible briefly as new characters come in *before* processCommandBlock runs on the latest chunk.
+                    // This is the acceptable compromise.
                     let renderedText = '';
                     for (let i = 0; i < fullRawText.length; i++) {
                         renderedText += fullRawText[i];
@@ -210,20 +232,22 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                         await new Promise(resolve => setTimeout(resolve, typingSpeed));
                     }
                 } else {
+                    // This case is for instant typing. `processCommandBlock` already ran per-chunk.
+                    // This final parse ensures any remaining markdown is correct.
                     messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
                     helpers.messageContainerScrollToBottom();
                 }
 
-                // Process commands from the full, visible text.
-                await processCommandBlock(fullRawText, newMessage, characterId);
-                
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
+                // NEW: Delete the executed commands Set from the map once message is fully done.
+                executedCommandsMap.delete(newMessage);
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
                 console.error("Stream error:", error);
                 messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                executedCommandsMap.delete(newMessage); // Ensure cleanup on error
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             }
         }
@@ -243,33 +267,35 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     setupMessageEditing(newMessage, db);
 }
 
-async function processCommandBlock(commandBlock, messageElement, characterId) {
+// MODIFIED: Added executedCommandsSet parameter
+async function processCommandBlock(commandBlock, messageElement, characterId, executedCommandsSet = new Set()) {
     if (characterId === null) return;
 
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
     const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
     
-    // Get the message content element once for efficiency
     const messageContent = messageElement.querySelector('.message-text');
-    if (!messageContent) return; // Safety check
-
-    // We'll iterate through the commandBlock string multiple times,
-    // so we need a mutable string or to re-evaluate the HTML directly.
-    // The safest way is to find and replace them in the already rendered HTML.
-    let match;
-    // We need to operate on a copy of the *original* raw text for regex matching,
-    // but modify the *rendered HTML* to remove tags.
-    const originalRenderedHtml = messageContent.innerHTML;
+    if (!messageContent) return;
 
     // Use a temporary regex with a local scope to avoid interfering with global regex state
-    // and to ensure all instances are found.
     const localCommandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
     
+    let match;
     while ((match = localCommandRegex.exec(commandBlock)) !== null) {
-        const fullTagString = match[0]; // e.g., "[avatar:happy]"
-        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
-        const value = match[2].trim(); // e.g., "happy"
+        const fullTagString = match[0];
+        const command = match[1].trim().toLowerCase();
+        const value = match[2].trim();
+
+        // NEW: Idempotence check - if this specific tag has been executed for this message, skip execution.
+        if (executedCommandsSet.has(fullTagString)) {
+            // Still remove the tag from the displayed text if it's there
+            messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
+            continue; 
+        }
+
+        // NEW: Mark the tag as executed for this message
+        executedCommandsSet.add(fullTagString);
 
         switch (command) {
             case 'avatar':
@@ -347,8 +373,7 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                 break;
         }
 
-        // --- NEW: Remove the processed tag from the displayed message ---
-        // We use innerText to avoid HTML parsing issues and ensure we replace the exact string.
+        // NEW: Remove the processed tag from the displayed message after execution
         messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
     }
 }
