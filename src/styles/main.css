@@ -1492,9 +1492,9 @@ input[name="currentChat"][value="none"] {
 }
 
 .asset-details-section {
-    flex: 1 1 300px;
+    flex: 1 1 250px;
     /* Allow details panel to grow and shrink, with a base of 400px */
-    min-width: 300px;
+    min-width: 250px;
     max-width: 500px;
     /* Provide a max width for large screens */
 }
