@@ -6,7 +6,7 @@
     font-style: normal;
     font-weight: 100 700;
     src: url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v232/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2');
-}
+  }
 
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
@@ -28,7 +28,6 @@
 * {
     -webkit-tap-highlight-color: transparent;
     scrollbar-width: thin;
-    box-sizing: border-box; /* IMPORTANT: Universal box-sizing for consistent layout */
 }
 
 img {
@@ -64,6 +63,7 @@ h1 {
     margin-bottom: 0.5rem;
 }
 
+
 a {
     color: #3b82f6;
 }
@@ -95,16 +95,14 @@ form {
     max-height: 100%;
 }
 
-/* === FORM DIMENSIONS === */
+
+
+/* === FIX 1: FORM DIMENSIONS === */
 #form-add-personality {
     display: none;
-    /* width: 72rem; - REMOVED, allowing flex-grow */
-    max-width: 95vw;
-    height: 100%;
-    display: flex; /* Make it a flex container */
-    flex-direction: column;
-    align-self: center; /* Centers the form in the overlay if wider */
-    flex-grow: 1; /* Allow it to take up space in the overlay */
+    width: 72rem;
+    max-width: 95vw; /* Don't get wider than the screen */
+    height: 100%; /* Fill the parent container */
 }
 
 .overlay-content {
@@ -113,9 +111,10 @@ form {
     justify-content: center;
     align-items: center;
     flex-grow: 1;
+    /* overflow: hidden; has been removed */
     padding: 1rem;
     box-sizing: border-box;
-    min-height: 0;
+    min-height: 0; /* A flexbox fix for nested scrolling */
 }
 
 /* all but the first sidebarcontet */
@@ -127,16 +126,15 @@ form {
     display: flex;
     gap: 0.25rem;
     align-items: center;
-}
 
-.api-key input {
-    flex-grow: 1;
-}
-
-.api-key .material-symbols-outlined {
-    font-size: 2rem;
-    opacity: 1;
-    font-weight: 200;
+    input {
+        flex-grow: 1;
+    }
+    .material-symbols-outlined {
+        font-size: 2rem;
+        opacity: 1;
+        font-weight: 200;
+    }
 }
 
 .stepper {
@@ -159,24 +157,27 @@ form {
     visibility: visible;
 }
 
+/* === FIX 2: BUTTON STRETCHING === */
+.stepper-footer * {
+    /* This rule is now removed to prevent all elements from growing */
+}
+
 .stepper-footer button {
+    /* Tell buttons not to grow, only shrink if necessary */
     flex: 0 1 auto;
-    min-width: 8rem;
+    min-width: 8rem; /* Give them a nice minimum width */
 }
 
 #stepper-progress {
+    /* Tell the progress indicator to take all the available empty space */
     flex: 1 1 0;
 }
+
 
 .step {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    /* Default max-width for most steps, and centers them */
-    max-width: 900px; /* Comfortable reading width for typical content */
-    width: 100%;
-    align-self: center; /* Centers the step within the wider stepper-content */
-    flex-grow: 1; /* Allow steps to grow to fill height if needed */
 }
 
 .step:not(.active) {
@@ -191,20 +192,17 @@ form {
     display: block;
 }
 
+
+
 .stepper-content {
     flex-grow: 1;
     overflow: auto;
-    display: flex; /* Make it a flex container to hold steps */
-    flex-direction: column; /* Stack steps vertically */
-    width: 100%; /* Take full width of its parent (.stepper) */
-    align-items: center; /* Center steps horizontally if they don't take full width */
 }
 
 .stepper-footer {
     display: flex;
     justify-content: space-between;
     gap: 0.5rem;
-    flex-shrink: 0; /* Prevent footer from shrinking */
 }
 
 .slider {
@@ -221,13 +219,11 @@ form {
     top: 0;
     left: 0;
     width: 100dvw;
-    height: 100dvh; /* Use 100dvh for consistent viewport height */
+    height: 100vh;
     backdrop-filter: blur(64px);
     z-index: 2;
     justify-content: flex-start;
     align-items: center;
-    padding: 1rem; /* Add padding to overlay itself */
-    box-sizing: border-box; /* Ensure padding is included in height calculation */
 }
 
 #whats-new {
@@ -240,6 +236,8 @@ form {
     justify-content: center;
 }
 
+
+
 .backButton {
     position: absolute;
     top: 1rem;
@@ -249,6 +247,7 @@ form {
     font-size: 1.5rem;
     font-weight: 600;
     transition: all 0.2s;
+
 }
 
 #btn-hide-sidebar {
@@ -265,7 +264,7 @@ form {
     padding-right: 1.5rem;
 }
 
-.message-text {
+.message-text{
     margin-top: 1rem;
 }
 
@@ -274,6 +273,7 @@ form {
 }
 
 .message {
+
     padding: 1rem;
 }
 
@@ -334,6 +334,7 @@ form {
     padding: 0.5rem;
     border-radius: 0.5rem;
     cursor: pointer;
+
 }
 
 .label-currentchat * {
@@ -419,6 +420,8 @@ form {
     }
 }
 
+
+
 .personality-prompt {
     display: none;
 }
@@ -433,8 +436,11 @@ form {
     display: flex;
     gap: 0.5rem;
     padding: 1rem;
+
+
     width: 100dvw;
     height: 100dvh;
+
 }
 
 .sidebar {
@@ -445,15 +451,16 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    width: 25rem;
+    width: 25rem; /* CHANGED */
     border-radius: 1rem;
     scrollbar-width: thin;
     height: calc(100dvh - 4rem);
     z-index: 1;
-    overflow-y: auto;
+	overflow-y: auto; /* <-- THIS LINE IS ADDED */
 }
 
 .sidebar-section {
+    /* overflow-y: auto; <-- THIS LINE IS REMOVED */
     margin-bottom: 1rem;
     height: 100%;
     display: flex;
@@ -523,10 +530,10 @@ form {
     display: flex;
     align-items: center;
     gap: 1rem;
-}
 
-.message-header h3 {
-    flex-grow: 1;
+    h3 {
+        flex-grow: 1;
+    }
 }
 
 .message-actions {
@@ -553,7 +560,7 @@ form {
     box-shadow: 0 0 1rem 0.05rem #29292a3f;
 }
 
-#cynic-branding {
+#cynic-branding { /* CHANGED */
     font-family: 'Noto Sans', sans-serif;
     color: #7c8a9c;
     font-size: 0.8rem;
@@ -599,7 +606,7 @@ button {
     padding: 2rem;
     margin-left: auto;
     margin-right: auto;
-    max-width: 55rem;
+    max-width: 55rem; /* CHANGED */
     min-width: 32rem;
 }
 
@@ -626,6 +633,7 @@ button {
     min-height: 3.5rem;
     text-wrap: nowrap;
     padding: 1rem;
+
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
 }
@@ -657,6 +665,7 @@ button {
 
 .personality-info {
     overflow: hidden;
+
     text-shadow: 0 0 10px #000000, 0 0 5px #181818;
 }
 
@@ -684,6 +693,7 @@ button {
     /* IE10+/Edge */
     user-select: none;
     /* Standard */
+
 }
 
 .card-personality input {
@@ -698,6 +708,7 @@ button {
 #btn-hide-overlay {
     padding: 2rem;
 }
+
 
 .label-currentchat:not(:hover) {
     opacity: 0.7;
@@ -719,7 +730,7 @@ button {
     flex-direction: column;
 }
 
-.pfp {
+.pfp{
     height: 28px;
     width: 28px;
     border-radius: 6px;
@@ -755,12 +766,12 @@ button {
         background-color: rgba(30, 111, 183, 0.1);
         border: 1px dashed rgba(76, 124, 190, 0.5);
     }
-
+    
     .card-add-personality:hover {
         background-color: rgba(26, 88, 143, 0.158);
         border-color: rgba(76, 124, 190, 0.8);
     }
-
+    
     .card-add-personality .add-icon {
         color: #4c7cbe;
     }
@@ -772,12 +783,12 @@ button {
         background-color: rgba(40, 78, 125, 0.4);
         border: 1px dashed rgba(95, 150, 200, 0.3);
     }
-
+    
     .card-add-personality:hover {
         background-color: rgba(48, 103, 170, 0.4);
         border-color: rgba(95, 150, 200, 0.6);
     }
-
+    
     .card-add-personality .add-icon {
         color: #5f96c8;
     }
@@ -807,31 +818,35 @@ input[name="currentChat"][value="none"] {
     margin-left: auto;
 }
 
+
+
 .generation-settings,
-.trigger-settings {
+.trigger-settings { /* MODIFIED: Added .trigger-settings here */
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-.generation-settings>div,
-.trigger-settings>div {
+/* MODIFIED: Changed div to direct child selector > */
+.generation-settings > div,
+.trigger-settings > div {
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 4px;
+
+    .material-symbols-outlined {
+        font-size: 1.2rem;
+    }
 }
 
-.generation-settings>div .material-symbols-outlined,
-.trigger-settings>div .material-symbols-outlined {
-    font-size: 1.2rem;
-}
-
+/* NEW: Style for the two-column symbol inputs */
 .trigger-symbols-wrapper {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
 }
+
 
 .setting-label {
     display: flex;
@@ -843,71 +858,61 @@ input[name="currentChat"][value="none"] {
     display: none;
     align-items: center;
     gap: 4px;
-    font-size: 0.8rem;
+    font-size:0.8rem;
     opacity: 0.8;
+    .material-symbols-outlined {
+        font-size: inherit;
+    }
 }
 
-.api-key-error .material-symbols-outlined {
-    font-size: inherit;
-}
+
+
+
+
+
+
 
 /* Theme-specific styles for the new layout */
 @media (prefers-color-scheme: dark) {
-    .tag-explorer {
-        background-color: rgba(0, 0, 0, 0.2);
-    }
-
-    #asset-manager-gallery {
-        border-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .tag-explorer-item:not(.selected):hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-
-    .tag-explorer-item.selected {
-        background-color: #5f96c8;
-        color: #0b2469;
-    }
-
-    .tag-pill {
-        background-color: #283542;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .remove-tag:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
+    .tag-explorer { background-color: rgba(0,0,0,0.2); }
+    #asset-manager-gallery { border-color: rgba(255, 255, 255, 0.1); }
+    .tag-explorer-item:not(.selected):hover { background-color: rgba(255,255,255,0.1); }
+    .tag-explorer-item.selected { background-color: #5f96c8; color: #0b2469; }
+    .tag-pill { background-color: #283542; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .remove-tag:hover { background-color: rgba(255, 255, 255, 0.1); }
 }
 
 @media (prefers-color-scheme: light) {
-    .tag-explorer {
-        background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    #asset-manager-gallery {
-        border-color: rgba(0, 0, 0, 0.1);
-    }
-
-    .tag-explorer-item:not(.selected):hover {
-        background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    .tag-explorer-item.selected {
-        background-color: #4c7cbe;
-        color: #edf1f8;
-    }
-
-    .tag-pill {
-        background-color: #d2e2f7;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        color: #011031;
-    }
-
-    .remove-tag:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-    }
+    .tag-explorer { background-color: rgba(0,0,0,0.05); }
+    #asset-manager-gallery { border-color: rgba(0,0,0,0.1); }
+    .tag-explorer-item:not(.selected):hover { background-color: rgba(0,0,0,0.05); }
+    .tag-explorer-item.selected { background-color: #4c7cbe; color: #edf1f8; }
+    .tag-pill { background-color: #d2e2f7; border: 1px solid rgba(0, 0, 0, 0.1); color: #011031; }
+    .remove-tag:hover { background-color: rgba(0, 0, 0, 0.1); }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @media (min-width: 1032px) {
     .sidebar {
@@ -922,8 +927,10 @@ input[name="currentChat"][value="none"] {
         padding: 0;
     }
 
+
     .container {
         padding: 0;
+
     }
 
     .message-container {
@@ -944,6 +951,7 @@ input[name="currentChat"][value="none"] {
     .navbar {
         position: relative;
     }
+
 
     #btn-hide-sidebar {
         display: block;
@@ -970,6 +978,7 @@ input[name="currentChat"][value="none"] {
         display: block;
     }
 }
+
 
 /* Light theme styles */
 @media (prefers-color-scheme: light) {
@@ -1024,6 +1033,7 @@ input[name="currentChat"][value="none"] {
         background-color: #23487a;
     }
 
+
     input,
     textarea,
     select {
@@ -1055,6 +1065,7 @@ input[name="currentChat"][value="none"] {
     }
 
     .label-currentchat:hover {
+
         background-color: #9dbeea3f;
     }
 
@@ -1065,6 +1076,7 @@ input[name="currentChat"][value="none"] {
     .navbar-tab:not(.navbar-tab-active):hover {
         background-color: #65656517;
     }
+
 
     #message-box {
         background-color: #dfeeff !important;
@@ -1092,17 +1104,17 @@ input[name="currentChat"][value="none"] {
     }
 
     #asset-manager-gallery {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: rgba(0,0,0,0.05);
         border-color: rgba(0, 0, 0, 0.1);
     }
 
     .asset-card {
         background-color: #e0eaf8;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .asset-card:hover {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
 }
 
@@ -1116,6 +1128,7 @@ input[name="currentChat"][value="none"] {
         border: 1px solid #8f9eb3;
         outline: none;
     }
+
 
     body {
         background-color: #151e24;
@@ -1182,13 +1195,14 @@ input[name="currentChat"][value="none"] {
         color: #849caf;
     }
 
+
     .message-model {
         background-color: #1a2733;
     }
 
     .badge {
         background-color: #253a5c;
-        border: 1px solid rgba(35, 104, 119, 0.508);
+        border: 1px solid rgba(35, 108, 119, 0.508);
         color: #b6ebfb;
     }
 
@@ -1237,19 +1251,23 @@ input[name="currentChat"][value="none"] {
     }
 
     #asset-manager-gallery {
-        background-color: rgba(0, 0, 0, 0.2);
+        background-color: rgba(0,0,0,0.2);
         border-color: rgba(255, 255, 255, 0.1);
     }
 
     .asset-card {
         background-color: #283542;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-
+    
     .asset-card:hover {
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
     }
 }
+
+
+
+
 
 /* ========================================= */
 /* ==   REFINED ASSET DETAIL VIEW STYLES  == */
@@ -1263,36 +1281,31 @@ input[name="currentChat"][value="none"] {
     border-radius: 0.5rem;
     overflow: hidden;
     align-self: center;
+    
     /* The new, crucial constraints */
-    max-width: 75vh;
-    /* Max width is 75% of viewport height (keeps it square) */
-    max-height: 75vh;
-    /* Max height is 75% of viewport height */
+    max-width: 75vh; /* Max width is 75% of viewport height (keeps it square) */
+    max-height: 75vh;/* Max height is 75% of viewport height */
 }
 
 #asset-detail-preview {
     display: flex;
     justify-content: center;
     align-items: center;
-    aspect-ratio: 1 / 1;
-    /* Enforce a square shape */
+    aspect-ratio: 1 / 1; /* Enforce a square shape */
     border-radius: 0.5rem;
     overflow: hidden;
-    align-self: center;
-    /* Center the square vertically */
+    align-self: center; /* Center the square vertically */
 }
 
 #asset-detail-preview img {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    /* Contain non-square images without distortion */
+    object-fit: contain; /* Contain non-square images without distortion */
 }
 
 #asset-detail-info {
     display: flex;
-    flex-direction: column;
-    /* Stack info sections vertically */
+    flex-direction: column; /* Stack info sections vertically */
     gap: 1rem;
     padding: 1rem;
     border-radius: 0.5rem;
@@ -1302,13 +1315,11 @@ input[name="currentChat"][value="none"] {
     margin: 0;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    word-break: break-all;
-    /* Prevent long filenames from overflowing */
+    word-break: break-all; /* Prevent long filenames from overflowing */
 }
 
 .asset-detail-body {
-    flex-grow: 1;
-    /* This pushes the actions to the bottom */
+    flex-grow: 1; /* This pushes the actions to the bottom */
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -1337,15 +1348,13 @@ input[name="currentChat"][value="none"] {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    margin-top: auto;
-    /* This works with flex-grow to anchor to the bottom */
+    margin-top: auto; /* This works with flex-grow to anchor to the bottom */
     padding-top: 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .asset-detail-actions button {
-    justify-content: flex-start;
-    /* Align button content to the left */
+    justify-content: flex-start; /* Align button content to the left */
 }
 
 /* A specific style for our red danger button */
@@ -1353,10 +1362,12 @@ input[name="currentChat"][value="none"] {
     background-color: #a43131;
     color: #ffffff;
 }
-
 .btn-danger:hover {
     background-color: #8b2828;
 }
+
+
+
 
 /* Theme-specific tag styles */
 @media (prefers-color-scheme: dark) {
@@ -1364,39 +1375,55 @@ input[name="currentChat"][value="none"] {
         background-color: #283542;
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
-
     .remove-tag:hover {
         background-color: rgba(255, 255, 255, 0.1);
     }
 }
-
 @media (prefers-color-scheme: light) {
     .tag-pill {
         background-color: #d2e2f7;
         border: 1px solid rgba(0, 0, 0, 0.1);
         color: #011031;
     }
-
     .remove-tag:hover {
         background-color: rgba(0, 0, 0, 0.1);
     }
 }
 
+
+
+
+
 /* === Avatar Smooth Transition (Revised and Improved) === */
 /* Applies to both chat PFP and personality card background image */
 .pfp,
 .personality-card .background-img {
-    transition: opacity 0.5s ease-in-out;
-    /* Slightly slower fade for smoother feel */
+    transition: opacity 0.5s ease-in-out; /* Slightly slower fade for smoother feel */
 }
 
 /* This class will instantly hide the element without transition, for immediate swapping */
 .pfp.hide-for-swap,
 .personality-card .background-img.hide-for-swap {
     opacity: 0;
-    transition: none;
-    /* Important: No transition when hiding */
+    transition: none; /* Important: No transition when hiding */
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* =============================== */
 /* ==  Asset Manager Layout  == */
@@ -1409,33 +1436,26 @@ input[name="currentChat"][value="none"] {
     flex-direction: column;
     padding: 20px;
     /* NEW: Increase max-width and center it */
-    max-width: 1800px;
-    /* Or whatever maximum width feels appropriate */
-    align-self: center;
-    /* Centers the whole section in the overlay */
-    width: 90%;
-    /* Ensure it can take 100% of the space up to max-width */
+    max-width: 1800px; /* Or whatever maximum width feels appropriate */
+    align-self: center; /* Centers the whole section in the overlay */
+    width: 100%; /* Ensure it can take 100% of the space up to max-width */
 }
 
 .asset-manager-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    /* Pushes back button left, title center, upload right */
+    justify-content: space-between; /* Pushes back button left, title center, upload right */
     padding-bottom: 20px;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 20px;
-    gap: 20px;
-    /* Space out items */
+    gap: 20px; /* Space out items */
 }
 
 .asset-manager-header h2 {
-    flex-grow: 1;
-    /* Title takes up available space */
+    flex-grow: 1; /* Title takes up available space */
     text-align: center;
     margin: 0;
-    font-size: 1.8em;
-    /* Slightly larger title */
+    font-size: 1.8em; /* Slightly larger title */
     color: var(--text-color-light);
 }
 
@@ -1456,12 +1476,9 @@ input[name="currentChat"][value="none"] {
 /* Main content area with 3 columns */
 .asset-manager-content {
     display: flex;
-    flex-grow: 1;
-    /* Allows content area to fill remaining height */
-    gap: 20px;
-    /* Space between columns */
-    min-height: 0;
-    /* Important for flex children scrolling correctly */
+    flex-grow: 1; /* Allows content area to fill remaining height */
+    gap: 20px; /* Space between columns */
+    min-height: 0; /* Important for flex children scrolling correctly */
 }
 
 .asset-groups-panel,
@@ -1472,31 +1489,25 @@ input[name="currentChat"][value="none"] {
     padding: 15px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    /* Hide scrollbars by default for content */
+    overflow: hidden; /* Hide scrollbars by default for content */
 }
 
 /* Column Widths */
 .asset-groups-panel {
-    flex: 0 0 250px;
-    /* Slightly wider fixed width for groups panel */
+    flex: 0 0 250px; /* Slightly wider fixed width for groups panel */
     min-width: 250px;
     max-width: 350px;
 }
 
 .asset-gallery-section {
-    flex-grow: 3;
-    /* Gallery takes significantly more space, adjust from 2 to 3 */
-    min-width: 400px;
-    /* Ensure a decent minimum width */
+    flex-grow: 3; /* Gallery takes significantly more space, adjust from 2 to 3 */
+    min-width: 400px; /* Ensure a decent minimum width */
 }
 
 .asset-details-section {
-    flex: 1 1 250px;
-    /* Allow details panel to grow and shrink, with a base of 400px */
-    min-width: 250px;
-    max-width: 500px;
-    /* Provide a max width for large screens */
+    flex: 1 1 300px; /* Allow details panel to grow and shrink, with a base of 400px */
+    min-width: 300px;
+    max-width: 500px; /* Provide a max width for large screens */
 }
 
 /* Headers within columns */
@@ -1511,18 +1522,15 @@ input[name="currentChat"][value="none"] {
     color: var(--text-color-light);
     font-size: 1.3em;
     padding-bottom: 5px;
-    border-bottom: 1px solid var(--input-border-color);
-    /* Subtle separator */
+    border-bottom: 1px solid var(--input-border-color); /* Subtle separator */
 }
 
 .asset-groups-panel h3 .btn-add {
-    font-size: 1.5em;
-    /* Larger '+' icon */
+    font-size: 1.5em; /* Larger '+' icon */
     background: var(--button-bg-color);
     color: var(--button-text-color);
     border: none;
-    border-radius: 50%;
-    /* Circular button */
+    border-radius: 50%; /* Circular button */
     width: 30px;
     height: 30px;
     display: flex;
@@ -1541,36 +1549,27 @@ input[name="currentChat"][value="none"] {
     list-style: none;
     padding: 0;
     margin: 0;
-    flex-grow: 1;
-    /* Allow list to scroll independently */
-    overflow-y: auto;
-    /* Enable vertical scrolling */
-    padding-right: 5px;
-    /* Space for scrollbar */
+    flex-grow: 1; /* Allow list to scroll independently */
+    overflow-y: auto; /* Enable vertical scrolling */
+    padding-right: 5px; /* Space for scrollbar */
 }
 
 /* Generic styling for asset grid (gallery) */
 .asset-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    /* Responsive grid */
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Responsive grid */
     gap: 15px;
     padding: 10px 0;
-    flex-grow: 1;
-    /* Allow gallery to scroll independently */
-    overflow-y: auto;
-    /* Enable vertical scrolling */
-    padding-right: 5px;
-    /* Space for scrollbar */
+    flex-grow: 1; /* Allow gallery to scroll independently */
+    overflow-y: auto; /* Enable vertical scrolling */
+    padding-right: 5px; /* Space for scrollbar */
 }
 
 /* Asset Details Panel specific styles */
 .asset-details-section #asset-details-panel {
     flex-grow: 1;
-    overflow-y: auto;
-    /* Enable scrolling for long details */
-    padding-right: 5px;
-    /* Space for scrollbar */
+    overflow-y: auto; /* Enable scrolling for long details */
+    padding-right: 5px; /* Space for scrollbar */
 }
 
 .asset-details-section p {
@@ -1598,13 +1597,11 @@ input[name="currentChat"][value="none"] {
     padding: 5px;
     background-color: var(--input-bg-color);
     border-radius: var(--border-radius);
-    min-height: 40px;
-    /* Ensure space even if no tags */
+    min-height: 40px; /* Ensure space even if no tags */
     align-items: center;
 }
 
-.asset-tag-item {
-    /* This will be for individual tags displayed */
+.asset-tag-item { /* This will be for individual tags displayed */
     background-color: var(--accent-color);
     color: #fff;
     padding: 5px 10px;
@@ -1624,7 +1621,6 @@ input[name="currentChat"][value="none"] {
     opacity: 0.7;
     transition: opacity 0.2s ease-in-out;
 }
-
 .asset-tag-item .delete-tag-btn:hover {
     opacity: 1;
 }
@@ -1689,12 +1685,12 @@ input[name="currentChat"][value="none"] {
     background-color: var(--danger-hover-color);
 }
 
+
 /* Adjustments for the stepper's display of the media library step */
 /* This will make the media library step take full width/height in the stepper */
-#addPersonalitySection .stepper>.step {
+#addPersonalitySection .stepper > .step {
     flex-grow: 1;
-    display: flex;
-    /* Make sure steps can be flex containers */
+    display: flex; /* Make sure steps can be flex containers */
     flex-direction: column;
 }
 
@@ -1702,11 +1698,6 @@ input[name="currentChat"][value="none"] {
     /* Ensures this specific step takes full available height */
     height: 100%;
     width: 100%;
-    /* Keep this */
-    max-width: 100%;
-    /* Crucial: Allows it to ignore the general .step max-width */
-    align-self: stretch;
-    /* Makes it stretch to fill the parent's width */
 }
 
 /* General improvements for overlay sections */
@@ -1714,6 +1705,5 @@ input[name="currentChat"][value="none"] {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
-    overflow: hidden;
-    /* Important for containing scrolling content */
+    overflow: hidden; /* Important for containing scrolling content */
 }
