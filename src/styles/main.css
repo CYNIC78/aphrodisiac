@@ -1494,7 +1494,7 @@ input[name="currentChat"][value="none"] {
 
 /* Column Widths */
 .asset-groups-panel {
-    flex: 0 0 280px; /* Slightly wider fixed width for groups panel */
+    flex: 0 0 250px; /* Slightly wider fixed width for groups panel */
     min-width: 250px;
     max-width: 350px;
 }
@@ -1505,8 +1505,8 @@ input[name="currentChat"][value="none"] {
 }
 
 .asset-details-section {
-    flex: 1 1 400px; /* Allow details panel to grow and shrink, with a base of 400px */
-    min-width: 350px;
+    flex: 1 1 300px; /* Allow details panel to grow and shrink, with a base of 400px */
+    min-width: 300px;
     max-width: 500px; /* Provide a max width for large screens */
 }
 
