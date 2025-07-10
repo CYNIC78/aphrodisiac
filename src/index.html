@@ -252,7 +252,7 @@
 							<input type="text" name="description" placeholder="A  plumber with a shroom addiction.">
 							<label for="image">Image URL:</label>
 							<input type="text" name="image" placeholder="https://example.com/mario.png">
-							<label for="prompt">Personality Prompt:</label>
+							<label for="prompt">System Prompt:</label>
 							<textarea type="text" name="prompt"
 								placeholder="You are to act as main character from the Mario video game series..."
 								style="height: 25rem; resize:vertical"></textarea>
@@ -299,51 +299,24 @@ The following are asset triggers:
 						<!-- ================================== -->
 						<div class="step" id="media-library-step">
 							<div class="media-library-layout">
-								<div class="asset-manager-header">
-									<!-- <button id="btn-asset-manager-back" class="btn-back">BACK</button> -->
-									<h2>Asset Manager</h2>
-									<button type="button" class="btn-with-icon" id="btn-upload-asset">
-										<span class="material-symbols-outlined">upload_file</span>
-										Upload
-									</button>
-									<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
+								<div class="tag-explorer">
+									<h3>Tags</h3>
+									<input type="search" id="tag-explorer-search" placeholder="Filter tags...">
+									<div id="tag-explorer-list">
+										<!-- All unique tags will be rendered here by JS -->
+									</div>
 								</div>
-								<div class="asset-manager-content">
-									<div class="asset-groups-panel">
-										<h3>Char & State Groups <button class="btn-sm btn-add" id="btn-add-char-group">+</button></h3>
-										<ul id="asset-char-groups" class="asset-group-list">
-											<!-- Char groups will be dynamically added here -->
-										</ul>
+								<div class="gallery-main">
+									<div class="gallery-header">
+										<h3 id="gallery-title">All Assets</h3>
+										<button type="button" class="btn-with-icon" id="btn-upload-asset">
+											<span class="material-symbols-outlined">upload_file</span>
+											Upload
+										</button>
 									</div>
-									<div class="asset-gallery-section">
-										<h3 id="gallery-title">Asset Gallery <span id="current-group-path"></span></h3>
-										<div id="asset-manager-gallery" class="asset-grid">
-											<!-- Asset cards will be injected here by JS -->
-										</div>
-									</div>
-									<div class="asset-details-section">
-										<h3>Asset Details <span id="selected-asset-name"></span></h3>
-										<div id="asset-details-panel">
-											<p>Select an asset to view/edit its details.</p>
-											<!-- Details for selected asset will be dynamically loaded here -->
-											<div class="asset-detail-body">
-												<div class="asset-detail-section">
-													<h4>Tags</h4>
-													<div id="asset-detail-tags"></div>
-													<div class="add-tag-wrapper">
-														<input type="text" id="add-tag-input" placeholder="Edit Slot 4 tag...">
-														<button id="btn-update-slot4-tag" class="material-symbols-outlined">save</button>
-													</div>
-												</div>
-											</div>
-											<div class="asset-detail-actions">
-												<button id="btn-delete-asset" class="btn-danger">
-													<span class="material-symbols-outlined">delete</span>
-													Delete Asset
-												</button>
-												<!-- Removed "Back to Library" as it's no longer a separate view -->
-											</div>
-										</div>
+									<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
+									<div id="asset-manager-gallery">
+										<!-- Asset cards will be injected here by JS -->
 									</div>
 								</div>
 							</div>
@@ -358,7 +331,30 @@ The following are asset triggers:
 				</div>
 			</form>
 
-
+			<!-- The Asset Detail View remains, but is now controlled by the new system -->
+			<div id="asset-detail-view" style="display: none;">
+				<div id="asset-detail-preview"></div>
+				<div id="asset-detail-info">
+					<h3 id="asset-detail-name"></h3>
+					<div class="asset-detail-body">
+						<div class="asset-detail-section">
+							<h4>Tags</h4>
+							<div id="asset-detail-tags"></div>
+							<div class="add-tag-wrapper">
+								<input type="text" id="add-tag-input" placeholder="Add new tag...">
+								<button id="btn-add-tag" class="material-symbols-outlined">add</button>
+							</div>
+						</div>
+					</div>
+					<div class="asset-detail-actions">
+						<button id="btn-delete-asset" class="btn-danger">
+							<span class="material-symbols-outlined">delete</span>
+							Delete Asset
+						</button>
+						<button id="btn-asset-detail-back">Back to Library</button>
+					</div>
+				</div>
+			</div>
 
 			<!-- The What's New View remains unchanged -->
 			<div id="whats-new">
