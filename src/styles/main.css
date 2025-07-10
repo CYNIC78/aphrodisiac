@@ -179,7 +179,7 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     /* NEW: Default max-width for most steps, and centers them */
-    max-width: 900px; /* Adjust this value as needed for comfortable reading width */
+    max-width: 1200px; /* Adjust this value as needed for comfortable reading width */
     width: 100%; /* Ensures it respects max-width and can shrink */
     align-self: center; /* Centers the step within the wider stepper-content */
 }
