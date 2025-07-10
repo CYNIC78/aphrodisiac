@@ -119,12 +119,13 @@ function setupMessageEditing(messageElement, db) {
         editButton.style.display = 'none';
         saveButton.style.display = 'inline-block';
 
-        // NEW LOGIC: Load the raw message text from the database for editing
+        // THE ONLY CRITICAL CHANGE HERE: Load the RAW message text from the database for editing.
         const messageIndex = parseInt(messageElement.dataset.messageIndex, 10);
         const currentChat = await chatsService.getCurrentChat(db);
         if (currentChat && currentChat.content[messageIndex]) {
-            const rawMessageText = helpers.getDecoded(currentChat.content[messageIndex].parts[0].text);
-            messageTextDiv.innerText = rawMessageText; // Set innerText to keep plain text for editing
+            // We now assign the raw, unparsed markdown text directly from the DB
+            // to innerText. This is the fix for the HTML entity problem.
+            messageTextDiv.innerText = currentChat.content[messageIndex].parts[0].text; 
         }
     });
 
