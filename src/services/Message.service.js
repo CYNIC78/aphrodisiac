@@ -14,7 +14,7 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    // REVERTED TO WORKING SYNTAX: The object-based initialization was correct.
+    // REVERTED TO WORKING SYNTAX
     const genAI = new GoogleGenAI({ apiKey: settings.apiKey });
 
     const systemInstruction = {
@@ -78,7 +78,7 @@ export async function send(msg, db) {
     
     const result = await chat.sendMessageStream(messageToSendToAI);
     
-    const reply = await insertMessage("model", "", selectedPersonality.name, result.stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
+    const reply = await insertMessage("model", "", selectedPersonality.name, result.stream, db, selectedPersonality.image, settings.typingSpeed, characterId);
 
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
@@ -89,7 +89,8 @@ async function regenerate(responseElement, db) {
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - a);
+    // TYPO FIX: The variable 'a' was a mistake. It is now correctly '1'.
+    chat.content = chat.content.slice(0, elementIndex - 1); 
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
     await send(message, db);

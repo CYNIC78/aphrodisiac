@@ -17,7 +17,7 @@ apiKeyInput.addEventListener("input", () => {
             return;
         }
 
-        // REVERTED TO WORKING SYNTAX: The object-based initialization was correct.
+        // REVERTED TO WORKING SYNTAX
         const genAI = new GoogleGenAI({ apiKey: apiKey });
         
         try {
