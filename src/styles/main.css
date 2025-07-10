@@ -1431,10 +1431,14 @@ input[name="currentChat"][value="none"] {
 
 /* Ensure the asset manager section fills available space */
 #assetManagerSection {
-    flex-grow: 1; /* Allows it to take up available height in the overlay */
-    display: flex; /* Use flexbox to organize header and content */
+    flex-grow: 1;
+    display: flex;
     flex-direction: column;
-    padding: 20px; /* Add some padding around the entire manager */
+    padding: 20px;
+    /* NEW: Increase max-width and center it */
+    max-width: 1400px; /* Or whatever maximum width feels appropriate */
+    align-self: center; /* Centers the whole section in the overlay */
+    width: 100%; /* Ensure it can take 100% of the space up to max-width */
 }
 
 .asset-manager-header {
