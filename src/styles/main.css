@@ -1413,7 +1413,7 @@ input[name="currentChat"][value="none"] {
     /* Or whatever maximum width feels appropriate */
     align-self: center;
     /* Centers the whole section in the overlay */
-    width: 100%;
+    width: 90%;
     /* Ensure it can take 100% of the space up to max-width */
 }
 
