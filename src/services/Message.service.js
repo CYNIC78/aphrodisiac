@@ -249,11 +249,27 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
     const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
-    let match;
+    
+    // Get the message content element once for efficiency
+    const messageContent = messageElement.querySelector('.message-text');
+    if (!messageContent) return; // Safety check
 
-    while ((match = commandRegex.exec(commandBlock)) !== null) {
-        const command = match[1].trim().toLowerCase();
-        const value = match[2].trim();
+    // We'll iterate through the commandBlock string multiple times,
+    // so we need a mutable string or to re-evaluate the HTML directly.
+    // The safest way is to find and replace them in the already rendered HTML.
+    let match;
+    // We need to operate on a copy of the *original* raw text for regex matching,
+    // but modify the *rendered HTML* to remove tags.
+    const originalRenderedHtml = messageContent.innerHTML;
+
+    // Use a temporary regex with a local scope to avoid interfering with global regex state
+    // and to ensure all instances are found.
+    const localCommandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
+    
+    while ((match = localCommandRegex.exec(commandBlock)) !== null) {
+        const fullTagString = match[0]; // e.g., "[avatar:happy]"
+        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
+        const value = match[2].trim(); // e.g., "happy"
 
         switch (command) {
             case 'avatar':
@@ -330,5 +346,9 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                 }
                 break;
         }
+
+        // --- NEW: Remove the processed tag from the displayed message ---
+        // We use innerText to avoid HTML parsing issues and ensure we replace the exact string.
+        messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
     }
 }
