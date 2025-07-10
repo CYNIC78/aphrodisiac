@@ -1,14 +1,11 @@
 // FILE: src/services/Message.service.js
 
-//handles sending messages to the api
-
-import { GoogleGenAI } from "@google/genai"; // CORRECT LIBRARY, as you are already using.
+import { GoogleGenAI } from "@google/genai";
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// NO AssetManager import here. It is loaded on-demand.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -17,11 +14,9 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    // Use the correct class name from the correct library: GoogleGenAI
+    // CORRECT INITIALIZATION from the correct library
     const genAI = new GoogleGenAI(settings.apiKey);
 
-    // --- REBUILT PROMPT STRUCTURE ---
-    // This is the new, correct way to instruct the AI using the modern library.
     const systemInstruction = {
         role: "system",
         parts: [
@@ -35,12 +30,11 @@ export async function send(msg, db) {
 
     const model = genAI.getGenerativeModel({
         model: settings.model,
-        systemInstruction: systemInstruction, // All instructions are now correctly passed here.
+        systemInstruction: systemInstruction,
         safetySettings: settings.safetySettings
     });
 
     if (!await chatsService.getCurrentChat(db)) {
-        // Use a simple one-off model for title generation
         const titleGenModel = genAI.getGenerativeModel({ model: "gemini-pro" });
         const prompt = "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg;
         const result = await titleGenModel.generateContent(prompt);
@@ -58,17 +52,13 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
     
-    // --- CLEANED HISTORY ---
-    // History no longer contains any instructions. It is only the pure conversation.
     const history = [];
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0] !== '') {
-        // Add a clear "understanding" message before tone examples
         history.push({ role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] });
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    // Add the actual conversation history
-    history.push(...currentChat.content.slice(0, -1).map(message => ({ // Use slice to exclude the message we just added
+    history.push(...currentChat.content.slice(0, -1).map(message => ({
         role: message.role,
         parts: message.parts,
     })));
@@ -83,7 +73,6 @@ export async function send(msg, db) {
 
     let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
-        // The reminder is still sent with the user's message, as planned.
         messageToSendToAI += `\n\n[SYSTEM REMINDER: ${selectedPersonality.reminder}]`;
     }
     
@@ -106,10 +95,6 @@ async function regenerate(responseElement, db) {
     await send(message, db);
 }
 
-
-// --- THE "VISIBLE GUTS" EDITING LOGIC ---
-// This is a simple, stable, and bug-free implementation.
-
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
@@ -122,7 +107,6 @@ function setupMessageEditing(messageElement, db) {
     messageElement.dataset.messageIndex = messageIndex;
 
     editButton.addEventListener('click', () => {
-        // Just make the existing text editable. No swapping, no complex logic.
         messageTextDiv.setAttribute("contenteditable", "true");
         messageTextDiv.focus();
         editButton.style.display = 'none';
@@ -131,15 +115,13 @@ function setupMessageEditing(messageElement, db) {
 
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText; // Get the clean text.
+        const newRawText = messageTextDiv.innerText;
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         
         await updateMessageInDatabase(index, newRawText, db);
 
-        // Re-render the message. It will remain fully visible.
         messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
         
-        // Re-process commands from the now-visible text.
         const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
         if (characterId !== undefined) {
             await processCommandBlock(newRawText, messageElement, characterId);
@@ -159,7 +141,6 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         await db.chats.put(currentChat);
     } catch (error) { console.error("Error updating message in database:", error); }
 }
-
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
@@ -186,15 +167,11 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         });
         const messageContent = newMessage.querySelector(".message-text");
 
-        // "VISIBLE GUTS" LOGIC - No more splitting.
         if (!netStream) {
-            // Loading Path: Display the full raw message.
             messageContent.innerHTML = marked.parse(msg, { breaks: true });
         } else {
-            // Live Path: Stream the full raw message.
             let fullRawText = "";
             try {
-                // The new SDK returns the stream directly in the result object
                 for await (const chunk of netStream) {
                     const chunkText = chunk.text();
                     if (chunkText) { fullRawText += chunkText; }
@@ -214,7 +191,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     helpers.messageContainerScrollToBottom();
                 }
 
-                // Process commands from the full, visible text.
                 await processCommandBlock(fullRawText, newMessage, characterId);
                 
                 hljs.highlightAll();
@@ -262,12 +238,8 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
-
-                        // Update message PFP
                         const pfpElement = messageElement.querySelector('.pfp');
                         if (pfpElement) pfpElement.src = objectURL;
-
-                        // Update main personality card in sidebar
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
                         if(personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
