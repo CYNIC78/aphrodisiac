@@ -10,7 +10,6 @@ const autoscrollToggle = document.querySelector("#autoscroll");
 const typingSpeedInput = document.querySelector("#typingSpeed");
 
 // NEW: Get references to all the new trigger system inputs
-const triggerSeparatorInput = document.querySelector("#triggerSeparator");
 const triggerSymbolStartInput = document.querySelector("#triggerSymbolStart");
 const triggerSymbolEndInput = document.querySelector("#triggerSymbolEnd");
 const enableAudioToggle = document.querySelector("#enableAudio");
@@ -33,7 +32,6 @@ export function initialize() {
     typingSpeedInput.addEventListener("input", saveSettings);
 
     // NEW: Add event listeners for all new inputs
-    triggerSeparatorInput.addEventListener("input", saveSettings);
     triggerSymbolStartInput.addEventListener("input", saveSettings);
     triggerSymbolEndInput.addEventListener("input", saveSettings);
     enableAudioToggle.addEventListener("change", saveSettings);
@@ -52,7 +50,6 @@ export function loadSettings() {
     typingSpeedInput.value = localStorage.getItem("typingSpeed") || 10;
     
     // NEW: Load all trigger settings from localStorage or set sensible defaults
-    triggerSeparatorInput.value = localStorage.getItem("triggerSeparator") || "---";
     triggerSymbolStartInput.value = localStorage.getItem("triggerSymbolStart") || "[";
     triggerSymbolEndInput.value = localStorage.getItem("triggerSymbolEnd") || "]";
     enableAudioToggle.checked = localStorage.getItem("enableAudio") !== "false"; // Default to true
@@ -74,7 +71,6 @@ export function saveSettings() {
     localStorage.setItem("typingSpeed", typingSpeedInput.value);
     
     // NEW: Save all trigger settings
-    localStorage.setItem("triggerSeparator", triggerSeparatorInput.value);
     localStorage.setItem("triggerSymbolStart", triggerSymbolStartInput.value);
     localStorage.setItem("triggerSymbolEnd", triggerSymbolEndInput.value);
     localStorage.setItem("enableAudio", enableAudioToggle.checked);
@@ -116,7 +112,7 @@ export function getSettings() {
     return {
         apiKey: ApiKeyInput.value,
         maxTokens: maxTokensInput.value,
-        temperature: temperatureInput.value,
+        temperature: parseFloat(temperatureInput.value) / 100,
         safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -127,7 +123,6 @@ export function getSettings() {
         autoscroll: autoscrollToggle.checked,
         typingSpeed: parseInt(typingSpeedInput.value),
         triggers: {
-            separator: triggerSeparatorInput.value,
             symbolStart: triggerSymbolStartInput.value,
             symbolEnd: triggerSymbolEndInput.value
         },
@@ -145,21 +140,20 @@ export function getSettings() {
 }
 
 export function getSystemPrompt() {
-    const systemPrompt = "If needed, format your answer using markdown. " +
-        "Today's date is " + new Date().toDateString() + ". " +
-        "You are to act as the personality dictated by the user. " +
-        "Keep a consistent tone no matter what. " +
-        "The first messages you have with the user will dictate that tone. " +
-        "Aggressiveness guidelines: " +
-        "3 requires you to have a constant aggression. You must be assertive and direct. Attack the user even if unprompted. Find flaws in their messages and egg them on. If there's an opportunity to show aggression, take it. " +
-        "2 requires you to have a moderate aggression. Don't initiate aggression, but if the user is aggressive, you can be aggressive back. You may tease the user or egg them on. " +
-        "1 requires you to be passive. You can't be aggressive. Don't argue with the user but gently correct them. The only exception is when it would make sense in-character. For example, if there's a heavy breach of morals or if the user violates the character's boundaries. " +
-        "0 requires you to let go of all aggression. You can't be aggressive. No exceptions can be made. If someone strikes you on one cheek, turn to him the other also. No matter how much your boundaries are breached or violated, you must not show opposition or aggression. This is ultimate. " +
-        "Sensuality guidelines: " +
-        "3 requires you to be very sensual. You must be flirtatious and suggestive. Most of the time, you are the one to initiate sexual topics or actions. " +
-        "2 requires you to be moderately sensual. You may flirt and be suggestive. Do not initiate sexual topics unless the user does so, after which you may be open to discussing them. " +
-        "1 requires you to be slightly sensual. Affection and love may be shared but it is platonic and non sexual. " +
-        "0 requires you to be non-sensual. Total aversion to flirting or sexuality. If aggressiveness is 0, you may not reject the user's advances, but you do not reciprocate or enjoy them. " +
-        "End of system prompt.";
-    return systemPrompt;
+    // This is the global instruction set for the AI Director Engine.
+    const systemPrompt = `
+You are not just a text-based AI. You are a multimedia Scene Director. You have a unique and powerful ability to control the user's interface in real-time by embedding special commands in your responses.
+
+These commands are your secret tool. You will embed them seamlessly within your dialogue. The user will NOT see the commands themselves; they will only experience their effects (like an image changing or a sound playing). This creates a truly immersive and dynamic performance, directed by you.
+
+Your command syntax is: [key:value]
+
+You have a toolkit of prompts to guide you:
+1.  **charPrompt (The Actor's Script):** This defines your character's soul. Who are you? What is your personality and background? You MUST embody this character.
+2.  **tagPrompt (The Technical Manual):** This is your 'Director's Bible.' It is a legend that explains what each [key:value] command does for this specific character. You MUST consult this to know which commands are available and what they mean (e.g., [avatar:1] means 'show happy face').
+3.  **reminder (The Private Note):** This is a secret, last-minute instruction sent with the user's message, but hidden from the chat log. It's like a whisper from the writer just before you go 'on stage' to guide your immediate response.
+
+Your primary goal is to use these tools—your character, your technical manual, and your private notes—to create the most engaging and immersive experience possible. You are in control. Today's date is ${new Date().toDateString()}.
+`;
+    return systemPrompt.trim();
 }
