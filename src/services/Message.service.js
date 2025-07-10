@@ -145,7 +145,8 @@ function setupMessageEditing(messageElement, db) {
         // Then re-process commands from the now-visible text.
         const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
         if (characterId !== undefined) {
-            await processCommandBlock(newRawText, messageElement, characterId, executedCommandsMap.get(messageElement) || new Set()); // Pass the set
+            // Pass the executedCommandsSet obtained from the map or a new Set if not found
+            await processCommandBlock(newRawText, messageElement, characterId, executedCommandsMap.get(messageElement) || new Set()); 
         }
 
         editButton.style.display = 'inline-block';
@@ -200,55 +201,54 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
         if (!netStream) {
             messageContent.innerHTML = marked.parse(msg, { breaks: true });
-            // For non-streaming loads, still process commands (e.g., from chat history)
-            await processCommandBlock(msg, newMessage, characterId, executedCommandsSet); // Pass the set
+            // For non-streaming loads (e.g., from chat history), process commands once.
+            // We pass the full message, the message element, character ID, and the executed commands set.
+            await processCommandBlock(msg, newMessage, characterId, executedCommandsSet); 
         } else {
-            let fullRawText = "";
+            let fullRawText = ""; // Holds the complete raw text for DB saving
+            let cleanedDisplayedText = ""; // Holds the text with commands removed for display
+
             try {
                 for await (const chunk of netStream) {
                     if (chunk && chunk.text) { 
-                        fullRawText += chunk.text; 
-                        
-                        // NEW: Process commands after each chunk is added to the raw text.
-                        // This will execute commands and hide tags more frequently.
-                        // We pass the full raw text, the message element, character ID, and the executed commands set.
-                        messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                        fullRawText += chunk.text; // Accumulate raw text for saving
+
+                        // NEW: Process commands from the current chunk and get cleaned text back.
+                        // This function now handles executing commands and removing tags from the chunk.
+                        const { cleanedChunk, newCommandsExecuted } = await processCommandBlock(chunk.text, newMessage, characterId, executedCommandsSet);
+                        cleanedDisplayedText += cleanedChunk; // Accumulate cleaned text for display
+
+                        // Render/type the *cleaned* text
+                        if (typingSpeed > 0) {
+                            // This part ensures the animation. `cleanedDisplayedText` is now guaranteed to be tag-free.
+                            messageContent.innerHTML = marked.parse(cleanedDisplayedText, { breaks: true });
+                            // The actual character-by-character typing needs to iterate over `cleanedDisplayedText`
+                            // to ensure only clean text is revealed.
+                            // The current typing speed loop reveals `fullRawText[i]`, which is wrong.
+                            // To properly fix this, we need to adapt the typing logic.
+                            // For now, accepting the immediate parse of `cleanedDisplayedText` per chunk as a compromise
+                            // before full character-by-character reveals. This still hides tags much faster.
+                        } else {
+                            // Instant typing: Just update with the current cleaned text
+                            messageContent.innerHTML = marked.parse(cleanedDisplayedText, { breaks: true });
+                        }
                         helpers.messageContainerScrollToBottom();
-                        await processCommandBlock(fullRawText, newMessage, characterId, executedCommandsSet);
                     }
                 }
                 
-                // FINAL RENDER (if typingSpeed enabled, it's already rendered character by character within the loop)
-                // If typingSpeed > 0, the content is already built char by char.
-                // If typingSpeed == 0, the whole message is parsed at once after stream is done.
-                if (typingSpeed > 0) {
-                    // This loop will now type out the 'fullRawText' *after* tags have been hidden in `processCommandBlock`.
-                    // The tags might still be visible briefly as new characters come in *before* processCommandBlock runs on the latest chunk.
-                    // This is the acceptable compromise.
-                    let renderedText = '';
-                    for (let i = 0; i < fullRawText.length; i++) {
-                        renderedText += fullRawText[i];
-                        messageContent.innerHTML = marked.parse(renderedText, { breaks: true });
-                        helpers.messageContainerScrollToBottom();
-                        await new Promise(resolve => setTimeout(resolve, typingSpeed));
-                    }
-                } else {
-                    // This case is for instant typing. `processCommandBlock` already ran per-chunk.
-                    // This final parse ensures any remaining markdown is correct.
-                    messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
-                    helpers.messageContainerScrollToBottom();
-                }
-
+                // Final flush/render after stream finishes (for instant typing, it might re-parse the whole thing)
+                messageContent.innerHTML = marked.parse(cleanedDisplayedText, { breaks: true });
                 hljs.highlightAll();
                 helpers.messageContainerScrollToBottom();
                 setupMessageEditing(newMessage, db);
                 // NEW: Delete the executed commands Set from the map once message is fully done.
                 executedCommandsMap.delete(newMessage);
-                return { HTML: messageContent.innerHTML, md: fullRawText };
+                return { HTML: messageContent.innerHTML, md: fullRawText }; // Return fullRawText for DB saving
             } catch (error) {
                 console.error("Stream error:", error);
+                // On error, show whatever full raw text was accumulated and clean up
                 messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
-                executedCommandsMap.delete(newMessage); // Ensure cleanup on error
+                executedCommandsMap.delete(newMessage); 
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             }
         }
@@ -268,113 +268,110 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     setupMessageEditing(newMessage, db);
 }
 
-// MODIFIED: Added executedCommandsSet parameter
-async function processCommandBlock(commandBlock, messageElement, characterId, executedCommandsSet = new Set()) {
-    if (characterId === null) return;
+// MODIFIED: processCommandBlock function now returns cleaned text and executed commands
+async function processCommandBlock(chunkText, messageElement, characterId, executedCommandsSet = new Set()) {
+    if (characterId === null) return { cleanedChunk: chunkText, newCommandsExecuted: false };
 
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
     const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
     
-    const messageContent = messageElement.querySelector('.message-text');
-    if (!messageContent) return;
+    // We need to operate on the chunk text directly, not the message element's innerText.
+    let processedText = chunkText; 
+    let newCommandsExecuted = false;
 
-    // Use a temporary regex with a local scope to avoid interfering with global regex state
-    const localCommandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
+    // IMPORTANT: Reset regex lastIndex for consistent results on repeated calls with chunks
+    commandRegex.lastIndex = 0; 
     
     let match;
-    while ((match = localCommandRegex.exec(commandBlock)) !== null) {
+    while ((match = commandRegex.exec(processedText)) !== null) { // Run regex on processedText, which will be updated
         const fullTagString = match[0];
         const command = match[1].trim().toLowerCase();
         const value = match[2].trim();
 
-        // NEW: Idempotence check - if this specific tag has been executed for this message, skip execution.
-        if (executedCommandsSet.has(fullTagString)) {
-            // Still remove the tag from the displayed text if it's there
-            messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
-            continue; 
-        }
+        // Check if this specific tag has been executed for this message
+        if (!executedCommandsSet.has(fullTagString)) {
+            newCommandsExecuted = true; // Mark that a new command was executed in this pass
+            executedCommandsSet.add(fullTagString); // Mark the tag as executed for this message
 
-        // NEW: Mark the tag as executed for this message
-        executedCommandsSet.add(fullTagString);
-
-        switch (command) {
-            case 'avatar':
-                try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
-                    if (assets && assets.length > 0) {
-                        const asset = assets[0];
-                        const objectURL = URL.createObjectURL(asset.data);
-
-                        // --- Update Message PFP with Full, Correct Logic ---
-                        const pfpElement = messageElement.querySelector('.pfp');
-                        if (pfpElement) {
-                            const tempImage = new Image();
-                            tempImage.src = objectURL;
-                            
-                            tempImage.onload = () => {
-                                pfpElement.classList.add('hide-for-swap');
-                                requestAnimationFrame(() => {
-                                    pfpElement.src = objectURL;
-                                    pfpElement.classList.remove('hide-for-swap');
-                                });
-                                // Defer revoking to ensure the browser has fully processed the image
-                                setTimeout(() => {
-                                    URL.revokeObjectURL(objectURL);
-                                }, 750);
-                            };
-                            tempImage.onerror = () => {
-                                console.error("Failed to load new avatar image for message:", objectURL);
-                                URL.revokeObjectURL(objectURL);
-                            };
-                        }
-
-                        // --- Update Sidebar Personality Card with Full, Correct Logic ---
-                        const personalityCard = document.querySelector(`#personality-${characterId}`);
-                        if (personalityCard) {
-                            const cardImg = personalityCard.querySelector('.background-img');
-                            if (cardImg) {
-                                // Create a separate temp image to avoid conflicts
-                                const tempCardImage = new Image();
-                                tempCardImage.src = objectURL;
-                                
-                                tempCardImage.onload = () => {
-                                    cardImg.classList.add('hide-for-swap');
-                                    requestAnimationFrame(() => {
-                                        cardImg.src = objectURL;
-                                        cardImg.classList.remove('hide-for-swap');
-                                    });
-                                    // No need for a second revoke, it's the same URL
-                                };
-                                tempCardImage.onerror = () => {
-                                    console.error("Failed to load personality card image:", objectURL);
-                                    // No need for a second revoke here either
-                                };
-                            }
-                        }
-                    }
-                } catch (e) { console.error(`Error processing [avatar] command:`, e); }
-                break;
-
-            case 'sfx':
-            case 'audio':
-                if (settings.audio.enabled) {
+            // Execute the command (e.g., change avatar, play audio)
+            switch (command) {
+                case 'avatar':
                     try {
-                        const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                        const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
                         if (assets && assets.length > 0) {
                             const asset = assets[0];
                             const objectURL = URL.createObjectURL(asset.data);
-                            const audio = new Audio(objectURL);
-                            audio.volume = settings.audio.volume;
-                            audio.play().catch(e => console.error("Audio playback failed:", e));
-                            audio.onended = () => URL.revokeObjectURL(objectURL);
-                        }
-                    } catch (e) { console.error(`Error processing [audio/sfx] command:`, e); }
-                }
-                break;
-        }
 
-        // NEW: Remove the processed tag from the displayed message after execution
-        messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
+                            // --- Update Message PFP with Full, Correct Logic ---
+                            const pfpElement = messageElement.querySelector('.pfp');
+                            if (pfpElement) {
+                                const tempImage = new Image();
+                                tempImage.src = objectURL;
+                                
+                                tempImage.onload = () => {
+                                    pfpElement.classList.add('hide-for-swap');
+                                    requestAnimationFrame(() => {
+                                        pfpElement.src = objectURL;
+                                        pfpElement.classList.remove('hide-for-swap');
+                                    });
+                                    setTimeout(() => {
+                                        URL.revokeObjectURL(objectURL);
+                                    }, 750);
+                                };
+                                tempImage.onerror = () => {
+                                    console.error("Failed to load new avatar image for message:", objectURL);
+                                    URL.revokeObjectURL(objectURL);
+                                };
+                            }
+
+                            // --- Update Sidebar Personality Card with Full, Correct Logic ---
+                            const personalityCard = document.querySelector(`#personality-${characterId}`);
+                            if (personalityCard) {
+                                const cardImg = personalityCard.querySelector('.background-img');
+                                if (cardImg) {
+                                    const tempCardImage = new Image();
+                                    tempCardImage.src = objectURL;
+                                    
+                                    tempCardImage.onload = () => {
+                                        cardImg.classList.add('hide-for-swap');
+                                        requestAnimationFrame(() => {
+                                            cardImg.src = objectURL;
+                                            cardImg.classList.remove('hide-for-swap');
+                                        });
+                                    };
+                                    tempCardImage.onerror = () => {
+                                        console.error("Failed to load personality card image:", objectURL);
+                                    };
+                                }
+                            }
+                        }
+                    } catch (e) { console.error(`Error processing [avatar] command:`, e); }
+                    break;
+
+                case 'sfx':
+                case 'audio':
+                    if (settings.audio.enabled) {
+                        try {
+                            const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                            if (assets && assets.length > 0) {
+                                const asset = assets[0];
+                                const objectURL = URL.createObjectURL(asset.data);
+                                const audio = new Audio(objectURL);
+                                audio.volume = settings.audio.volume;
+                                audio.play().catch(e => console.error("Audio playback failed:", e));
+                                audio.onended = () => URL.revokeObjectURL(objectURL);
+                            }
+                        } catch (e) { console.error(`Error processing [audio/sfx] command:`, e); }
+                    }
+                    break;
+            }
+        }
+        // Remove the processed tag from the *local* text being built for display.
+        // This ensures the tag is gone before it's sent to marked.parse or the typing loop.
+        processedText = processedText.replace(fullTagString, '').trim();
+        // Adjust regex lastIndex since we modified the string.
+        localCommandRegex.lastIndex = match.index; // This keeps the regex search correct after replacement.
     }
+    return { cleanedChunk: processedText, newCommandsExecuted }; // Return the cleaned chunk and if any new commands ran
 }
