@@ -100,7 +100,7 @@ form {
 /* === FIX 1: FORM DIMENSIONS === */
 #form-add-personality {
     display: none;
-    width: 72rem;
+    /*width: 72rem; */
     max-width: 95vw; /* Don't get wider than the screen */
     height: 100%; /* Fill the parent container */
 }
@@ -1505,9 +1505,9 @@ input[name="currentChat"][value="none"] {
 }
 
 .asset-details-section {
-    flex: 1 1 300px; /* Allow details panel to grow and shrink, with a base of 400px */
-    min-width: 300px;
-    max-width: 500px; /* Provide a max width for large screens */
+    flex: 1; /* Shorthand for flex-grow: 1, flex-shrink: 1, flex-basis: 0% */
+    min-width: 280px; /* A slightly smaller minimum width for flexibility */
+    max-width: 450px; /* A reasonable max width */
 }
 
 /* Headers within columns */
