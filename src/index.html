@@ -298,45 +298,6 @@ The following are asset triggers:
 						<!-- ==  REBUILT MEDIA LIBRARY STEP  == -->
 						<!-- ================================== -->
 						<div class="step" id="media-library-step">
-                            <!-- New Sections for Character and State Management -->
-                            <div class="form-section collapsable-section active">
-                                <div class="collapsable-header">
-                                    <h3>Characters</h3>
-                                    <button type="button" class="btn-collapse"></button>
-                                </div>
-                                <div class="collapsable-content">
-                                    <div id="charactersList" class="selection-list horizontal-list mb-3">
-                                        <!-- Character buttons will be rendered here by JS -->
-                                    </div>
-                                    <button type="button" id="btnAddCharacter" class="btn btn-secondary btn-sm" disabled><i class="fas fa-plus-circle me-2"></i>Add Character</button>
-                                </div>
-                            </div>
-
-                            <div class="form-section collapsable-section active">
-                                <div class="collapsable-header">
-                                    <h3>States for Current Character</h3>
-                                    <button type="button" class="btn-collapse"></button>
-                                </div>
-                                <div class="collapsable-content">
-                                    <div id="statesList" class="selection-list horizontal-list mb-3">
-                                        <!-- State buttons will be rendered here by JS -->
-                                    </div>
-                                    <button type="button" id="btnAddState" class="btn btn-secondary btn-sm" disabled><i class="fas fa-plus-circle me-2"></i>Add State</button>
-                                </div>
-                            </div>
-
-                            <div class="form-section collapsable-section active">
-                                <div class="collapsable-header">
-                                    <h3>Upload Assets</h3>
-                                    <button type="button" class="btn-collapse"></button>
-                                </div>
-                                <div class="collapsable-content">
-                                    <p class="form-text text-muted mb-3">Upload image (avatar) or audio (sfx) files. Files will be tagged automatically based on type and filename. Select a Character and State first!</p>
-                                    <button type="button" id="btn-upload-asset" class="btn btn-primary mb-3" disabled>Select a State to Upload</button>
-                                    <input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
-                                </div>
-                            </div>
-
 							<div class="media-library-layout">
 								<div class="tag-explorer">
 									<h3>Tags</h3>
@@ -348,9 +309,12 @@ The following are asset triggers:
 								<div class="gallery-main">
 									<div class="gallery-header">
 										<h3 id="gallery-title">All Assets</h3>
-										<!-- The upload button is now managed in a separate collapsable section above -->
+										<button type="button" class="btn-with-icon" id="btn-upload-asset">
+											<span class="material-symbols-outlined">upload_file</span>
+											Upload
+										</button>
 									</div>
-									
+									<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
 									<div id="asset-manager-gallery">
 										<!-- Asset cards will be injected here by JS -->
 									</div>
@@ -369,14 +333,9 @@ The following are asset triggers:
 
 			<!-- The Asset Detail View remains, but is now controlled by the new system -->
 			<div id="asset-detail-view" style="display: none;">
-				<div class="asset-detail-header"> <!-- NEW: Added header for back button -->
-                    <button class="btn-textual" id="btn-asset-detail-back">BACK TO LIBRARY</button>
-                </div>
-                <div id="asset-detail-preview"></div>
+				<div id="asset-detail-preview"></div>
 				<div id="asset-detail-info">
-					<p id="asset-detail-name"></p>
-                    <p id="asset-detail-type"></p> <!-- New element for asset type -->
-                    <p id="asset-detail-value"></p> <!-- New element for asset value -->
+					<h3 id="asset-detail-name"></h3>
 					<div class="asset-detail-body">
 						<div class="asset-detail-section">
 							<h4>Tags</h4>
@@ -392,7 +351,7 @@ The following are asset triggers:
 							<span class="material-symbols-outlined">delete</span>
 							Delete Asset
 						</button>
-						<!-- Back button moved to header for consistency -->
+						<button id="btn-asset-detail-back">Back to Library</button>
 					</div>
 				</div>
 			</div>

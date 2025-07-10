@@ -1,9 +1,5 @@
-// FILE: src/services/Overlay.service.js
-
-import { showElement, hideElement } from '../utils/helpers.js'; // Ensure .js extension
-import * as stepperService from './Stepper.service.js';        // Ensure .js extension
-import * as personalityService from './Personality.service.js'; // NEW: Import personalityService to fetch personality by ID
-
+import { showElement, hideElement } from '../utils/helpers';
+import * as stepperService from './Stepper.service';
 // Import the component initializers
 import { initializeAddPersonalityForm } from '../components/AddPersonalityForm.component.js';
 import { initializeAssetManagerComponent } from '../components/AssetManager.component.js';
@@ -13,38 +9,15 @@ const overlay = document.querySelector(".overlay");
 const overlayItems = overlay.querySelector(".overlay-content").children;
 const personalityForm = document.querySelector("#form-add-personality");
 
-/**
- * Shows the Add Personality Form, typically for creating a brand new personality.
- * This form will be pre-filled with the draft personality details if an ID is provided.
- * @param {string|number|null} [personalityId=null] - The ID of the draft personality to edit, or null for a brand new one.
- */
-export function showAddPersonalityForm(personalityId = null) { // <-- MODIFIED: Now accepts personalityId
+export function showAddPersonalityForm() {
     showElement(overlay, false);
     showElement(personalityForm, false);
-    // Initialize components with the provided personalityId (null for truly new, or the draft ID)
-    initializeAddPersonalityForm(personalityId);
-    // When showing the Add/Edit form, we pass the personalityId to the AssetManagerComponent
-    // It will then handle loading characters/states for this personality.
-    initializeAssetManagerComponent(personalityId); 
-    console.log(`Overlay: showAddPersonalityForm for ID: ${personalityId || 'new draft'}`);
+    // Initialize the components without a specific personality ID for a new form
+    initializeAddPersonalityForm(null); // <-- MODIFIED: Pass null characterId for new personality
+    initializeAssetManagerComponent(null); // <-- MODIFIED: Pass null characterId for new personality
 }
 
-/**
- * Shows the Edit Personality Form, populating it with an existing personality's data.
- * @param {string|number} personalityId - The ID of the personality to edit.
- */
-export async function showEditPersonalityForm(personalityId) { // <-- MODIFIED: Now accepts personalityId only
-    if (personalityId === null || typeof personalityId === 'undefined') {
-        console.error("Overlay.service: showEditPersonalityForm called without a valid personalityId.");
-        return;
-    }
-
-    const personality = await personalityService.get(personalityId);
-    if (!personality) {
-        console.error(`Overlay.service: Personality with ID ${personalityId} not found for editing.`);
-        return;
-    }
-
+export function showEditPersonalityForm(personality) {
     // Populate the form with the personality data
     for (const key in personality) {
         if (key === 'toneExamples') {
@@ -54,34 +27,25 @@ export async function showEditPersonalityForm(personalityId) { // <-- MODIFIED: 
             });
 
             for (const [index, tone] of personality.toneExamples.entries()) {
-                const inputSelector = `input[name="tone-example-${index + 1}"]`;
-                let input = personalityForm.querySelector(inputSelector);
-                if (!input && index > 0) { // If it's not the first one and input doesn't exist, create it
-                    input = document.createElement('input');
-                    input.type = 'text';
-                    input.name = `tone-example-${index + 1}`;
-                    input.classList.add('tone-example', 'form-control'); // Add form-control class for styling
-                    input.placeholder = 'Tone example';
-                    const btnAddToneExample = personalityForm.querySelector("#btn-add-tone-example");
-                    if(btnAddToneExample) btnAddToneExample.before(input);
+                if (index === 0) {
+                    const input = personalityForm.querySelector(`input[name="tone-example-1"]`);
+                    if(input) input.value = tone; // Check if input exists
+                    continue;
                 }
-                if(input) input.value = tone;
-            }
-            // Ensure any excess tone examples from a previous, longer personality are cleared
-            const existingToneExamplesCount = personalityForm.querySelectorAll('.tone-example').length;
-            if (existingToneExamplesCount > personality.toneExamples.length) {
-                for (let i = personality.toneExamples.length; i < existingToneExamplesCount; i++) {
-                    const inputToRemove = personalityForm.querySelector(`input[name="tone-example-${i + 1}"]`);
-                    if (inputToRemove && i > 0) { // Don't remove the first one
-                        inputToRemove.remove();
-                    } else if (inputToRemove && i === 0) { // Clear the first one if it's excess
-                        inputToRemove.value = '';
-                    }
-                }
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = `tone-example-${index + 1}`; // Ensure unique names
+                input.classList.add('tone-example');
+                input.placeholder = 'Tone example';
+                input.value = tone;
+                // Append before the add button
+                const btnAddToneExample = personalityForm.querySelector("#btn-add-tone-example");
+                if(btnAddToneExample) btnAddToneExample.before(input); // Check if button exists
             }
         } else {
             const input = personalityForm.querySelector(`[name="${key}"]`);
-            if (input) {
+            if (input) { // Ensure input element exists before setting value
+                // Handle checkbox inputs specially
                 if (input.type === 'checkbox') {
                     input.checked = personality[key];
                 } else {
@@ -92,10 +56,9 @@ export async function showEditPersonalityForm(personalityId) { // <-- MODIFIED: 
     }
     showElement(overlay, false);
     showElement(personalityForm, false);
-    // Initialize components with the actual personalityId for editing
-    initializeAddPersonalityForm(personalityId); 
-    initializeAssetManagerComponent(personalityId); 
-    console.log(`Overlay: showEditPersonalityForm for ID: ${personalityId}`);
+    // Initialize the components with the personality's ID for editing
+    initializeAddPersonalityForm(personality.id); // <-- MODIFIED: Pass personality.id
+    initializeAssetManagerComponent(personality.id); // <-- MODIFIED: Pass personality.id
 }
 
 export function showChangelog() {
@@ -115,9 +78,9 @@ export function closeOverlay() {
             // Remove all but the first tone example input and clear its value
             item.querySelectorAll('.tone-example').forEach((element, index) => {
                 if (index === 0) {
-                    element.value = '';
+                    element.value = ''; // Clear the first one's value
                 } else {
-                    element.remove();
+                    element.remove(); // Remove subsequent ones
                 }
             });
             // Reset checkboxes
@@ -132,5 +95,4 @@ export function closeOverlay() {
             }
         }
     }
-    console.log('Overlay closed and forms reset.');
 }

@@ -1,5 +1,3 @@
-// FILE: src/services/Db.service.js
-
 import { Dexie } from 'dexie';
 
 export async function setupDB() {
@@ -8,10 +6,9 @@ export async function setupDB() {
         db = new Dexie("chatDB");
     } catch (error) {
         console.error(error);
-        alert("Failed to setup Dexie (database).");
+        alert("failed to setup dexie (database)");
         return;
     }
-
     db.version(3).stores({
         chats: `
             ++id,
@@ -35,6 +32,7 @@ export async function setupDB() {
         `
     });
 
+    // Version 5: Adding the Asset Manager table (universal)
     db.version(5).stores({
         assets: `
             ++id,
@@ -46,22 +44,12 @@ export async function setupDB() {
         `
     });
 
+    // Version 6: Modifying the assets table for per-character media libraries
+    // CRITICAL FIX: Rewritten assets store definition as a simple, unambiguous string.
+    // This defines the primary key (id), a regular index (characterId), and a multi-entry index (*tags).
+    // Other fields (name, type, data, timestamp) are stored but do not require explicit indexing if not used for querying.
     db.version(6).stores({
-        assets: `++id, personalityId, name, type, *tags, data, timestamp`
-    });
-
-    // Version 72: Introducing Characters and States, and linking Assets to them.
-    // This defines the new tables and updates the existing 'assets' table for the new hierarchy.
-    // IMPORTANT: This version number (72) must be higher than the effective current database version (710).
-    // If your environment multiplies version numbers by 10 (e.g., 71 -> 710), then 72 should become 720.
-    db.version(72).stores({
-        characters: '++id, personalityId, name',
-        states: '++id, characterId, name',
-        assets: `++id, personalityId, characterId, stateId, name, type, value, *tags, data, timestamp`
-    }).upgrade(async tx => {
-        // Migration from previous version (e.g., effective 710) to effective 720.
-        // For existing 'assets' records, new fields (characterId, stateId, value) will be 'undefined'.
-        // This is acceptable initially, and new asset uploads will populate them.
+        assets: `++id, characterId, *tags` // <-- The CORRECTED, bulletproof string definition
     });
     
     return db;
