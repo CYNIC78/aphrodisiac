@@ -14,8 +14,8 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    // CORRECT INITIALIZATION from the correct library
-    const genAI = new GoogleGenAI(settings.apiKey);
+    // REVERTED TO WORKING SYNTAX: The object-based initialization was correct.
+    const genAI = new GoogleGenAI({ apiKey: settings.apiKey });
 
     const systemInstruction = {
         role: "system",
@@ -89,7 +89,7 @@ async function regenerate(responseElement, db) {
     const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - 1);
+    chat.content = chat.content.slice(0, elementIndex - a);
     await db.chats.put(chat);
     await chatsService.loadChat(chat.id, db);
     await send(message, db);

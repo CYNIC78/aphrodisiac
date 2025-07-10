@@ -17,11 +17,10 @@ apiKeyInput.addEventListener("input", () => {
             return;
         }
 
-        // CORRECTED INITIALIZATION: Pass the API key directly as a string.
-        const genAI = new GoogleGenAI(apiKey);
+        // REVERTED TO WORKING SYNTAX: The object-based initialization was correct.
+        const genAI = new GoogleGenAI({ apiKey: apiKey });
         
         try {
-            // Use the modern getGenerativeModel method for the test call.
             const model = genAI.getGenerativeModel({ model: "gemini-pro" });
             await model.generateContent("test");
 
