@@ -1494,20 +1494,20 @@ input[name="currentChat"][value="none"] {
 
 /* Column Widths */
 .asset-groups-panel {
-    flex: 0 0 250px; /* Fixed width for the groups panel */
-    min-width: 200px;
-    max-width: 300px;
+    flex: 0 0 280px; /* Slightly wider fixed width for groups panel */
+    min-width: 250px;
+    max-width: 350px;
 }
 
 .asset-gallery-section {
-    flex-grow: 2; /* Gallery takes more space */
-    min-width: 300px;
+    flex-grow: 3; /* Gallery takes significantly more space, adjust from 2 to 3 */
+    min-width: 400px; /* Ensure a decent minimum width */
 }
 
 .asset-details-section {
-    flex: 0 0 350px; /* Fixed width for details panel */
-    min-width: 300px;
-    max-width: 400px;
+    flex: 1 1 400px; /* Allow details panel to grow and shrink, with a base of 400px */
+    min-width: 350px;
+    max-width: 500px; /* Provide a max width for large screens */
 }
 
 /* Headers within columns */
