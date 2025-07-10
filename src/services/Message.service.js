@@ -2,7 +2,7 @@
 
 //handles sending messages to the api
 
-import { GoogleGenAI } from "@google/genai"
+import { GoogleGenAI } from "@google/genai"; // CORRECT LIBRARY, as you are already using.
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
@@ -17,21 +17,35 @@ export async function send(msg, db) {
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
-    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
-    const config = {
-        maxOutputTokens: parseInt(settings.maxTokens),
-        temperature: settings.temperature / 100,
-        systemPrompt: settingsService.getSystemPrompt(),
-        safetySettings: settings.safetySettings,
-        responseMimeType: "text/plain"
+    // Use the correct class name from the correct library: GoogleGenAI
+    const genAI = new GoogleGenAI(settings.apiKey);
+
+    // --- REBUILT PROMPT STRUCTURE ---
+    // This is the new, correct way to instruct the AI using the modern library.
+    const systemInstruction = {
+        role: "system",
+        parts: [
+            { text: settingsService.getSystemPrompt() },
+            { text: "---" },
+            { text: `CHARACTER PROMPT (Your personality):\n${selectedPersonality.prompt}` },
+            { text: "---" },
+            { text: `TAG PROMPT (Your technical command reference):\n${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}` }
+        ]
     };
-    
-    if (!await chatsService.getCurrentChat(db)) { 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash',
-            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-        });
-        const title = response.text;
+
+    const model = genAI.getGenerativeModel({
+        model: settings.model,
+        systemInstruction: systemInstruction, // All instructions are now correctly passed here.
+        safetySettings: settings.safetySettings
+    });
+
+    if (!await chatsService.getCurrentChat(db)) {
+        // Use a simple one-off model for title generation
+        const titleGenModel = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const prompt = "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg;
+        const result = await titleGenModel.generateContent(prompt);
+        const response = await result.response;
+        const title = response.text();
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
@@ -44,27 +58,38 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
     
-    const history = [
-        { role: "user", parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }] },
-        { role: "model", parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }] }
-    ];
-    
-    if (selectedPersonality.toneExamples) {
+    // --- CLEANED HISTORY ---
+    // History no longer contains any instructions. It is only the pure conversation.
+    const history = [];
+    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0] !== '') {
+        // Add a clear "understanding" message before tone examples
+        history.push({ role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] });
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
+    // Add the actual conversation history
+    history.push(...currentChat.content.slice(0, -1).map(message => ({ // Use slice to exclude the message we just added
+        role: message.role,
+        parts: message.parts,
+    })));
     
-    const chat = ai.chats.create({ model: settings.model, history, config });
+    const chat = model.startChat({
+        history: history,
+        generationConfig: {
+            maxOutputTokens: parseInt(settings.maxTokens),
+            temperature: settings.temperature,
+        }
+    });
 
     let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
-        messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
+        // The reminder is still sent with the user's message, as planned.
+        messageToSendToAI += `\n\n[SYSTEM REMINDER: ${selectedPersonality.reminder}]`;
     }
     
-    const stream = await chat.sendMessageStream({ message: messageToSendToAI });
+    const result = await chat.sendMessageStream(messageToSendToAI);
     
-    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
+    const reply = await insertMessage("model", "", selectedPersonality.name, result.stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
@@ -169,8 +194,10 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             // Live Path: Stream the full raw message.
             let fullRawText = "";
             try {
+                // The new SDK returns the stream directly in the result object
                 for await (const chunk of netStream) {
-                    if (chunk && chunk.text) { fullRawText += chunk.text; }
+                    const chunkText = chunk.text();
+                    if (chunkText) { fullRawText += chunkText; }
                 }
                 
                 if (typingSpeed > 0) {
@@ -229,70 +256,27 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
         const value = match[2].trim();
 
         switch (command) {
-            case 'image':
-                try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'image'], characterId);
+            case 'avatar':
+                 try {
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'avatar', 'image'], characterId);
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
-                        
-                        // === START OF REPLACED CODE BLOCK (PFP) ===
-                        const pfpElement = messageElement.querySelector('.pfp');
-                        if (pfpElement) {
-                            const tempImage = new Image();
-                            tempImage.src = objectURL; // Start loading the new image in the background
-                            
-                            tempImage.onload = () => {
-                                // Once the new image is fully loaded:
-                                pfpElement.classList.add('hide-for-swap'); // Instantly hide the current PFP
-                                // Use requestAnimationFrame to ensure CSS applies before source change
-                                requestAnimationFrame(() => {
-                                    pfpElement.src = objectURL; // Swap the image source
-                                    pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
-                                });
-                                // Defer revoking to ensure the browser has fully processed the image
-                                setTimeout(() => {
-                                    URL.revokeObjectURL(objectURL);
-                                }, 750); // 750ms should be plenty for loading + 500ms fade-in
-                            };
-                            tempImage.onerror = () => {
-                                console.error("Failed to load new avatar image for message:", objectURL);
-                                URL.revokeObjectURL(objectURL); // Still revoke if failed to load
-                            };
-                        }
-                        // === END OF REPLACED CODE BLOCK (PFP) ===
 
-                        // === START OF REPLACED CODE BLOCK (Personality Card) ===
+                        // Update message PFP
+                        const pfpElement = messageElement.querySelector('.pfp');
+                        if (pfpElement) pfpElement.src = objectURL;
+
+                        // Update main personality card in sidebar
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
                         if(personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
-                            if(cardImg) {
-                                const tempImage = new Image();
-                                tempImage.src = objectURL; // Preload new image for the card
-    
-                                tempImage.onload = () => {
-                                    // Once the new image is fully loaded:
-                                    cardImg.classList.add('hide-for-swap'); // Instantly hide the current card image
-                                    requestAnimationFrame(() => {
-                                        cardImg.src = objectURL; // Swap the image source
-                                        cardImg.classList.remove('hide-for-swap'); // Let CSS fade it in
-                                    });
-                                    // Defer revoking to ensure the browser has fully processed the image
-                                    setTimeout(() => {
-                                        URL.revokeObjectURL(objectURL);
-                                    }, 750); // 750ms should be plenty for loading + 500ms fade-in
-                                };
-                                tempImage.onerror = () => {
-                                    console.error("Failed to load personality card image:", objectURL);
-                                    URL.revokeObjectURL(objectURL);
-                                };
-                            }
+                            if(cardImg) cardImg.src = objectURL;
                         }
-                        // === END OF REPLACED CODE BLOCK (Personality Card) ===
                     }
-                } catch (e) { console.error(`Error processing image command:`, e); }
+                } catch (e) { console.error(`Error processing avatar command:`, e); }
                 break;
-
+            case 'sfx':
             case 'audio':
                 if (settings.audio.enabled) {
                     try {
