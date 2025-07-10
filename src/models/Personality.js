@@ -1,4 +1,5 @@
-import { Character } from './Character.js';
+// Remove 'import { Character } from './Character.js';' as it's no longer needed in this model
+// import { Character } from './Character.js';
 
 export class Personality {
     constructor(
@@ -8,8 +9,8 @@ export class Personality {
         prompt = "",
         tagPrompt = "",
         reminder = "",
-        toneExamples = [],
-        characters = [] // ADD THIS NEW PARAMETER WITH A DEFAULT EMPTY ARRAY
+        toneExamples = []
+        // Removed 'characters = []' from parameters
     ) {
         this.name = name;
         this.image = image;
@@ -18,6 +19,6 @@ export class Personality {
         this.tagPrompt = tagPrompt;
         this.reminder = reminder;
         this.toneExamples = toneExamples;
-        this.characters = characters.map(charData => new Character(charData)); // ADD THIS NEW LINE
+        // Removed 'this.characters = characters.map(...)', as characters are now linked by ID in the DB
     }
 }
