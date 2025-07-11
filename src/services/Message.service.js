@@ -137,8 +137,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         });
                         setTimeout(() => {
                             if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
-                            // Only revoke if it's a blob URL that was created here
-                            if (avatarObjectUrl.startsWith('blob:')) URL.revokeObjectURL(avatarObjectUrl);
+                            // REMOVED URL.revokeObjectURL(avatarObjectUrl) from here
                         }, 500);
                     }
 
@@ -159,19 +158,16 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             });
                             setTimeout(() => {
                                 if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
-                                // Only revoke if it's a blob URL that was created here for the sidebar as well
-                                if (avatarObjectUrl.startsWith('blob:')) URL.revokeObjectURL(avatarObjectUrl);
+                                // REMOVED URL.revokeObjectURL(avatarObjectUrl) from here
                             }, 500);
                         } else {
                             // Fallback if no wrapper, directly set src (less ideal for crossfade)
                             const img = personalityCard.querySelector('.background-img');
                             if (img) {
                                 img.src = avatarObjectUrl;
-                                // Only revoke if it's a blob URL
-                                if (avatarObjectUrl.startsWith('blob:')) setTimeout(() => URL.revokeObjectURL(avatarObjectUrl), 750);
+                                // REMOVED setTimeout(() => URL.revokeObjectURL(avatarObjectUrl), 750); from here
                             } else {
-                                // If no image element, and it's a blob, revoke to prevent memory leak
-                                if (avatarObjectUrl.startsWith('blob:')) URL.revokeObjectURL(avatarObjectUrl);
+                                // If no image element, and it's a blob, REMOVED URL.revokeObjectURL(avatarObjectUrl); from here
                             }
                         }
                     }
