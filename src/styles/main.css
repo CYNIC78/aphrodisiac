@@ -1746,9 +1746,8 @@ input[name="currentChat"][value="none"] {
     margin-right: 5px;
     font-size: 0.8em;
     opacity: 0.7;
-    /* When ready to hide:
     display: none;
-    */
+    
 }
 
 
