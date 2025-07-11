@@ -85,15 +85,35 @@ export async function send(msg, db) {
     settingsService.saveSettings();
 }
 
-async function regenerate(responseElement, db) {
-    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
-    const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+// NEW: Generalized function to handle regeneration from user or model messages
+async function handleRegenerate(clickedElement, db) {
     const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - 1);
+    if (!chat) return;
+
+    const elementIndex = parseInt(clickedElement.dataset.messageIndex, 10);
+    let textToResend;
+    let sliceEndIndex;
+
+    if (clickedElement.classList.contains('message-model')) {
+        // Clicked on AI message: resend the user message *before* it.
+        if (elementIndex === 0) return; // Cannot regenerate from the first AI message if there's no user message before it.
+        textToResend = chat.content[elementIndex - 1].parts[0].text;
+        sliceEndIndex = elementIndex - 1;
+    } else {
+        // Clicked on User message: resend this message.
+        textToResend = chat.content[elementIndex].parts[0].text;
+        sliceEndIndex = elementIndex;
+    }
+
+    // Truncate the chat history to the point before the message we're regenerating from.
+    chat.content = chat.content.slice(0, sliceEndIndex);
     await db.chats.put(chat);
+
+    // Visually reload the chat to the truncated state, then send the message to get a new response.
     await chatsService.loadChat(chat.id, db);
-    await send(message, db);
+    await send(textToResend, db);
 }
+
 
 function wrapCommandsInSpan(text) {
     const commandRegex = /\[(.*?):(.*?)]/g;
@@ -232,75 +252,88 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
-    const deleteButton = messageElement.querySelector('.btn-delete'); // NEW
+    const deleteButton = messageElement.querySelector('.btn-delete');
+    const refreshButton = messageElement.querySelector('.btn-refresh'); // NEW
     const messageTextDiv = messageElement.querySelector('.message-text');
 
-    if (!editButton || !saveButton || !messageTextDiv || !deleteButton) return; // MODIFIED
+    if (!messageTextDiv) return;
 
-    editButton.addEventListener('click', async () => {
-        const index = parseInt(messageElement.dataset.messageIndex, 10);
-        const currentChat = await chatsService.getCurrentChat(db);
-        const originalRawText = currentChat.content[index]?.parts[0]?.text;
+    if (editButton && saveButton) {
+        editButton.addEventListener('click', async () => {
+            const index = parseInt(messageElement.dataset.messageIndex, 10);
+            const currentChat = await chatsService.getCurrentChat(db);
+            const originalRawText = currentChat.content[index]?.parts[0]?.text;
 
-        messageTextDiv.textContent = originalRawText || messageTextDiv.innerText;
-        messageTextDiv.setAttribute("contenteditable", "true");
-        messageTextDiv.focus();
+            messageTextDiv.textContent = originalRawText || messageTextDiv.innerText;
+            messageTextDiv.setAttribute("contenteditable", "true");
+            messageTextDiv.focus();
 
-        const range = document.createRange();
-        range.selectNodeContents(messageTextDiv);
-        range.collapse(false);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
+            const range = document.createRange();
+            range.selectNodeContents(messageTextDiv);
+            range.collapse(false);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
 
-        editButton.style.display = 'none';
-        saveButton.style.display = 'inline-block';
-    });
+            editButton.style.display = 'none';
+            saveButton.style.display = 'inline-block';
+        });
 
-    saveButton.addEventListener('click', async () => {
-        messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText;
-        const index = parseInt(messageElement.dataset.messageIndex, 10);
+        saveButton.addEventListener('click', async () => {
+            messageTextDiv.removeAttribute("contenteditable");
+            const newRawText = messageTextDiv.innerText;
+            const index = parseInt(messageElement.dataset.messageIndex, 10);
 
-        await updateMessageInDatabase(index, newRawText, db);
+            await updateMessageInDatabase(index, newRawText, db);
 
-        const chat = await chatsService.getCurrentChat(db);
-        const messageData = chat.content[index];
-        const characterId = messageData?.personalityid;
-        const sender = messageData?.role;
+            const chat = await chatsService.getCurrentChat(db);
+            const messageData = chat.content[index];
+            const characterId = messageData?.personalityid;
+            const sender = messageData?.role;
 
-        const settings = settingsService.getSettings();
-        await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
+            const settings = settingsService.getSettings();
+            await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
 
-        editButton.style.display = 'inline-block';
-        saveButton.style.display = 'none';
-    });
+            editButton.style.display = 'inline-block';
+            saveButton.style.display = 'none';
+        });
+    }
 
-    // NEW DELETE BUTTON LISTENER
-    deleteButton.addEventListener('click', async () => {
-        if (!confirm("Are you sure you want to delete this message? This action cannot be undone.")) {
-            return;
-        }
+    if (deleteButton) {
+        deleteButton.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to delete this message? This action cannot be undone.")) {
+                return;
+            }
 
-        const chatId = chatsService.getCurrentChatId();
-        const indexToDelete = parseInt(messageElement.dataset.messageIndex, 10);
+            const chatId = chatsService.getCurrentChatId();
+            const indexToDelete = parseInt(messageElement.dataset.messageIndex, 10);
 
-        const success = await chatsService.deleteMessage(chatId, indexToDelete, db);
+            const success = await chatsService.deleteMessage(chatId, indexToDelete, db);
 
-        if (success) {
-            // Remove from UI
-            messageElement.remove();
+            if (success) {
+                messageElement.remove();
+                const messageContainer = document.querySelector(".message-container");
+                const allMessages = messageContainer.querySelectorAll('.message');
+                allMessages.forEach((msgEl, newIndex) => {
+                    msgEl.dataset.messageIndex = newIndex;
+                });
+            } else {
+                alert("Failed to delete the message. Please check the console for errors.");
+            }
+        });
+    }
 
-            // CRITICAL: Re-index all subsequent messages in the DOM
-            const messageContainer = document.querySelector(".message-container");
-            const allMessages = messageContainer.querySelectorAll('.message');
-            allMessages.forEach((msgEl, newIndex) => {
-                msgEl.dataset.messageIndex = newIndex;
-            });
-        } else {
-            alert("Failed to delete the message. Please check the console for errors.");
-        }
-    });
+    // Attach listener for the refresh button if it exists
+    if (refreshButton) {
+        refreshButton.addEventListener("click", async () => {
+            try {
+                await handleRegenerate(messageElement, db);
+            } catch (error) {
+                console.error(error);
+                alert("Error during regeneration.");
+            }
+        });
+    }
 }
 
 
@@ -351,7 +384,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
-    const messageIndex = messageContainer.children.length; // Get index before appending
+    const messageIndex = messageContainer.children.length;
     newMessage.dataset.messageIndex = messageIndex;
     messageContainer.append(newMessage);
 
@@ -383,12 +416,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 };
             });
         }
-
-        const refreshButton = newMessage.querySelector(".btn-refresh");
-        refreshButton.addEventListener("click", async () => {
-            try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
-        });
-
+        
         const messageContent = newMessage.querySelector(".message-text");
 
         if (!netStream) {
@@ -448,6 +476,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
                     <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
+                    <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
@@ -455,5 +484,5 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
-    return newMessage; // Return the created element
+    return newMessage;
 }
