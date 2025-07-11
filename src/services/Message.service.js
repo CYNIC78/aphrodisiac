@@ -125,7 +125,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
-                    // --- Brutal crossfade for .pfp ---
+                    // --- Crossfade .pfp in message ---
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
                         const oldImg = pfpWrapper.querySelector('.pfp');
@@ -136,39 +136,41 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         newImg.style.opacity = '0';
 
                         pfpWrapper.appendChild(newImg);
-
-                        // Force render tick before transition
                         requestAnimationFrame(() => {
                             newImg.style.opacity = '1';
                         });
 
-                        // After fade-in complete, remove old image
                         setTimeout(() => {
                             if (oldImg && oldImg.parentElement === pfpWrapper) {
                                 oldImg.remove();
                             }
                             URL.revokeObjectURL(objectURL);
-                        }, 500); // match CSS transition duration
+                        }, 500);
                     }
 
-                    // --- Sidebar card crossfade (unchanged) ---
+                    // --- Crossfade .background-img in sidebar ---
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
-                        const cardImg = personalityCard.querySelector('.background-img');
-                        if (cardImg) {
-                            const tempCardImage = new Image();
-                            tempCardImage.src = objectURL;
+                        const cardWrapper = personalityCard.querySelector('.background-img-wrapper');
+                        if (cardWrapper) {
+                            const oldImg = cardWrapper.querySelector('.background-img');
 
-                            tempCardImage.onload = () => {
-                                cardImg.classList.add('hide-for-swap');
-                                requestAnimationFrame(() => {
-                                    cardImg.src = objectURL;
-                                    cardImg.classList.remove('hide-for-swap');
-                                });
-                            };
-                            tempCardImage.onerror = () => {
-                                console.error("Failed to load personality card image:", objectURL);
-                            };
+                            const newImg = document.createElement('img');
+                            newImg.src = objectURL;
+                            newImg.className = 'background-img';
+                            newImg.style.opacity = '0';
+
+                            cardWrapper.appendChild(newImg);
+                            requestAnimationFrame(() => {
+                                newImg.style.opacity = '1';
+                            });
+
+                            setTimeout(() => {
+                                if (oldImg && oldImg.parentElement === cardWrapper) {
+                                    oldImg.remove();
+                                }
+                                URL.revokeObjectURL(objectURL);
+                            }, 500);
                         }
                     }
                 }
