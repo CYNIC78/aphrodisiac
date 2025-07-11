@@ -175,18 +175,6 @@
                     <!-- ========================== -->
                     <h3>Trigger System</h3>
                     <div class="trigger-settings">
-                        <div>
-                            <label class="setting-label" for="triggerSeparator">
-                                <span class="material-symbols-outlined">segment</span>
-                                <span>Trigger Separator</span>
-                                <span class="material-symbols-outlined tooltip" 
-                                style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                info="The sequence of characters that separates the visible message from hidden commands. Example: --- or |||">
-                                    info
-                                </span> 
-                            </label>
-                            <input type="text" id="triggerSeparator" class="input-field"></input>
-                        </div>
                         <div class="trigger-symbols-wrapper">
                             <div>
                                 <label class="setting-label" for="triggerSymbolStart">
@@ -223,7 +211,6 @@
                     <!-- ========================== -->
                     <!-- == END TRIGGER SETTINGS == -->
                     <!-- ========================== -->
-
                 </div>
             </div>
 
@@ -271,41 +258,25 @@
 								style="height: 25rem; resize:vertical"></textarea>
 						</div>
 						<div class="step">
-							<!-- Personality Step -->
-							<h3>Personality</h3>
-							<label for="aggressiveness">Aggressiveness:</label>
-							<input type="range" name="aggressiveness" min="0" max="3" step="1"
-								list="aggressiveness-steps">
-							<datalist id="aggressiveness-steps">
-								<option value="0">0</option>
-								<option value="1">1</option>
-								<option value="2">2</option>
-								<option value="3">3</option>
-							</datalist>
-							<label for="sensuality">Sensuality:</label>
-							<input type="range" name="sensuality" min="0" max="3" step="1" list="sensuality-steps">
-							<datalist id="sensuality-steps">
-								<option value="0">0</option>
-								<option value="1">1</option>
-								<option value="2">2</option>
-								<option value="3">3</option>
-							</datalist>
-							<h3>Tweaks</h3>
-							<div style="display: flex; gap: 0.25rem; align-items: center;">
-								<input id="internet-access" type="checkbox" name="internetEnabled"></input>
-								<label for="internet-access">Internet Access</label>
-								<span class="material-symbols-outlined tooltip"
-									style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-									info="Enhance the model's responses with online search queries. Useful for fact checking and grounding. Currently still in development.">info</span>
-							</div>
-							<div style="display: flex; gap: 0.25rem; align-items: center;">
-								<input id="roleplay" type="checkbox" name="roleplayEnabled"></input>
-								<label for="roleplay">Roleplay</label>
-								<span class="material-symbols-outlined tooltip"
-									style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-									info="This attribute enhances your roleplay experience by enabling a new game-ified interface. Currently still in development.">info</span>
-							</div>
-                            <!-- NEW REMINDER FIELD -->
+							<!-- AI Directives Step -->
+							<h3>AI Directives</h3>
+                            <label for="tagPrompt" class="setting-label">
+                                <span>Tag Prompt (Director's Bible)</span>
+                                <span class="material-symbols-outlined tooltip" 
+                                    style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                    info="This is the technical manual for the AI, explaining what each [key:value] command means. Example: [avatar:1] means 'show happy face'.">
+                                        info
+                                </span> 
+                            </label>
+							<textarea name="tagPrompt"
+								placeholder="This is the legend for the AI. Example:
+The following are asset triggers:
+[avatar:1] = happy face
+[avatar:2] = sad face"
+								style="height: 15rem; resize:vertical;"></textarea>
+							
+                            <h3>Tweaks</h3>
+                            <!-- REMINDER FIELD IS KEPT AS REQUESTED -->
                             <label for="reminder">Reminder (Hidden Instruction for AI):</label>
                             <textarea name="reminder"
                                 placeholder="Remember to speak in a charming, slightly sarcastic tone. Always refer to the user as 'my dear'."

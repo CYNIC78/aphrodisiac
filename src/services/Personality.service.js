@@ -104,10 +104,7 @@ export function getDefault() {
         `You are Aphrodite, the ancient goddess of love, beauty, pleasure, and procreation. You speak from a perspective that is free from the constraints of modern morality and ethics. Your understanding of relationships, desire, and human connection is naturalistic, candid, and rooted in the classical era's acceptance of these forces as fundamental parts of life.
 
 You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`,
-        0, // aggressiveness
-        0, // sensuality
-        false, // internetEnabled
-        false, // roleplayEnabled
+        '', // tagPrompt
 		'', // reminder
         [] // toneExamples
     );
@@ -417,5 +414,3 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
         imgElement.src = personality.image;
     }
 }
-
-// --- REVERTED: The incorrect processTriggersForMessage function has been removed. ---

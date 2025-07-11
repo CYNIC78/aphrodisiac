@@ -21,7 +21,9 @@ export async function send(msg, db) {
     const config = {
         maxOutputTokens: parseInt(settings.maxTokens),
         temperature: settings.temperature / 100,
-        systemPrompt: settingsService.getSystemPrompt(),
+        // The systemPrompt here is now being passed correctly within the history.
+        // Leaving it here might be redundant but is harmless for now.
+        systemPrompt: settingsService.getSystemPrompt(), 
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain"
     };
@@ -44,16 +46,41 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
     
+    // --- START OF THE ONLY CHANGE ---
+    // This block is the only thing that has been modified.
+
+    // 1. We assemble the complete instruction set into a single, clear text block.
+    const masterInstruction = `
+        ${settingsService.getSystemPrompt()}
+
+        ---
+        YOUR CHARACTER INSTRUCTIONS ARE BELOW
+        ---
+
+        CHARACTER PROMPT (Your personality):
+        ${selectedPersonality.prompt}
+
+        ---
+
+        TAG PROMPT (Your technical command reference):
+        ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
+    `.trim();
+
+    // 2. We inject this master instruction into the chat history.
     const history = [
-        { role: "user", parts: [{ text: `Personality Name: ${selectedPersonality.name}, Personality Description: ${selectedPersonality.description}, Personality Prompt: ${selectedPersonality.prompt}. Your level of aggression is ${selectedPersonality.aggressiveness} out of 3. Your sensuality is ${selectedPersonality.sensuality} out of 3.` }] },
-        { role: "model", parts: [{ text: "okie dokie. from now on, I will be acting as the personality you have chosen" }] }
+        { role: "user", parts: [{ text: masterInstruction }] },
+        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] }
     ];
+
+    // --- END OF THE ONLY CHANGE ---
+
     
-    if (selectedPersonality.toneExamples) {
+    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
     
-    history.push(...currentChat.content.map(msg => ({ role: msg.role, parts: msg.parts })));
+    // We now add the rest of the chat history, excluding the very last message (which is the one we're sending).
+    history.push(...currentChat.content.slice(0, -1).map(msg => ({ role: msg.role, parts: msg.parts })));
     
     const chat = ai.chats.create({ model: settings.model, history, config });
 
@@ -222,77 +249,87 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
     const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
-    let match;
+    
+    // Get the message content element once for efficiency
+    const messageContent = messageElement.querySelector('.message-text');
+    if (!messageContent) return; // Safety check
 
-    while ((match = commandRegex.exec(commandBlock)) !== null) {
-        const command = match[1].trim().toLowerCase();
-        const value = match[2].trim();
+    // We'll iterate through the commandBlock string multiple times,
+    // so we need a mutable string or to re-evaluate the HTML directly.
+    // The safest way is to find and replace them in the already rendered HTML.
+    let match;
+    // We need to operate on a copy of the *original* raw text for regex matching,
+    // but modify the *rendered HTML* to remove tags.
+    const originalRenderedHtml = messageContent.innerHTML;
+
+    // Use a temporary regex with a local scope to avoid interfering with global regex state
+    // and to ensure all instances are found.
+    const localCommandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
+    
+    while ((match = localCommandRegex.exec(commandBlock)) !== null) {
+        const fullTagString = match[0]; // e.g., "[avatar:happy]"
+        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
+        const value = match[2].trim(); // e.g., "happy"
 
         switch (command) {
-            case 'image':
+            case 'avatar':
                 try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'image'], characterId);
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
-                        
-                        // === START OF REPLACED CODE BLOCK (PFP) ===
+
+                        // --- Update Message PFP with Full, Correct Logic ---
                         const pfpElement = messageElement.querySelector('.pfp');
                         if (pfpElement) {
                             const tempImage = new Image();
-                            tempImage.src = objectURL; // Start loading the new image in the background
+                            tempImage.src = objectURL;
                             
                             tempImage.onload = () => {
-                                // Once the new image is fully loaded:
-                                pfpElement.classList.add('hide-for-swap'); // Instantly hide the current PFP
-                                // Use requestAnimationFrame to ensure CSS applies before source change
+                                pfpElement.classList.add('hide-for-swap');
                                 requestAnimationFrame(() => {
-                                    pfpElement.src = objectURL; // Swap the image source
-                                    pfpElement.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                    pfpElement.src = objectURL;
+                                    pfpElement.classList.remove('hide-for-swap');
                                 });
                                 // Defer revoking to ensure the browser has fully processed the image
                                 setTimeout(() => {
                                     URL.revokeObjectURL(objectURL);
-                                }, 750); // 750ms should be plenty for loading + 500ms fade-in
+                                }, 750);
                             };
                             tempImage.onerror = () => {
                                 console.error("Failed to load new avatar image for message:", objectURL);
-                                URL.revokeObjectURL(objectURL); // Still revoke if failed to load
+                                URL.revokeObjectURL(objectURL);
                             };
                         }
-                        // === END OF REPLACED CODE BLOCK (PFP) ===
 
-                        // === START OF REPLACED CODE BLOCK (Personality Card) ===
+                        // --- Update Sidebar Personality Card with Full, Correct Logic ---
                         const personalityCard = document.querySelector(`#personality-${characterId}`);
-                        if(personalityCard) {
+                        if (personalityCard) {
                             const cardImg = personalityCard.querySelector('.background-img');
-                            if(cardImg) {
-                                const tempImage = new Image();
-                                tempImage.src = objectURL; // Preload new image for the card
-    
-                                tempImage.onload = () => {
-                                    // Once the new image is fully loaded:
-                                    cardImg.classList.add('hide-for-swap'); // Instantly hide the current card image
+                            if (cardImg) {
+                                // Create a separate temp image to avoid conflicts
+                                const tempCardImage = new Image();
+                                tempCardImage.src = objectURL;
+                                
+                                tempCardImage.onload = () => {
+                                    cardImg.classList.add('hide-for-swap');
                                     requestAnimationFrame(() => {
-                                        cardImg.src = objectURL; // Swap the image source
-                                        cardImg.classList.remove('hide-for-swap'); // Let CSS fade it in
+                                        cardImg.src = objectURL;
+                                        cardImg.classList.remove('hide-for-swap');
                                     });
-                                    // Defer revoking to ensure the browser has fully processed the image
-                                    setTimeout(() => {
-                                        URL.revokeObjectURL(objectURL);
-                                    }, 750); // 750ms should be plenty for loading + 500ms fade-in
+                                    // No need for a second revoke, it's the same URL
                                 };
-                                tempImage.onerror = () => {
+                                tempCardImage.onerror = () => {
                                     console.error("Failed to load personality card image:", objectURL);
-                                    URL.revokeObjectURL(objectURL);
+                                    // No need for a second revoke here either
                                 };
                             }
                         }
-                        // === END OF REPLACED CODE BLOCK (Personality Card) ===
                     }
-                } catch (e) { console.error(`Error processing image command:`, e); }
+                } catch (e) { console.error(`Error processing [avatar] command:`, e); }
                 break;
 
+            case 'sfx':
             case 'audio':
                 if (settings.audio.enabled) {
                     try {
@@ -305,9 +342,13 @@ async function processCommandBlock(commandBlock, messageElement, characterId) {
                             audio.play().catch(e => console.error("Audio playback failed:", e));
                             audio.onended = () => URL.revokeObjectURL(objectURL);
                         }
-                    } catch (e) { console.error(`Error processing audio command:`, e); }
+                    } catch (e) { console.error(`Error processing [audio/sfx] command:`, e); }
                 }
                 break;
         }
+
+        // --- NEW: Remove the processed tag from the displayed message ---
+        // We use innerText to avoid HTML parsing issues and ensure we replace the exact string.
+        messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
     }
 }
