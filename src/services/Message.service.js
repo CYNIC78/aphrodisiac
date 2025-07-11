@@ -130,12 +130,14 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
                         tempImage.onload = () => {
                             pfpElement.classList.add('hide-for-swap');
-                            // --- NEW LINE: Force reflow ---
-                            pfpElement.offsetHeight; // This forces the browser to apply opacity:0 before the next frame
-                            requestAnimationFrame(() => {
+                            pfpElement.offsetHeight; // Force reflow (read property to ensure style is applied)
+                            
+                            // NEW: Use setTimeout to ensure a distinct render cycle for opacity: 0 before fading in
+                            setTimeout(() => {
                                 pfpElement.src = objectURL;
                                 pfpElement.classList.remove('hide-for-swap');
-                            });
+                            }, 50); // Short delay to allow browser to render opacity:0
+                            
                             setTimeout(() => URL.revokeObjectURL(objectURL), 750);
                         };
                         tempImage.onerror = () => {
@@ -153,12 +155,13 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
                             tempCardImage.onload = () => {
                                 cardImg.classList.add('hide-for-swap');
-                                // --- NEW LINE: Force reflow ---
-                                cardImg.offsetHeight; // This forces the browser to apply opacity:0 before the next frame
-                                requestAnimationFrame(() => {
+                                cardImg.offsetHeight; // Force reflow
+                                
+                                // NEW: Use setTimeout here as well for consistency and smooth fade
+                                setTimeout(() => {
                                     cardImg.src = objectURL;
                                     cardImg.classList.remove('hide-for-swap');
-                                });
+                                }, 50); // Short delay
                             };
                             tempCardImage.onerror = () => {
                                 console.error("Failed to load personality card image:", objectURL);
