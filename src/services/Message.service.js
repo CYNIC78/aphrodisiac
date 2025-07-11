@@ -6,8 +6,6 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-// NEW: Import the centralized avatar retrieval function
-import { getPersonalityAvatarUrl } from "./Personality.service.js";
 
 const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
 
@@ -79,12 +77,11 @@ export async function send(msg, db) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
 
-    // Pass the selectedPersonality object instead of just its image URL
-    const reply = await chat.sendMessageStream({ message: messageToSendToAI });
-    const fullReply = await insertMessage("model", "", selectedPersonality.name, reply, db, selectedPersonality, settings.typingSpeed, selectedPersonality.id);
+    const stream = await chat.sendMessageStream({ message: messageToSendToAI });
 
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
-    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: fullReply.md }] });
+    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
 }
@@ -112,24 +109,17 @@ async function executeCommandAction(command, value, messageElement, characterId)
     switch (command) {
         case 'avatar':
             try {
-                // Use the centralized function to get the object URL for the avatar
-                // We need the full personality object, so retrieve it first
-                const personality = await personalityService.get(characterId);
-                if (!personality) {
-                    console.warn(`Personality with ID ${characterId} not found for avatar command.`);
-                    return;
-                }
-                const avatarObjectUrl = await getPersonalityAvatarUrl(personality);
+                const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
+                if (assets && assets.length > 0) {
+                    const asset = assets[0];
+                    const objectURL = URL.createObjectURL(asset.data);
 
-                if (avatarObjectUrl) {
-                    console.log(`[DEBUG - M.service] Received avatar URL:`, avatarObjectUrl);
-                    console.log(`[DEBUG - M.service] Is it a blob URL?`, avatarObjectUrl.startsWith('blob:'));
-                    // Crossfade avatar in message
+                    // Кроссфейд аватарки в сообщении
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
                         const oldImg = pfpWrapper.querySelector('.pfp');
                         const newImg = document.createElement('img');
-                        newImg.src = avatarObjectUrl;
+                        newImg.src = objectURL;
                         newImg.className = 'pfp';
                         newImg.style.opacity = '0';
                         pfpWrapper.appendChild(newImg);
@@ -139,17 +129,18 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         });
                         setTimeout(() => {
                             if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
+                            URL.revokeObjectURL(objectURL);
                         }, 500);
                     }
 
-                    // Crossfade avatar in sidebar
+                    // Кроссфейд аватарки в сайдбаре
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
                         const cardWrapper = personalityCard.querySelector('.background-img-wrapper');
                         if (cardWrapper) {
                             const oldImg = cardWrapper.querySelector('.background-img');
                             const newImg = document.createElement('img');
-                            newImg.src = avatarObjectUrl;
+                            newImg.src = objectURL;
                             newImg.className = 'background-img';
                             newImg.style.opacity = '0';
                             cardWrapper.appendChild(newImg);
@@ -159,17 +150,18 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             });
                             setTimeout(() => {
                                 if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
+                                URL.revokeObjectURL(objectURL);
                             }, 500);
                         } else {
-                            // Fallback if no wrapper, directly set src (less ideal for crossfade)
                             const img = personalityCard.querySelector('.background-img');
                             if (img) {
-                                img.src = avatarObjectUrl;
+                                img.src = objectURL;
+                                setTimeout(() => URL.revokeObjectURL(objectURL), 750);
+                            } else {
+                                URL.revokeObjectURL(objectURL);
                             }
                         }
                     }
-                } else { // <<-- THIS IS THE CORRECTLY PLACED ELSE BLOCK
-                    console.warn(`[DEBUG - M.service] getPersonalityAvatarUrl returned no valid URL for ${personality.name} (ID: ${characterId}). Avatar will not be updated.`);
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
@@ -293,7 +285,7 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
     }
 }
 
-export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, personalityOrPfpSrc = null, typingSpeed = 0, characterId = null) {
+export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
@@ -302,24 +294,11 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
 
     if (sender != "user") {
-        // Determine the avatar URL using the centralized function
-        let avatarUrl = '';
-        if (typeof personalityOrPfpSrc === 'object' && personalityOrPfpSrc !== null) {
-            // If personality object is passed, get URL using the new function
-            avatarUrl = await getPersonalityAvatarUrl(personalityOrPfpSrc);
-        } else if (typeof personalityOrPfpSrc === 'string') {
-            // Fallback for direct URL, though we want to phase this out for model messages
-            avatarUrl = personalityOrPfpSrc;
-        } else {
-            // Default placeholder if personality info is missing (shouldn't happen for model)
-            avatarUrl = "/media/default/images/placeholder.png"; 
-        }
-
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
             <div class="message-header">
                 <div class="pfp-wrapper">
-                    <img class="pfp" src="${avatarUrl}" loading="lazy" />
+                    <img class="pfp" src="${pfpSrc}" loading="lazy" />
                 </div>
                 <h3 class="message-role">${selectedPersonalityTitle}</h3>
                 <div class="message-actions">

@@ -4,42 +4,10 @@ import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
 import { assetManagerService } from "./AssetManager.service.js";
-import * as settingsService from "./Settings.service.js";
+import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
 
 // Map to store Object URLs for personality images for proper memory management
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
-
-// NEW: Centralized function to get the correct avatar URL for a given personality
-export async function getPersonalityAvatarUrl(personality) {
-    if (!personality || typeof personality.id !== 'number') {
-        console.warn("[DEBUG - P.service] Invalid personality object provided to getPersonalityAvatarUrl. Returning placeholder.");
-        return "/media/default/images/placeholder.png";
-    }
-
-    if (personality.id === -1) {
-        console.log(`[DEBUG - P.service] Request for Aphrodite avatar. Returning default: ${getDefault().image}`);
-        return getDefault().image; // Aphrodite's default image URL
-    }
-
-    try {
-        // CORRECTED: Use getFirstImageObjectUrlByTags as it exists and returns the URL directly
-        const avatarUrlFromAsset = await assetManagerService.getFirstImageObjectUrlByTags(
-            ['avatar', personality.name.toLowerCase()],
-            personality.id
-        );
-
-        if (avatarUrlFromAsset) {
-            console.log(`[DEBUG - P.service] Found asset URL for ${personality.name} (ID: ${personality.id}): ${avatarUrlFromAsset}`);
-            return avatarUrlFromAsset;
-        } else {
-            console.log(`[DEBUG - P.service] No specific avatar asset found for ${personality.name} (ID: ${personality.id}). Falling back to personality.image.`);
-            return personality.image; // Fallback to the personality's default image field
-        }
-    } catch (error) {
-        console.error(`[DEBUG - P.service] Error retrieving avatar URL for ${personality.name} (ID: ${personality.id}):`, error);
-        return personality.image; // Fallback on error
-    }
-}
 
 // Move the migration logic to a separate function that can be called from main.js
 export async function migratePersonalities(database) {
@@ -114,7 +82,7 @@ export async function initialize() {
             radioButton.click(); 
         }
     } else {
-        // Fallback: If for some reason even Aphrodite's card isn't found (shouldnt happen),
+        // Fallback: If for some reason even Aphrodite's card isn't found (shouldn't happen),
         // ensure settings are updated to reflect the true default.
         settingsService.setActivePersonalityId(-1);
     }
@@ -432,21 +400,19 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     }
 
     try {
-        // Use the new centralized function to get the correct avatar URL
-        const avatarUrl = await getPersonalityAvatarUrl(personality);
-        
+        let avatarUrl = null;
+        if (personality.id !== -1) {
+             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], personality.id);
+        }
+       
         if (avatarUrl) {
             imgElement.src = avatarUrl;
-            // Store the object URL if it's a blob URL (e.g., from asset service)
-            if (avatarUrl.startsWith('blob:')) {
-                personalityImageUrls.set(personality.id, avatarUrl);
-            }
+            personalityImageUrls.set(personality.id, avatarUrl);
         } else {
-            // Fallback to personality.image if getPersonalityAvatarUrl returns null/undefined
             imgElement.src = personality.image;
         }
     } catch (error) {
-        console.error(`Error loading avatar for ${personality.name} in UI:`, error);
-        imgElement.src = personality.image; // Fallback on error
+        console.error(`Error loading avatar for ${personality.name}:`, error);
+        imgElement.src = personality.image;
     }
 }
