@@ -10,35 +10,47 @@ import * as settingsService from "./Settings.service.js";
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
 
 // NEW: Centralized function to get the correct avatar URL for a given personality
-export async function getPersonalityAvatarUrl(personality) { // <<-- THIS LINE IS FIXED
+export async function getPersonalityAvatarUrl(personality) {
     if (!personality || typeof personality.id !== 'number') {
-        // Fallback for invalid personality object
         console.warn("Invalid personality object provided to getPersonalityAvatarUrl.");
-        return "/media/default/images/placeholder.png"; // Or a generic default if no personality image is suitable
+        return "/media/default/images/placeholder.png";
     }
 
-    // Handle the default Aphrodite personality specifically, as it doesn't have custom assets
     if (personality.id === -1) {
-        return getDefault().image; // Use Aphrodite's default image URL
+        return getDefault().image; // Aphrodite's default image URL
     }
+
+    let objectURL = null; // Initialize objectURL to null
 
     try {
-        // Attempt to find an avatar asset with 'avatar' and the personality's name as tags
-        const avatarAsset = await assetManagerService.getFirstImageObjectUrlByTags(
-            ['avatar', personality.name.toLowerCase()], 
+        // Step 1: Attempt to find the ASSET OBJECT itself, not just its URL.
+        // assetManagerService.getAssetsByTags will return an array of asset objects, each with a 'data' property (the Blob)
+        const assets = await assetManagerService.getAssetsByTags(
+            ['avatar', personality.name.toLowerCase()],
             personality.id
         );
+        const avatarAsset = assets && assets.length > 0 ? assets[0] : null;
 
-        // If an asset is found, return its URL
-        if (avatarAsset) {
-            return avatarAsset;
+        if (avatarAsset && avatarAsset.data instanceof Blob) {
+            // Debugging: Log the Blob data
+            console.log(`[DEBUG - P.service] Found asset Blob for ${personality.name} (ID: ${personality.id}).`);
+            console.log(`[DEBUG - P.service] Blob details: type=${avatarAsset.data.type}, size=${avatarAsset.data.size}`);
+            
+            // If it's a valid Blob, create an Object URL
+            objectURL = URL.createObjectURL(avatarAsset.data);
+            console.log(`[DEBUG - P.service] Created Object URL: ${objectURL}`);
         } else {
-            // If no specific asset, fall back to the personality's stored image URL
-            return personality.image;
+            console.log(`[DEBUG - P.service] No valid asset Blob found for ${personality.name} (ID: ${personality.id}). Falling back.`);
         }
     } catch (error) {
-        console.error(`Error retrieving avatar URL for ${personality.name} (ID: ${personality.id}):`, error);
-        // Fallback to personality's image on error, or a generic placeholder
+        console.error(`[DEBUG - P.service] Error searching for asset for ${personality.name} (ID: ${personality.id}):`, error);
+    }
+
+    // If no objectURL was created from an asset, fall back to the personality's stored image URL
+    if (objectURL) {
+        return objectURL;
+    } else {
+        console.log(`[DEBUG - P.service] Using personality.image fallback: ${personality.image}`);
         return personality.image;
     }
 }

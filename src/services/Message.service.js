@@ -122,6 +122,8 @@ async function executeCommandAction(command, value, messageElement, characterId)
                 const avatarObjectUrl = await getPersonalityAvatarUrl(personality);
 
                 if (avatarObjectUrl) {
+                    console.log(`[DEBUG - M.service] Received avatar URL:`, avatarObjectUrl);
+                    console.log(`[DEBUG - M.service] Is it a blob URL?`, avatarObjectUrl.startsWith('blob:'));
                     // Crossfade avatar in message
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
@@ -137,7 +139,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         });
                         setTimeout(() => {
                             if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
-                            // REMOVED URL.revokeObjectURL(avatarObjectUrl) from here
                         }, 500);
                     }
 
@@ -158,19 +159,17 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             });
                             setTimeout(() => {
                                 if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
-                                // REMOVED URL.revokeObjectURL(avatarObjectUrl) from here
                             }, 500);
                         } else {
                             // Fallback if no wrapper, directly set src (less ideal for crossfade)
                             const img = personalityCard.querySelector('.background-img');
                             if (img) {
                                 img.src = avatarObjectUrl;
-                                // REMOVED setTimeout(() => URL.revokeObjectURL(avatarObjectUrl), 750); from here
-                            } else {
-                                // If no image element, and it's a blob, REMOVED URL.revokeObjectURL(avatarObjectUrl); from here
                             }
                         }
                     }
+                } else { // <<-- THIS IS THE CORRECTLY PLACED ELSE BLOCK
+                    console.warn(`[DEBUG - M.service] getPersonalityAvatarUrl returned no valid URL for ${personality.name} (ID: ${characterId}). Avatar will not be updated.`);
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
