@@ -274,31 +274,38 @@ function setupMessageEditing(messageElement, db) {
         saveButton.style.display = 'inline-block';
     });
 
-    saveButton.addEventListener('click', async () => {
-        messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText;
-        const index = parseInt(messageElement.dataset.messageIndex, 10);
+	saveButton.addEventListener('click', async () => {
+		console.log("SAVE button clicked for message element:", messageElement); // Add this
+		messageTextDiv.removeAttribute("contenteditable");
+		const newRawText = messageTextDiv.innerText;
+		const index = parseInt(messageElement.dataset.messageIndex, 10);
+		console.log("New raw text from editor:", newRawText); // Add this
 
-        await updateMessageInDatabase(index, newRawText, db);
+		await updateMessageInDatabase(index, newRawText, db);
 
-        // Re-render the message with parsed markdown and wrapped commands
-        messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+		// Re-render the message with parsed markdown and wrapped commands
+		messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
 
-        // Clear processed commands to allow re-execution on edit/save
-        if (processedCommandsPerMessage.has(messageElement)) {
-            processedCommandsPerMessage.get(messageElement).clear();
-        }
+		// Clear processed commands to allow re-execution on edit/save
+		if (processedCommandsPerMessage.has(messageElement)) {
+			processedCommandsPerMessage.get(messageElement).clear();
+			console.log("Processed commands cleared for message:", messageElement); // Add this
+		}
 
-        const chat = await chatsService.getCurrentChat(db);
-        // Ensure characterId is retrieved correctly for re-execution
-        const characterId = chat.content[index]?.personalityid;
-        if (characterId !== undefined) {
-            await processDynamicCommands(newRawText, messageElement, characterId);
-        }
+		const chat = await chatsService.getCurrentChat(db);
+		// Ensure characterId is retrieved correctly for re-execution
+		const characterId = chat.content[index]?.personalityid;
+		console.log("Character ID for command re-execution:", characterId); // Add this
+		if (characterId !== undefined) {
+			await processDynamicCommands(newRawText, messageElement, characterId);
+		} else {
+			console.log("Skipping command re-execution: characterId is undefined or null."); // Add this
+		}
 
-        editButton.style.display = 'inline-block';
-        saveButton.style.display = 'none';
-    });
+		editButton.style.display = 'inline-block';
+		saveButton.style.display = 'none';
+		console.log("Message re-rendered and saved. Check for command execution."); // Add this
+	});
 }
 
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
