@@ -613,6 +613,7 @@ button {
 .btn-array-personalityactions {
     display: flex;
     justify-content: end;
+	align-items: flex-start;
     gap: 0.3rem;
 }
 
