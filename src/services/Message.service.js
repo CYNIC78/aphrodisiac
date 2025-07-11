@@ -5,7 +5,7 @@
 import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-import * as personalityService from "./Personality.service.js";
+import * as personalityService from "./Personality.js"; // Corrected import path
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 // NO AssetManager import here. It is loaded on-demand.
@@ -107,9 +107,6 @@ async function regenerate(responseElement, db) {
 
 // --- NEW: Utility to wrap commands in spans for display ---
 function wrapCommandsInSpan(text) {
-    const settings = settingsService.getSettings();
-    // No longer using `settings.triggers.symbolStart/End` as they apply to the old separator system.
-    // We are now hardcoding the [ ] for commands.
     const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
     return text.replace(commandRegex, `<span class="command-block">$&</span>`);
 }
@@ -196,7 +193,6 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     if (characterId === null) return;
     const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
     let match;
-    let newlyProcessed = false;
 
     // Initialize a Set for this message element if it doesn't exist
     if (!processedCommandsPerMessage.has(messageElement)) {
@@ -214,10 +210,8 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
         if (!processedTags.has(fullTagString)) {
             await executeCommandAction(command, value, messageElement, characterId);
             processedTags.add(fullTagString);
-            newlyProcessed = true;
         }
     }
-    return newlyProcessed; // Return true if any new commands were processed
 }
 
 
@@ -241,7 +235,7 @@ function setupMessageEditing(messageElement, db) {
         const originalRawText = currentChat.content[index]?.parts[0]?.text;
 
         if (originalRawText) {
-            messageTextDiv.textContent = helpers.getDecoded(originalRawText); // Use textContent to ensure all content (including spans) is replaced with raw text
+            messageTextDiv.textContent = originalRawText; // Use textContent to ensure all content (including spans) is replaced with raw text
         } else {
             // Fallback for user messages or if DB text is somehow missing
             messageTextDiv.textContent = messageTextDiv.innerText;
@@ -340,33 +334,37 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         } else {
             // Live Path: Stream and dynamically process commands.
             let fullRawText = "";
-            let processedTagsForStream = new Set(); // Use a local set for this stream
+            let currentDisplayedText = ""; // To accumulate text character by character for typing effect
 
             try {
                 for await (const chunk of netStream) {
                     if (chunk && chunk.text) {
-                        fullRawText += chunk.text;
+                        fullRawText += chunk.text; // Accumulate full text for command processing and final save
 
-                        // Process commands dynamically as they arrive
-                        // Pass the messageElement, characterId, and the set of processed tags
-                        // to avoid re-triggering the same command multiple times during a single stream
+                        // Process commands dynamically as they arrive, using the fullRawText
                         if (!processedCommandsPerMessage.has(newMessage)) {
                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
                         await processDynamicCommands(fullRawText, newMessage, characterId);
 
-
-                        // Render the text for display, wrapping any commands in spans
-                        messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
-                        helpers.messageContainerScrollToBottom();
-
+                        // --- Character-by-character typing display for the current chunk ---
                         if (typingSpeed > 0) {
-                            await new Promise(resolve => setTimeout(resolve, typingSpeed));
+                            for (let i = 0; i < chunk.text.length; i++) {
+                                currentDisplayedText += chunk.text[i]; // Add one character at a time
+                                // Render the text, wrapping any commands in spans
+                                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
+                                helpers.messageContainerScrollToBottom();
+                                await new Promise(resolve => setTimeout(resolve, typingSpeed));
+                            }
+                        } else {
+                            // If no typing speed, just render the current accumulated full raw text
+                            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
+                            helpers.messageContainerScrollToBottom();
                         }
                     }
                 }
 
-                // Final render after stream completes (in case a command was at the very end)
+                // Final render after stream completes (ensure any last chars and commands are displayed/processed)
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
                 hljs.highlightAll(); // Highlight code blocks if any
@@ -392,7 +390,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     </div>
                 </div>
                 <div class="message-role-api" style="display: none;">${sender}</div>
-                <div class="message-text">${helpers.getDecoded(msg)}</div>`;
+                <div class="message-text">${msg}</div>`; // Use msg directly as it's already decoded and clean
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
