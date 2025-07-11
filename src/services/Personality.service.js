@@ -4,7 +4,7 @@ import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
 import { assetManagerService } from "./AssetManager.service.js";
-import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
+import * as settingsService from "./Settings.service.js";
 
 // Map to store Object URLs for personality images for proper memory management
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
