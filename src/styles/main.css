@@ -261,12 +261,11 @@ form {
     gap: 1rem;
     padding-bottom: 1.5rem;
     flex-grow: 1;
-    /* MODIFIED: We will now center the content within this flexible container */
     max-width: 55rem;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-right: 1.5rem; /* Already existed, keeping it */
+    padding-right: 1.5rem;
 }
 
 .message-text{
@@ -293,7 +292,6 @@ form {
     border-radius: 1rem;
     box-sizing: border-box;
     overflow: hidden;
-    /* MODIFIED: Centering the message box to match the container above it */
     max-width: 55rem;
     width: 100%;
     margin-left: auto;
@@ -444,14 +442,9 @@ form {
 .container {
     box-sizing: border-box;
     display: flex;
-    /* MODIFIED: Gap is now handled by the resizer element */
-    /* gap: 0.5rem; */ 
     padding: 1rem;
-
-
     width: 100dvw;
     height: 100dvh;
-
 }
 
 .sidebar {
@@ -462,7 +455,6 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    /* MODIFIED: Use a CSS variable for width, with a fallback */
     width: var(--sidebar-width, 25rem); 
     border-radius: 1rem;
     scrollbar-width: thin;
@@ -483,7 +475,19 @@ form {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    /* --- NEW --- */
+    flex-grow: 1;      /* Make the list of personalities take all available space */
+    overflow-y: auto;  /* Allow the list to scroll if it gets too long */
+    min-height: 0;     /* A required fix for flexbox scrolling children */
 }
+
+/* --- NEW --- */
+/* Add some top padding to the button container to separate it from the list */
+#personalitySection > .btn-array {
+    padding-top: 1rem;
+    flex-shrink: 0; /* Prevent the buttons from shrinking if space is tight */
+}
+
 
 #sidebar-content {
     min-height: 0;
@@ -613,12 +617,10 @@ button {
     display: flex;
     flex-direction: column;
     padding: 2rem;
-    /* MODIFIED: Let this panel grow to fill the space */
     flex-grow: 1;
-    min-width: 0; /* Important flexbox fix to allow shrinking */
+    min-width: 0; 
 }
 
-/* --- NEW STYLES FOR RESIZABLE SIDEBAR --- */
 #sidebar-resizer {
     width: 6px;
     cursor: col-resize;
@@ -626,7 +628,6 @@ button {
     flex-shrink: 0;
     border-radius: 3px;
     transition: background-color 0.2s ease;
-    /* Prevent user from selecting text while dragging */
     user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;
@@ -634,7 +635,7 @@ button {
 
 #sidebar-resizer:hover,
 #sidebar-resizer.is-dragging {
-    background-color: #5f96c880; /* Use theme color with transparency */
+    background-color: #5f96c880; 
 }
 
 @media (prefers-color-scheme: light) {
@@ -643,7 +644,6 @@ button {
         background-color: #4c7cbe80;
     }
 }
-/* --- END NEW STYLES --- */
 
 
 .btn-array-personalityactions {
@@ -1161,13 +1161,12 @@ input[name="currentChat"][value="none"] {
         top: 0;
         height: calc(100dvh - 2rem);
         margin: 0;
-        width: calc(100dvw - 2rem) !important; /* !important to override JS-set width */
+        width: calc(100dvw - 2rem) !important;
         position: fixed;
         border-radius: 0;
         display: none;
     }
 
-    /* NEW: Hide the resizer on mobile */
     #sidebar-resizer {
         display: none !important;
     }
