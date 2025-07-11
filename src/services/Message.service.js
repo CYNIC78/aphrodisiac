@@ -1,3 +1,5 @@
+--- START OF FILE Message.service.js ---
+
 // FILE: src/services/Message.service.js
 
 //handles sending messages to the api
@@ -5,7 +7,7 @@
 import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-import * as personalityService from "./Personality.js"; // Corrected import path
+import * as personalityService from "./Personality.service.js"; // THIS LINE IS CORRECTED BACK
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 // NO AssetManager import here. It is loaded on-demand.
@@ -395,3 +397,4 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
 }
+--- END OF FILE Message.service.js ---
