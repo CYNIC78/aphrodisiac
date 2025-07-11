@@ -1793,4 +1793,10 @@ input[name="currentChat"][value="none"] {
     opacity: 1;
 }
 
+
+.background-img.hide-for-swap {
+    opacity: 0;
+}
+
+
 /*  chatGPT crossfade attempt  */

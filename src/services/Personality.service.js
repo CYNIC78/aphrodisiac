@@ -314,7 +314,9 @@ export function generateCard(personality) {
         card.id = `personality-${personality.id}`;
     }
     card.innerHTML = `
-            <img class="background-img" src="${personality.image}" data-personality-id="${personality.id}"></img>
+            <div class="background-img-wrapper">
+                <img class="background-img" src="${personality.image}" data-personality-id="${personality.id}">
+            </div>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
                 ${(personality.id !== undefined && personality.id !== null && personality.id !== -1) ? `<button class="btn-textual btn-edit-card material-symbols-outlined" 
