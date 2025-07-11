@@ -1,3 +1,5 @@
+// FILE: src/components/AssetManager.component.js
+
 import { assetManagerService } from '../services/AssetManager.service.js';
 import { showElement, hideElement } from '../utils/helpers.js';
 
@@ -6,7 +8,7 @@ let isInitialized = false;
 let currentAssetId = null;
 let activeTags = []; // Holds the currently selected tags for filtering
 let allDbTags = [];  // A cache of all unique tags from the database
-let currentCharacterId = null; // <-- ADDED: To hold the ID of the currently active personality
+let currentCharacterId = null; // <-- To hold the ID of the currently active personality
 
 // --- UI ELEMENT REFERENCES ---
 let personalityForm, assetDetailView, mediaLibraryStep;
@@ -61,7 +63,7 @@ async function renderGallery() {
     const titleEl = document.querySelector('#gallery-title');
     if (!galleryEl || !titleEl) return;
 
-    if (currentCharacterId === null) { // <-- ADDED: Handle case where no character is selected
+    if (currentCharacterId === null) {
         galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Create a personality to use its media library.</p>`;
         titleEl.textContent = 'Media Library';
         return;
@@ -71,7 +73,7 @@ async function renderGallery() {
     
     try {
         // Step 1: Get assets for the CURRENT character.
-        const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId); // <-- MODIFIED
+        const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId);
 
         // Step 2: Filter the assets in JavaScript based on the activeTags array.
         const assetsToRender = activeTags.length === 0
@@ -172,7 +174,7 @@ async function handleAddTagToAsset() {
         renderTagsInDetailView(updatedTags);
         
         // Update the list of all tags for the current character
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId); // <-- MODIFIED
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
         allDbTags.sort((a,b) => a.localeCompare(b));
         renderTagExplorer();
         input.value = '';
@@ -187,7 +189,7 @@ async function handleRemoveTagFromAsset(tagToRemove) {
         await assetManagerService.updateAsset(currentAssetId, { tags: updatedTags });
         renderTagsInDetailView(updatedTags);
         // Update the list of all tags for the current character in case a tag count goes to zero
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId); // <-- MODIFIED
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
         allDbTags.sort((a,b) => a.localeCompare(b));
         renderTagExplorer();
     }
@@ -196,17 +198,12 @@ async function handleRemoveTagFromAsset(tagToRemove) {
 async function handleDeleteAsset() {
     if (!currentAssetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
-        // Before deleting, revoke the object URL if it's currently in use by a personality's avatar
-        // This is a simplified check. A more robust solution might check PersonalityService.personalityImageUrls map.
-        const asset = await assetManagerService.getAssetById(currentAssetId);
-        if (asset && asset.data instanceof Blob) {
-            URL.revokeObjectURL(URL.createObjectURL(asset.data)); // Create temp URL just to revoke
-        }
-
-        await assetManagerService.deleteAsset(currentAssetId); // <-- MODIFIED (no characterId needed here, direct ID delete)
+        // This logic is now safe because the service function is correct
+        await assetManagerService.deleteAsset(currentAssetId);
         currentAssetId = null;
         showView(personalityForm);
-        await updateMainUI(); // This will refresh the gallery for the current character
+        // THE FIX IS HERE: We must pass the currentCharacterId to the refresh function.
+        await updateMainUI(currentCharacterId); 
     }
 }
 
@@ -238,13 +235,13 @@ async function showAssetDetailView(assetId) {
  * Updates the main UI of the Asset Manager, now scoped to the current character.
  * @param {number} characterId - The ID of the character whose assets to display.
  */
-async function updateMainUI(characterId) { // <-- MODIFIED: Now takes characterId
-    currentCharacterId = characterId; // <-- ADDED: Update the global state
+async function updateMainUI(characterId) {
+    currentCharacterId = characterId;
     activeTags = []; // Reset active tags when character changes
-    if (currentCharacterId === null) { // <-- ADDED: Handle initial state
+    if (currentCharacterId === null) {
         allDbTags = []; // No tags if no character selected
     } else {
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId); // <-- MODIFIED
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
     }
     renderTagExplorer();
     renderGallery();
@@ -252,10 +249,10 @@ async function updateMainUI(characterId) { // <-- MODIFIED: Now takes characterI
 
 // --- INITIALIZATION ---
 // Modified to be a method that accepts the character ID to display the correct library
-export function initializeAssetManagerComponent(characterId) { // <-- MODIFIED: Now accepts characterId
+export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
         showView(personalityForm);
-        updateMainUI(characterId); // <-- MODIFIED: Update UI for the new character
+        updateMainUI(characterId);
         return;
     }
 
@@ -271,7 +268,7 @@ export function initializeAssetManagerComponent(characterId) { // <-- MODIFIED: 
     
     document.querySelector('#asset-upload-input').addEventListener('change', async (event) => {
         const files = event.target.files;
-        if (!files.length || currentCharacterId === null) return; // <-- MODIFIED: Check for currentCharacterId
+        if (!files.length || currentCharacterId === null) return;
         for (const file of files) {
             try {
                 // Determine the initial tag based on file type
@@ -282,23 +279,23 @@ export function initializeAssetManagerComponent(characterId) { // <-- MODIFIED: 
                     initialTag = 'audio';
                 }
                 // Pass the determined initialTag AND the currentCharacterId
-                await assetManagerService.addAsset(file, [initialTag], currentCharacterId); // <-- MODIFIED
+                await assetManagerService.addAsset(file, [initialTag], currentCharacterId);
             } catch (error) { console.error('Failed to add asset:', error); }
         }
         event.target.value = ''; 
-        await updateMainUI(currentCharacterId); // <-- MODIFIED: Pass currentCharacterId
+        await updateMainUI(currentCharacterId);
     });
     
     document.querySelector('#btn-asset-detail-back').addEventListener('click', () => {
         showView(personalityForm);
-        updateMainUI(currentCharacterId); // <-- MODIFIED: Pass currentCharacterId
+        updateMainUI(currentCharacterId);
     });
     document.querySelector('#btn-add-tag').addEventListener('click', handleAddTagToAsset);
     document.querySelector('#add-tag-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAddTagToAsset(); });
     document.querySelector('#btn-delete-asset').addEventListener('click', handleDeleteAsset);
     
-    updateMainUI(characterId); // <-- MODIFIED: Initial call now correctly passes characterId
+    updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v4 - Per-character).'); // <-- MODIFIED
+    console.log('Asset Manager Component Initialized (v4 - Per-character).');
     isInitialized = true;
 }
