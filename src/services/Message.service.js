@@ -1,4 +1,3 @@
---- START OF FILE Message.service.js ---
 
 // FILE: src/services/Message.service.js
 
@@ -397,4 +396,3 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
 }
---- END OF FILE Message.service.js ---
