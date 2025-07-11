@@ -219,6 +219,9 @@
                 Made by CYNIC
             </div>
         </div>
+        
+        <!-- NEW: This is the draggable handle for the sidebar -->
+        <div id="sidebar-resizer"></div>
 
         <div id="mainContent">
             <div class="header">
@@ -288,7 +291,7 @@ The following are asset triggers:
 								<span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
 							</div>
 							<input type="text" name="tone-example-1" class="tone-example"
-								placeholder="I'm a plumber, not a doctor. Lets-a go!">
+								placeholder="I'm a plumber, not a doctor. Lets-a go!" aria-label="Tone Example 1">
 							<button type="button" id="btn-add-tone-example"
 								class="material-symbols-outlined">add_circle</button>
 						</div>
@@ -300,7 +303,7 @@ The following are asset triggers:
 							<div class="media-library-layout">
 								<div class="tag-explorer">
 									<h3>Tags</h3>
-									<input type="search" id="tag-explorer-search" placeholder="Filter tags...">
+									<input type="search" id="tag-explorer-search" placeholder="Filter tags..." aria-label="Filter media assets by tag">
 									<div id="tag-explorer-list">
 										<!-- All unique tags will be rendered here by JS -->
 									</div>
@@ -340,7 +343,7 @@ The following are asset triggers:
 							<h4>Tags</h4>
 							<div id="asset-detail-tags"></div>
 							<div class="add-tag-wrapper">
-								<input type="text" id="add-tag-input" placeholder="Add new tag...">
+								<input type="text" id="add-tag-input" placeholder="Add new tag..." aria-label="Add new tag to asset">
 								<button id="btn-add-tag" class="material-symbols-outlined">add</button>
 							</div>
 						</div>
