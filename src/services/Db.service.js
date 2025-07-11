@@ -1,5 +1,3 @@
---- START OF FILE Db.service.js ---
-
 import { Dexie } from 'dexie';
 
 export async function setupDB() {
@@ -57,4 +55,3 @@ export async function setupDB() {
 }
 
 export const db = await setupDB();
---- END OF FILE Db.service.js ---
