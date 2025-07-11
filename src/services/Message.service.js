@@ -130,18 +130,16 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         pfpElement.removeEventListener('error', pfpElement._handleError);
 
                         pfpElement.classList.add('hide-for-swap'); // 1. Instantly hide
-                        pfpElement.offsetHeight; // 2. Force repaint of the hidden state
+                        pfpElement.offsetHeight; // 2. Force reflow to render opacity:0
 
-                        // 3. Defer the source change to the next browser rendering frame
-                        requestAnimationFrame(() => {
+                        // 3. Short timeout to ensure opacity:0 state is truly rendered before src change and fade
+                        setTimeout(() => {
                             pfpElement.src = objectURL; // 4. Change the source (this will trigger load/error)
 
                             // 5. Define handlers for the new image load
                             pfpElement._handleLoad = () => {
-                                // 6. On image loaded, defer un-hiding to next render frame
-                                requestAnimationFrame(() => {
-                                    pfpElement.classList.remove('hide-for-swap'); // This starts the CSS transition
-                                });
+                                // 6. On image loaded, trigger the fade-in
+                                pfpElement.classList.remove('hide-for-swap'); // This starts the CSS transition
                                 pfpElement.removeEventListener('load', pfpElement._handleLoad);
                                 pfpElement.removeEventListener('error', pfpElement._handleError);
                                 URL.revokeObjectURL(objectURL); // Revoke after fade
@@ -149,9 +147,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
                             pfpElement._handleError = (e) => {
                                 console.error("Failed to load new avatar image for message:", objectURL, e);
-                                requestAnimationFrame(() => { // Still try to unhide in case of error
-                                    pfpElement.classList.remove('hide-for-swap');
-                                });
+                                pfpElement.classList.remove('hide-for-swap'); // Still try to unhide in case of error
                                 pfpElement.removeEventListener('load', pfpElement._handleLoad);
                                 pfpElement.removeEventListener('error', pfpElement._handleError);
                                 URL.revokeObjectURL(objectURL);
@@ -159,30 +155,28 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
                             pfpElement.addEventListener('load', pfpElement._handleLoad);
                             pfpElement.addEventListener('error', pfpElement._handleError);
-                        });
+                        }, 10); // Small delay to guarantee visual separation
                     }
 
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
+                        // Ensure event listeners are clean before re-adding
+                        cardImg.removeEventListener('load', cardImg._handleLoad);
+                        cardImg.removeEventListener('error', cardImg._handleError);
+
                         const cardImg = personalityCard.querySelector('.background-img');
                         if (cardImg) {
-                            // Ensure event listeners are clean before re-adding
-                            cardImg.removeEventListener('load', cardImg._handleLoad);
-                            cardImg.removeEventListener('error', cardImg._handleError);
-
                             cardImg.classList.add('hide-for-swap'); // 1. Instantly hide
-                            cardImg.offsetHeight; // 2. Force repaint of the hidden state
+                            cardImg.offsetHeight; // 2. Force reflow
 
-                            // 3. Defer the source change to the next browser rendering frame
-                            requestAnimationFrame(() => {
-                                cardImg.src = objectURL; // 4. Change the source (this will trigger load/error)
+                            // 3. Short timeout to ensure opacity:0 state is truly rendered before src change and fade
+                            setTimeout(() => {
+                                cardImg.src = objectURL; // 4. Change the source
 
                                 // 5. Define handlers for the new image load
                                 cardImg._handleLoad = () => {
-                                    // 6. On image loaded, defer un-hiding to next render frame
-                                    requestAnimationFrame(() => {
-                                        cardImg.classList.remove('hide-for-swap'); // This starts the CSS transition
-                                    });
+                                    // 6. On image loaded, trigger the fade-in
+                                    cardImg.classList.remove('hide-for-swap'); // This starts the CSS transition
                                     cardImg.removeEventListener('load', cardImg._handleLoad);
                                     cardImg.removeEventListener('error', cardImg._handleError);
                                     // objectURL is revoked by the pfpElement's onload, no need to duplicate
@@ -190,16 +184,14 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
                                 cardImg._handleError = (e) => {
                                     console.error("Failed to load personality card image:", objectURL, e);
-                                    requestAnimationFrame(() => { // Still try to unhide in case of error
-                                        cardImg.classList.remove('hide-for-swap');
-                                    });
+                                    cardImg.classList.remove('hide-for-swap'); // Still try to unhide in case of error
                                     cardImg.removeEventListener('load', cardImg._handleLoad);
                                     cardImg.removeEventListener('error', cardImg._handleError);
                                 };
 
                                 cardImg.addEventListener('load', cardImg._handleLoad);
                                 cardImg.addEventListener('error', cardImg._handleError);
-                            });
+                            }, 10); // Small delay
                         }
                     }
                 }
@@ -291,7 +283,10 @@ function setupMessageEditing(messageElement, db) {
 
         await updateMessageInDatabase(index, newRawText, db);
 
+        // --- FIX for Re-rendering on Save ---
         messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        hljs.highlightAll(); // Re-highlight any code blocks after re-render
+        // --- END FIX ---
 
         if (processedCommandsPerMessage.has(messageElement)) {
             processedCommandsPerMessage.get(messageElement).clear();
@@ -349,6 +344,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
         if (!netStream) {
             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(msg), { breaks: true });
+            hljs.highlightAll(); // Ensure highlight for loaded messages
         } else {
             let fullRawText = "";
             let currentDisplayedText = "";
