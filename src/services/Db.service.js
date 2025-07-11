@@ -1,3 +1,5 @@
+--- START OF FILE Db.service.js ---
+
 import { Dexie } from 'dexie';
 
 export async function setupDB() {
@@ -45,14 +47,14 @@ export async function setupDB() {
     });
 
     // Version 6: Modifying the assets table for per-character media libraries
-    // CRITICAL FIX: Rewritten assets store definition as a simple, unambiguous string.
-    // This defines the primary key (id), a regular index (characterId), and a multi-entry index (*tags).
-    // Other fields (name, type, data, timestamp) are stored but do not require explicit indexing if not used for querying.
+    // CRITICAL FIX: The schema for 'assets' MUST explicitly list ALL fields to be preserved from previous versions,
+    // plus any new ones (like characterId). If omitted, Dexie DROPS those fields.
     db.version(6).stores({
-        assets: `++id, characterId, *tags` // <-- The CORRECTED, bulletproof string definition
+        assets: `++id, name, type, characterId, *tags, data, timestamp` // <-- THE CORRECTED, BULLETPROOF STRING DEFINITION
     });
-    
+
     return db;
 }
 
 export const db = await setupDB();
+--- END OF FILE Db.service.js ---

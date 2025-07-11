@@ -1,3 +1,5 @@
+--- START OF FILE Message.service.js ---
+
 // FILE: src/services/Message.service.js
 
 //handles sending messages to the api
@@ -135,15 +137,14 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         return;
                     }
 
-                    // --- REVISED AVATAR LOGIC: Use temporary image to ensure load, then assign ---
+                    // --- REVISED AVATAR LOGIC: Pre-load then assign, no hide-for-swap initially for instant switch ---
                     const tempImg = new Image();
                     tempImg.src = objectURL; // Start loading the image
 
                     tempImg.onload = () => {
                         for (const imgElement of elementsToUpdate) {
                             // Ensure the element is visible with its default CSS (no hide-for-swap)
-                            // This effectively makes it an instant switch for now.
-                            imgElement.classList.remove('hide-for-swap'); // Remove any lingering hide class
+                            imgElement.classList.remove('hide-for-swap'); // Important: remove any lingering hide class
                             imgElement.src = objectURL; // Set the source of the visible element
                         }
                         // Revoke URL *after* a small delay, giving the browser time to render
@@ -162,8 +163,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     if (tempImg.complete && tempImg.naturalWidth > 0) {
                         tempImg.onload(); // Manually trigger onload logic if image is already complete
                     }
-
-
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
@@ -228,7 +227,7 @@ function setupMessageEditing(messageElement, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         const originalRawText = currentChat.content[index]?.parts[0]?.text;
 
-        console.log("Edit clicked. Original Raw Text from DB:", originalRawText); // Debug log
+        console.log("Edit clicked. Original Raw Text from DB:", originalRawText);
 
         if (originalRawText) {
             messageTextDiv.textContent = originalRawText;
@@ -255,17 +254,17 @@ function setupMessageEditing(messageElement, db) {
         const newRawText = messageTextDiv.innerText;
         const index = parseInt(messageElement.dataset.messageIndex, 10);
 
-        console.log("Save clicked. New Raw Text from editable div:", newRawText); // Debug log
+        console.log("Save clicked. New Raw Text from editable div:", newRawText);
 
         await updateMessageInDatabase(index, newRawText, db); // Update the database first
 
-        // --- FIX for Re-rendering on Save ---
-        // Ensure the content is completely replaced and re-rendered
+        // --- REVISED FIX for Re-rendering on Save ---
+        // Force complete re-render by clearing and then re-populating innerHTML
         const renderedHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
-        console.log("Save clicked. Rendered HTML for display:", renderedHtml); // Debug log
+        console.log("Save clicked. Rendered HTML for display:", renderedHtml);
         messageTextDiv.innerHTML = renderedHtml; // Assign the new HTML
         hljs.highlightAll(); // Re-highlight any code blocks after re-render
-        // --- END FIX ---
+        // --- END REVISED FIX ---
 
         // IMPORTANT: Clear previously processed commands for this message element
         // This ensures if the user edited and changed a command, it gets re-evaluated.
@@ -290,10 +289,10 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
 
-        console.log(`Updating DB message at index ${messageIndex} with new raw text:`, newRawText); // Debug log
+        console.log(`Updating DB message at index ${messageIndex} with new raw text:`, newRawText);
         currentChat.content[messageIndex].parts[0].text = newRawText; // Save the new raw text directly
         await db.chats.put(currentChat);
-        console.log("Message updated in DB successfully."); // Debug log
+        console.log("Message updated in DB successfully.");
     } catch (error) { console.error("Error updating message in database:", error); }
 }
 
@@ -390,3 +389,4 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
 }
+--- END OF FILE Message.service.js ---
