@@ -1718,7 +1718,7 @@ input[name="currentChat"][value="none"] {
 /* Applies to both chat PFP and personality card background image */
 .pfp,
 .personality-card .background-img {
-    transition: opacity 0.5s ease-in-out; /* Slightly slower fade for smoother feel */
+    transition: opacity 1.5s ease-in-out; /* Slightly slower fade for smoother feel */
 }
 
 /* This class will instantly hide the element without transition, for immediate swapping */
