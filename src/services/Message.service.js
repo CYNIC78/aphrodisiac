@@ -1,3 +1,5 @@
+--- START OF FILE Message.service.js ---
+
 // FILE: src/services/Message.service.js
 
 //handles sending messages to the api
@@ -9,6 +11,9 @@ import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 // NO AssetManager import here. It is loaded on-demand.
+
+// Store processed commands per message to avoid re-triggering during dynamic rendering
+const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -23,12 +28,12 @@ export async function send(msg, db) {
         temperature: settings.temperature / 100,
         // The systemPrompt here is now being passed correctly within the history.
         // Leaving it here might be redundant but is harmless for now.
-        systemPrompt: settingsService.getSystemPrompt(), 
+        systemPrompt: settingsService.getSystemPrompt(),
         safetySettings: settings.safetySettings,
         responseMimeType: "text/plain"
     };
-    
-    if (!await chatsService.getCurrentChat(db)) { 
+
+    if (!await chatsService.getCurrentChat(db)) {
         const response = await ai.models.generateContent({
             model: 'gemini-2.0-flash',
             contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
@@ -45,11 +50,8 @@ export async function send(msg, db) {
     await db.chats.put(currentChat);
 
     helpers.messageContainerScrollToBottom();
-    
-    // --- START OF THE ONLY CHANGE ---
-    // This block is the only thing that has been modified.
 
-    // 1. We assemble the complete instruction set into a single, clear text block.
+    // Assemble the complete instruction set for the AI.
     const masterInstruction = `
         ${settingsService.getSystemPrompt()}
 
@@ -62,35 +64,32 @@ export async function send(msg, db) {
 
         ---
 
-        TAG PROMPT (Your technical command reference):
+        TAG PROMPT (Your technical command reference - no separators needed, just [command:value]):
         ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
     `.trim();
 
-    // 2. We inject this master instruction into the chat history.
+    // Inject this master instruction into the chat history.
     const history = [
         { role: "user", parts: [{ text: masterInstruction }] },
         { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] }
     ];
 
-    // --- END OF THE ONLY CHANGE ---
-
-    
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
-    
-    // We now add the rest of the chat history, excluding the very last message (which is the one we're sending).
+
+    // Add the rest of the chat history, excluding the very last message (which is the one we're sending).
     history.push(...currentChat.content.slice(0, -1).map(msg => ({ role: msg.role, parts: msg.parts })));
-    
+
     const chat = ai.chats.create({ model: settings.model, history, config });
 
     let messageToSendToAI = msg;
     if (selectedPersonality.reminder) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
-    
+
     const stream = await chat.sendMessageStream({ message: messageToSendToAI });
-    
+
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
@@ -99,18 +98,130 @@ export async function send(msg, db) {
 }
 
 async function regenerate(responseElement, db) {
-    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent; // This gets the visible text + hidden span text
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - 1);
+    chat.content = chat.content.slice(0, elementIndex - 1); // Slice before the user message that led to this response
     await db.chats.put(chat);
-    await chatsService.loadChat(chat.id, db);
-    await send(message, db);
+    await chatsService.loadChat(chat.id, db); // Reload chat to ensure UI is consistent
+    await send(message, db); // Send the original user message again
 }
 
+// --- NEW: Utility to wrap commands in spans for display ---
+function wrapCommandsInSpan(text) {
+    const settings = settingsService.getSettings();
+    // No longer using `settings.triggers.symbolStart/End` as they apply to the old separator system.
+    // We are now hardcoding the [ ] for commands.
+    const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
+    return text.replace(commandRegex, `<span class="command-block">$&</span>`);
+}
 
-// --- THE "VISIBLE GUTS" EDITING LOGIC ---
-// This is a simple, stable, and bug-free implementation.
+// --- NEW: Helper to execute a single command action ---
+async function executeCommandAction(command, value, messageElement, characterId) {
+    if (characterId === null) return;
+    const { assetManagerService } = await import('./AssetManager.service.js');
+    const settings = settingsService.getSettings();
+
+    switch (command) {
+        case 'avatar':
+            try {
+                const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
+                if (assets && assets.length > 0) {
+                    const asset = assets[0];
+                    const objectURL = URL.createObjectURL(asset.data);
+
+                    // --- Update Message PFP with Smooth Transition ---
+                    const pfpElement = messageElement.querySelector('.pfp');
+                    if (pfpElement) {
+                        const tempImage = new Image();
+                        tempImage.src = objectURL;
+
+                        tempImage.onload = () => {
+                            pfpElement.classList.add('hide-for-swap');
+                            requestAnimationFrame(() => {
+                                pfpElement.src = objectURL;
+                                pfpElement.classList.remove('hide-for-swap');
+                            });
+                            setTimeout(() => URL.revokeObjectURL(objectURL), 750); // Defer revoking
+                        };
+                        tempImage.onerror = () => {
+                            console.error("Failed to load new avatar image for message:", objectURL);
+                            URL.revokeObjectURL(objectURL);
+                        };
+                    }
+
+                    // --- Update Sidebar Personality Card with Smooth Transition ---
+                    const personalityCard = document.querySelector(`#personality-${characterId}`);
+                    if (personalityCard) {
+                        const cardImg = personalityCard.querySelector('.background-img');
+                        if (cardImg) {
+                            const tempCardImage = new Image();
+                            tempCardImage.src = objectURL;
+
+                            tempCardImage.onload = () => {
+                                cardImg.classList.add('hide-for-swap');
+                                requestAnimationFrame(() => {
+                                    cardImg.src = objectURL;
+                                    cardImg.classList.remove('hide-for-swap');
+                                });
+                            };
+                            tempCardImage.onerror = () => {
+                                console.error("Failed to load personality card image:", objectURL);
+                            };
+                        }
+                    }
+                }
+            } catch (e) { console.error(`Error processing [avatar] command:`, e); }
+            break;
+
+        case 'sfx':
+        case 'audio':
+            if (settings.audio.enabled) {
+                try {
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                    if (assets && assets.length > 0) {
+                        const asset = assets[0];
+                        const objectURL = URL.createObjectURL(asset.data);
+                        const audio = new Audio(objectURL);
+                        audio.volume = settings.audio.volume;
+                        audio.play().catch(e => console.error("Audio playback failed:", e));
+                        audio.onended = () => URL.revokeObjectURL(objectURL);
+                    }
+                } catch (e) { console.error(`Error processing [audio/sfx] command:`, e); }
+            }
+            break;
+    }
+}
+
+// --- NEW: Dynamic command processing during streaming ---
+async function processDynamicCommands(currentText, messageElement, characterId) {
+    if (characterId === null) return;
+    const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
+    let match;
+    let newlyProcessed = false;
+
+    // Initialize a Set for this message element if it doesn't exist
+    if (!processedCommandsPerMessage.has(messageElement)) {
+        processedCommandsPerMessage.set(messageElement, new Set());
+    }
+    const processedTags = processedCommandsPerMessage.get(messageElement);
+
+    // Reset regex lastIndex to search from the beginning of the accumulating text
+    commandRegex.lastIndex = 0;
+    while ((match = commandRegex.exec(currentText)) !== null) {
+        const fullTagString = match[0]; // e.g., "[avatar:happy]"
+        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
+        const value = match[2].trim(); // e.g., "happy"
+
+        if (!processedTags.has(fullTagString)) {
+            await executeCommandAction(command, value, messageElement, characterId);
+            processedTags.add(fullTagString);
+            newlyProcessed = true;
+        }
+    }
+    return newlyProcessed; // Return true if any new commands were processed
+}
+
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
@@ -119,32 +230,61 @@ function setupMessageEditing(messageElement, db) {
 
     if (!editButton || !saveButton || !messageTextDiv) return;
 
+    // Get the message index from the DOM, or set it if not present (for new messages)
+    // For loaded messages, the data-message-index is set in insertMessage
     const messageContainer = document.querySelector(".message-container");
     const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
     messageElement.dataset.messageIndex = messageIndex;
 
-    editButton.addEventListener('click', () => {
-        // Just make the existing text editable. No swapping, no complex logic.
+    editButton.addEventListener('click', async () => {
+        // Retrieve the ORIGINAL raw text from the database to ensure all hidden commands are visible for editing
+        const index = parseInt(messageElement.dataset.messageIndex, 10);
+        const currentChat = await chatsService.getCurrentChat(db);
+        const originalRawText = currentChat.content[index]?.parts[0]?.text;
+
+        if (originalRawText) {
+            messageTextDiv.textContent = helpers.getDecoded(originalRawText); // Use textContent to ensure all content (including spans) is replaced with raw text
+        } else {
+            // Fallback for user messages or if DB text is somehow missing
+            messageTextDiv.textContent = messageTextDiv.innerText;
+        }
+
         messageTextDiv.setAttribute("contenteditable", "true");
         messageTextDiv.focus();
+
+        // Position caret at the end
+        const range = document.createRange();
+        range.selectNodeContents(messageTextDiv);
+        range.collapse(false); // false for end of content
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+
         editButton.style.display = 'none';
         saveButton.style.display = 'inline-block';
     });
 
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText; // Get the clean text.
+        const newRawText = messageTextDiv.innerText; // Get the clean text, including any re-entered commands.
         const index = parseInt(messageElement.dataset.messageIndex, 10);
-        
+
         await updateMessageInDatabase(index, newRawText, db);
 
-        // Re-render the message. It will remain fully visible.
-        messageTextDiv.innerHTML = marked.parse(newRawText, { breaks: true });
-        
-        // Re-process commands from the now-visible text.
-        const characterId = (await chatsService.getCurrentChat(db)).content[index]?.personalityid;
+        // Re-render the message content using wrapCommandsInSpan for display
+        messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+
+        // IMPORTANT: Clear previously processed commands for this message element
+        // This ensures if the user edited and changed a command, it gets re-evaluated.
+        if (processedCommandsPerMessage.has(messageElement)) {
+            processedCommandsPerMessage.get(messageElement).clear();
+        }
+
+        // Re-process commands from the saved text for immediate effect (e.g., if avatar tag changed)
+        const chat = await chatsService.getCurrentChat(db);
+        const characterId = chat.content[index]?.personalityid;
         if (characterId !== undefined) {
-            await processCommandBlock(newRawText, messageElement, characterId);
+             await processDynamicCommands(newRawText, messageElement, characterId);
         }
 
         editButton.style.display = 'inline-block';
@@ -157,7 +297,9 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
     try {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
-        currentChat.content[messageIndex].parts[0].text = helpers.getEncoded(newRawText);
+
+        // Ensure the text in the DB is always the raw, original text (no HTML)
+        currentChat.content[messageIndex].parts[0].text = newRawText; // Save the new raw text directly
         await db.chats.put(currentChat);
     } catch (error) { console.error("Error updating message in database:", error); }
 }
@@ -168,6 +310,11 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
+
+    // Set a data attribute for the message index as soon as it's added to the DOM
+    newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
+
+
     if (sender != "user") {
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
@@ -188,46 +335,56 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         });
         const messageContent = newMessage.querySelector(".message-text");
 
-        // "VISIBLE GUTS" LOGIC - No more splitting.
         if (!netStream) {
-            // Loading Path: Display the full raw message.
-            messageContent.innerHTML = marked.parse(msg, { breaks: true });
+            // Loading Path: Display the full raw message (commands are wrapped for hiding).
+            // Do NOT re-execute commands from history load for SFX/avatar changes, only display.
+            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(msg), { breaks: true });
         } else {
-            // Live Path: Stream the full raw message.
+            // Live Path: Stream and dynamically process commands.
             let fullRawText = "";
+            let processedTagsForStream = new Set(); // Use a local set for this stream
+
             try {
                 for await (const chunk of netStream) {
-                    if (chunk && chunk.text) { fullRawText += chunk.text; }
-                }
-                
-                if (typingSpeed > 0) {
-                    messageContent.innerHTML = '';
-                    let renderedText = '';
-                    for (let i = 0; i < fullRawText.length; i++) {
-                        renderedText += fullRawText[i];
-                        messageContent.innerHTML = marked.parse(renderedText, { breaks: true });
+                    if (chunk && chunk.text) {
+                        fullRawText += chunk.text;
+
+                        // Process commands dynamically as they arrive
+                        // Pass the messageElement, characterId, and the set of processed tags
+                        // to avoid re-triggering the same command multiple times during a single stream
+                        if (!processedCommandsPerMessage.has(newMessage)) {
+                           processedCommandsPerMessage.set(newMessage, new Set());
+                        }
+                        await processDynamicCommands(fullRawText, newMessage, characterId);
+
+
+                        // Render the text for display, wrapping any commands in spans
+                        messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                         helpers.messageContainerScrollToBottom();
-                        await new Promise(resolve => setTimeout(resolve, typingSpeed));
+
+                        if (typingSpeed > 0) {
+                            await new Promise(resolve => setTimeout(resolve, typingSpeed));
+                        }
                     }
-                } else {
-                    messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
-                    helpers.messageContainerScrollToBottom();
                 }
 
-                // Process commands from the full, visible text.
-                await processCommandBlock(fullRawText, newMessage, characterId);
-                
-                hljs.highlightAll();
+                // Final render after stream completes (in case a command was at the very end)
+                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
+                hljs.highlightAll(); // Highlight code blocks if any
                 setupMessageEditing(newMessage, db);
-                return { HTML: messageContent.innerHTML, md: fullRawText };
+                return { HTML: messageContent.innerHTML, md: fullRawText }; // Return full raw text for saving to DB
             } catch (error) {
                 console.error("Stream error:", error);
-                messageContent.innerHTML = marked.parse(fullRawText, { breaks: true });
+                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
+                helpers.messageContainerScrollToBottom();
+                hljs.highlightAll();
+                setupMessageEditing(newMessage, db);
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             }
         }
     } else {
+        // User message
         newMessage.innerHTML = `
                 <div class="message-header">
                     <h3 class="message-role">You:</h3>
@@ -242,113 +399,4 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
 }
-
-async function processCommandBlock(commandBlock, messageElement, characterId) {
-    if (characterId === null) return;
-
-    const { assetManagerService } = await import('./AssetManager.service.js');
-    const settings = settingsService.getSettings();
-    const commandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
-    
-    // Get the message content element once for efficiency
-    const messageContent = messageElement.querySelector('.message-text');
-    if (!messageContent) return; // Safety check
-
-    // We'll iterate through the commandBlock string multiple times,
-    // so we need a mutable string or to re-evaluate the HTML directly.
-    // The safest way is to find and replace them in the already rendered HTML.
-    let match;
-    // We need to operate on a copy of the *original* raw text for regex matching,
-    // but modify the *rendered HTML* to remove tags.
-    const originalRenderedHtml = messageContent.innerHTML;
-
-    // Use a temporary regex with a local scope to avoid interfering with global regex state
-    // and to ensure all instances are found.
-    const localCommandRegex = new RegExp(`\\${settings.triggers.symbolStart}(.*?):(.*?)\\${settings.triggers.symbolEnd}`, 'g');
-    
-    while ((match = localCommandRegex.exec(commandBlock)) !== null) {
-        const fullTagString = match[0]; // e.g., "[avatar:happy]"
-        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
-        const value = match[2].trim(); // e.g., "happy"
-
-        switch (command) {
-            case 'avatar':
-                try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
-                    if (assets && assets.length > 0) {
-                        const asset = assets[0];
-                        const objectURL = URL.createObjectURL(asset.data);
-
-                        // --- Update Message PFP with Full, Correct Logic ---
-                        const pfpElement = messageElement.querySelector('.pfp');
-                        if (pfpElement) {
-                            const tempImage = new Image();
-                            tempImage.src = objectURL;
-                            
-                            tempImage.onload = () => {
-                                pfpElement.classList.add('hide-for-swap');
-                                requestAnimationFrame(() => {
-                                    pfpElement.src = objectURL;
-                                    pfpElement.classList.remove('hide-for-swap');
-                                });
-                                // Defer revoking to ensure the browser has fully processed the image
-                                setTimeout(() => {
-                                    URL.revokeObjectURL(objectURL);
-                                }, 750);
-                            };
-                            tempImage.onerror = () => {
-                                console.error("Failed to load new avatar image for message:", objectURL);
-                                URL.revokeObjectURL(objectURL);
-                            };
-                        }
-
-                        // --- Update Sidebar Personality Card with Full, Correct Logic ---
-                        const personalityCard = document.querySelector(`#personality-${characterId}`);
-                        if (personalityCard) {
-                            const cardImg = personalityCard.querySelector('.background-img');
-                            if (cardImg) {
-                                // Create a separate temp image to avoid conflicts
-                                const tempCardImage = new Image();
-                                tempCardImage.src = objectURL;
-                                
-                                tempCardImage.onload = () => {
-                                    cardImg.classList.add('hide-for-swap');
-                                    requestAnimationFrame(() => {
-                                        cardImg.src = objectURL;
-                                        cardImg.classList.remove('hide-for-swap');
-                                    });
-                                    // No need for a second revoke, it's the same URL
-                                };
-                                tempCardImage.onerror = () => {
-                                    console.error("Failed to load personality card image:", objectURL);
-                                    // No need for a second revoke here either
-                                };
-                            }
-                        }
-                    }
-                } catch (e) { console.error(`Error processing [avatar] command:`, e); }
-                break;
-
-            case 'sfx':
-            case 'audio':
-                if (settings.audio.enabled) {
-                    try {
-                        const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
-                        if (assets && assets.length > 0) {
-                            const asset = assets[0];
-                            const objectURL = URL.createObjectURL(asset.data);
-                            const audio = new Audio(objectURL);
-                            audio.volume = settings.audio.volume;
-                            audio.play().catch(e => console.error("Audio playback failed:", e));
-                            audio.onended = () => URL.revokeObjectURL(objectURL);
-                        }
-                    } catch (e) { console.error(`Error processing [audio/sfx] command:`, e); }
-                }
-                break;
-        }
-
-        // --- NEW: Remove the processed tag from the displayed message ---
-        // We use innerText to avoid HTML parsing issues and ensure we replace the exact string.
-        messageContent.innerText = messageContent.innerText.replace(fullTagString, '').trim();
-    }
-}
+--- END OF FILE Message.service.js ---
