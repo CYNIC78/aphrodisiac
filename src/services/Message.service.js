@@ -5,7 +5,7 @@
 import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-import * as personalityService from "./Personality.service.js"; // THIS LINE IS CORRECT
+import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 // NO AssetManager import here. It is loaded on-demand.
@@ -96,22 +96,20 @@ export async function send(msg, db) {
 }
 
 async function regenerate(responseElement, db) {
-    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent; // This gets the visible text + hidden span text
+    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - 1); // Slice before the user message that led to this response
+    chat.content = chat.content.slice(0, elementIndex - 1);
     await db.chats.put(chat);
-    await chatsService.loadChat(chat.id, db); // Reload chat to ensure UI is consistent
-    await send(message, db); // Send the original user message again
+    await chatsService.loadChat(chat.id, db);
+    await send(message, db);
 }
 
-// --- NEW: Utility to wrap commands in spans for display ---
 function wrapCommandsInSpan(text) {
-    const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
+    const commandRegex = /\[(.*?):(.*?)]/g;
     return text.replace(commandRegex, `<span class="command-block">$&</span>`);
 }
 
-// --- NEW: Helper to execute a single command action ---
 async function executeCommandAction(command, value, messageElement, characterId) {
     if (characterId === null) return;
     const { assetManagerService } = await import('./AssetManager.service.js');
@@ -125,48 +123,46 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
-                    // --- Update Message PFP with Smooth Transition ---
+                    const elementsToUpdate = [];
                     const pfpElement = messageElement.querySelector('.pfp');
-                    if (pfpElement) {
-                        const tempImage = new Image();
-                        tempImage.src = objectURL;
+                    if (pfpElement) elementsToUpdate.push(pfpElement);
+                    const personalityCard = document.querySelector(`#personality-${characterId}`);
+                    const cardImg = personalityCard ? personalityCard.querySelector('.background-img') : null;
+                    if (cardImg) elementsToUpdate.push(cardImg);
 
-                        tempImage.onload = () => {
-                            pfpElement.classList.add('hide-for-swap');
-                            requestAnimationFrame(() => {
-                                pfpElement.src = objectURL;
-                                pfpElement.classList.remove('hide-for-swap');
-                            });
-                            setTimeout(() => URL.revokeObjectURL(objectURL), 750); // Defer revoking
-                        };
-                        tempImage.onerror = () => {
-                            console.error("Failed to load new avatar image for message:", objectURL);
-                            URL.revokeObjectURL(objectURL);
-                        };
+                    if (elementsToUpdate.length === 0) {
+                        URL.revokeObjectURL(objectURL);
+                        return;
                     }
 
-                    // --- Update Sidebar Personality Card with Smooth Transition ---
-                    const personalityCard = document.querySelector(`#personality-${characterId}`);
-                    if (personalityCard) {
-                        const cardImg = personalityCard.querySelector('.background-img');
-                        if (cardImg) {
-                            const tempCardImage = new Image();
-                            tempCardImage.src = objectURL;
+                    // --- CURRENT AVATAR LOGIC: Pre-load then assign, no fade attempt ---
+                    const tempImg = new Image();
+                    tempImg.src = objectURL; // Start loading the image
 
-                            tempCardImage.onload = () => {
-                                cardImg.classList.add('hide-for-swap');
-                                requestAnimationFrame(() => {
-                                    cardImg.src = objectURL;
-                                    cardImg.classList.remove('hide-for-swap');
-                                });
-                            };
-                            tempCardImage.onerror = () => {
-                                console.error("Failed to load personality card image:", objectURL);
-                            };
+                    tempImg.onload = () => {
+                        for (const imgElement of elementsToUpdate) {
+                            imgElement.classList.remove('hide-for-swap'); // Ensure visibility if it was hidden
+                            imgElement.src = objectURL; // Set the source of the visible element
                         }
+                        // Revoke URL *after* a small delay, giving the browser time to render
+                        setTimeout(() => URL.revokeObjectURL(objectURL), 750); // 750ms delay
+                    };
+                    tempImg.onerror = (e) => {
+                        console.error("Failed to load avatar image from objectURL:", objectURL, e);
+                        for (const imgElement of elementsToUpdate) { // Ensure elements aren't stuck hidden
+                            imgElement.classList.remove('hide-for-swap');
+                        }
+                        URL.revokeObjectURL(objectURL);
+                    };
+
+                    // If image is already in cache, onload might fire synchronously
+                    if (tempImg.complete && tempImg.naturalWidth > 0) {
+                        tempImg.onload(); // Manually trigger onload logic if image is already complete
                     }
                 }
-            } catch (e) { console.error(`Error processing [avatar] command:`, e); }
+            } catch (e) {
+                console.error(`Error processing [avatar] command:`, e);
+            }
             break;
 
         case 'sfx':
@@ -188,24 +184,21 @@ async function executeCommandAction(command, value, messageElement, characterId)
     }
 }
 
-// --- NEW: Dynamic command processing during streaming ---
 async function processDynamicCommands(currentText, messageElement, characterId) {
     if (characterId === null) return;
-    const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
+    const commandRegex = /\[(.*?):(.*?)]/g;
     let match;
 
-    // Initialize a Set for this message element if it doesn't exist
     if (!processedCommandsPerMessage.has(messageElement)) {
         processedCommandsPerMessage.set(messageElement, new Set());
     }
     const processedTags = processedCommandsPerMessage.get(messageElement);
 
-    // Reset regex lastIndex to search from the beginning of the accumulating text
     commandRegex.lastIndex = 0;
     while ((match = commandRegex.exec(currentText)) !== null) {
-        const fullTagString = match[0]; // e.g., "[avatar:happy]"
-        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
-        const value = match[2].trim(); // e.g., "happy"
+        const fullTagString = match[0];
+        const command = match[1].trim().toLowerCase();
+        const value = match[2].trim();
 
         if (!processedTags.has(fullTagString)) {
             await executeCommandAction(command, value, messageElement, characterId);
@@ -214,7 +207,6 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     }
 }
 
-
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
@@ -222,32 +214,29 @@ function setupMessageEditing(messageElement, db) {
 
     if (!editButton || !saveButton || !messageTextDiv) return;
 
-    // Get the message index from the DOM, or set it if not present (for new messages)
-    // For loaded messages, the data-message-index is set in insertMessage
     const messageContainer = document.querySelector(".message-container");
     const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
     messageElement.dataset.messageIndex = messageIndex;
 
     editButton.addEventListener('click', async () => {
-        // Retrieve the ORIGINAL raw text from the database to ensure all hidden commands are visible for editing
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         const currentChat = await chatsService.getCurrentChat(db);
         const originalRawText = currentChat.content[index]?.parts[0]?.text;
 
+        console.log("Edit clicked. Original Raw Text from DB:", originalRawText);
+
         if (originalRawText) {
-            messageTextDiv.textContent = originalRawText; // Use textContent to ensure all content (including spans) is replaced with raw text
+            messageTextDiv.textContent = originalRawText;
         } else {
-            // Fallback for user messages or if DB text is somehow missing
             messageTextDiv.textContent = messageTextDiv.innerText;
         }
 
         messageTextDiv.setAttribute("contenteditable", "true");
         messageTextDiv.focus();
 
-        // Position caret at the end
         const range = document.createRange();
         range.selectNodeContents(messageTextDiv);
-        range.collapse(false); // false for end of content
+        range.collapse(false);
         const selection = window.getSelection();
         selection.removeAllRanges();
         selection.addRange(range);
@@ -258,13 +247,25 @@ function setupMessageEditing(messageElement, db) {
 
     saveButton.addEventListener('click', async () => {
         messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText; // Get the clean text, including any re-entered commands.
+        const newRawText = messageTextDiv.innerText;
         const index = parseInt(messageElement.dataset.messageIndex, 10);
 
-        await updateMessageInDatabase(index, newRawText, db);
+        console.log("Save clicked. New Raw Text from editable div:", newRawText);
 
-        // Re-render the message content using wrapCommandsInSpan for display
-        messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        await updateMessageInDatabase(index, newRawText, db); // Update the database first
+
+        // --- FINAL ATTEMPT FIX for Re-rendering on Save ---
+        const renderedHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        console.log("Save clicked. Rendered HTML for display:", renderedHtml);
+
+        // Force a browser repaint by briefly changing visibility
+        messageTextDiv.style.visibility = 'hidden';
+        messageTextDiv.offsetHeight; // Trigger a reflow
+        messageTextDiv.innerHTML = renderedHtml; // Set the new content
+        messageTextDiv.style.visibility = 'visible'; // Make it visible again
+        
+        hljs.highlightAll(); // Re-highlight any code blocks after re-render
+        // --- END FINAL ATTEMPT FIX ---
 
         // IMPORTANT: Clear previously processed commands for this message element
         // This ensures if the user edited and changed a command, it gets re-evaluated.
@@ -272,7 +273,6 @@ function setupMessageEditing(messageElement, db) {
             processedCommandsPerMessage.get(messageElement).clear();
         }
 
-        // Re-process commands from the saved text for immediate effect (e.g., if avatar tag changed)
         const chat = await chatsService.getCurrentChat(db);
         const characterId = chat.content[index]?.personalityid;
         if (characterId !== undefined) {
@@ -290,12 +290,12 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
 
-        // Ensure the text in the DB is always the raw, original text (no HTML)
+        console.log(`Updating DB message at index ${messageIndex} with new raw text:`, newRawText);
         currentChat.content[messageIndex].parts[0].text = newRawText; // Save the new raw text directly
         await db.chats.put(currentChat);
+        console.log("Message updated in DB successfully.");
     } catch (error) { console.error("Error updating message in database:", error); }
 }
-
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
@@ -303,9 +303,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
 
-    // Set a data attribute for the message index as soon as it's added to the DOM
     newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
-
 
     if (sender != "user") {
         newMessage.classList.add("message-model");
@@ -328,59 +326,47 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageContent = newMessage.querySelector(".message-text");
 
         if (!netStream) {
-            // Loading Path: Display the full raw message (commands are wrapped for hiding).
-            // Do NOT re-execute commands from history load for SFX/avatar changes, only display.
             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(msg), { breaks: true });
+            hljs.highlightAll();
         } else {
-            // Live Path: Stream and dynamically process commands.
             let fullRawText = "";
-            let currentDisplayedText = ""; // To accumulate text character by character for typing effect
+            let currentDisplayedText = "";
 
             try {
                 for await (const chunk of netStream) {
                     if (chunk && chunk.text) {
-                        fullRawText += chunk.text; // Accumulate full text for command processing and final save
+                        fullRawText += chunk.text;
 
-                        // Ensure processedCommandsPerMessage set exists for this message
                         if (!processedCommandsPerMessage.has(newMessage)) {
                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
 
                         if (typingSpeed > 0) {
                             for (let i = 0; i < chunk.text.length; i++) {
-                                currentDisplayedText += chunk.text[i]; // Add one character at a time
+                                currentDisplayedText += chunk.text[i];
 
-                                // Process commands as each character is added to currentDisplayedText
-                                // This ensures the command is triggered as it's visually typed.
                                 await processDynamicCommands(currentDisplayedText, newMessage, characterId);
 
-                                // Render the text, wrapping any commands in spans
                                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
                                 helpers.messageContainerScrollToBottom();
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            // If no typing speed, process commands from the full stream chunk immediately
                             await processDynamicCommands(fullRawText, newMessage, characterId);
-                            // Render the full accumulated text instantly
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                             helpers.messageContainerScrollToBottom();
                         }
                     }
                 }
 
-                // Final processing and render after stream completes
-                // This ensures any commands at the very end of the *total* message are caught,
-                // and it acts as a final render to ensure all content is displayed correctly.
                 await processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
-                hljs.highlightAll(); // Highlight code blocks if any
+                hljs.highlightAll();
                 setupMessageEditing(newMessage, db);
-                return { HTML: messageContent.innerHTML, md: fullRawText }; // Return full raw text for saving to DB
+                return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
                 console.error("Stream error:", error);
-                // On error, ensure we still process commands and render the available text
                 await processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
@@ -390,7 +376,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             }
         }
     } else {
-        // User message
         newMessage.innerHTML = `
                 <div class="message-header">
                     <h3 class="message-role">You:</h3>
@@ -400,7 +385,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     </div>
                 </div>
                 <div class="message-role-api" style="display: none;">${sender}</div>
-                <div class="message-text">${msg}</div>`; // Use msg directly as it's already decoded and clean
+                <div class="message-text">${msg}</div>`;
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
