@@ -1,3 +1,5 @@
+--- START OF FILE Message.service.js ---
+
 // FILE: src/services/Message.service.js
 
 //handles sending messages to the api
@@ -5,7 +7,7 @@
 import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-import * as personalityService from "./Personality.service.js"; // THIS LINE IS CORRECT
+import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 // NO AssetManager import here. It is loaded on-demand.
@@ -96,22 +98,20 @@ export async function send(msg, db) {
 }
 
 async function regenerate(responseElement, db) {
-    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent; // This gets the visible text + hidden span text
+    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
     const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
     const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - 1); // Slice before the user message that led to this response
+    chat.content = chat.content.slice(0, elementIndex - 1);
     await db.chats.put(chat);
-    await chatsService.loadChat(chat.id, db); // Reload chat to ensure UI is consistent
-    await send(message, db); // Send the original user message again
+    await chatsService.loadChat(chat.id, db);
+    await send(message, db);
 }
 
-// --- NEW: Utility to wrap commands in spans for display ---
 function wrapCommandsInSpan(text) {
-    const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
+    const commandRegex = /\[(.*?):(.*?)]/g;
     return text.replace(commandRegex, `<span class="command-block">$&</span>`);
 }
 
-// --- NEW: Helper to execute a single command action ---
 async function executeCommandAction(command, value, messageElement, characterId) {
     if (characterId === null) return;
     const { assetManagerService } = await import('./AssetManager.service.js');
@@ -125,44 +125,82 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
-                    // --- Update Message PFP with Smooth Transition ---
-                    const pfpElement = messageElement.querySelector('.pfp');
-                    if (pfpElement) {
-                        const tempImage = new Image();
-                        tempImage.src = objectURL;
+                    // --- Crossfade Logic for Chat Message PFP ---
+                    const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
+                    if (pfpWrapper) {
+                        const tempImg = new Image();
+                        tempImg.src = objectURL; // Start loading the image
 
-                        tempImage.onload = () => {
-                            pfpElement.classList.add('hide-for-swap');
+                        tempImg.onload = () => {
+                            const currentBaseImg = pfpWrapper.querySelector('.pfp.base');
+
+                            const newImg = document.createElement('img');
+                            newImg.src = objectURL;
+                            newImg.className = 'pfp fading-in'; // Apply fading-in class for initial opacity:0
+                            pfpWrapper.appendChild(newImg);
+
+                            // Trigger crossfade (set new image opacity to 1)
                             requestAnimationFrame(() => {
-                                pfpElement.src = objectURL;
-                                pfpElement.classList.remove('hide-for-swap');
+                                newImg.classList.add('fade-active'); // This triggers the CSS transition
                             });
-                            setTimeout(() => URL.revokeObjectURL(objectURL), 750); // Defer revoking
+
+                            // After transition, remove old image and set new one as base
+                            setTimeout(() => {
+                                if (currentBaseImg) pfpWrapper.removeChild(currentBaseImg);
+                                newImg.classList.remove('fading-in', 'fade-active');
+                                newImg.classList.add('pfp', 'base'); // New image becomes the base
+                                URL.revokeObjectURL(objectURL); // Revoke URL after it's fully rendered and clean
+                            }, 600); // Must be > CSS transition duration (e.g., 0.5s = 500ms + buffer)
                         };
-                        tempImage.onerror = () => {
-                            console.error("Failed to load new avatar image for message:", objectURL);
+                        tempImg.onerror = (e) => {
+                            console.error("Failed to load new avatar image for message:", objectURL, e);
                             URL.revokeObjectURL(objectURL);
                         };
+                        // If image is already in cache, onload might fire synchronously
+                        if (tempImg.complete && tempImg.naturalWidth > 0) {
+                            tempImg.onload(); // Manually trigger onload logic if image is already complete
+                        }
                     }
 
-                    // --- Update Sidebar Personality Card with Smooth Transition ---
+                    // --- Crossfade Logic for Sidebar Personality Card Background (Adaptation) ---
+                    // This assumes the .background-img also needs to be wrapped or handled similarly
+                    // in Personality.service.js. For now, this is a simplified version.
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
-                        const cardImg = personalityCard.querySelector('.background-img');
-                        if (cardImg) {
-                            const tempCardImage = new Image();
-                            tempCardImage.src = objectURL;
+                        const cardImgWrapper = personalityCard.querySelector('.background-img-wrapper'); // Assuming a wrapper here too
+                        if (cardImgWrapper) {
+                             const tempCardImage = new Image();
+                             tempCardImage.src = objectURL;
 
-                            tempCardImage.onload = () => {
-                                cardImg.classList.add('hide-for-swap');
-                                requestAnimationFrame(() => {
-                                    cardImg.src = objectURL;
-                                    cardImg.classList.remove('hide-for-swap');
-                                });
-                            };
-                            tempCardImage.onerror = () => {
-                                console.error("Failed to load personality card image:", objectURL);
-                            };
+                             tempCardImage.onload = () => {
+                                 const currentCardBaseImg = cardImgWrapper.querySelector('.background-img.base');
+
+                                 const newCardImg = document.createElement('img');
+                                 newCardImg.src = objectURL;
+                                 newCardImg.className = 'background-img fading-in';
+                                 cardImgWrapper.appendChild(newCardImg);
+
+                                 requestAnimationFrame(() => {
+                                     newCardImg.classList.add('fade-active');
+                                 });
+
+                                 setTimeout(() => {
+                                     if (currentCardBaseImg) cardImgWrapper.removeChild(currentCardBaseImg);
+                                     newCardImg.classList.remove('fading-in', 'fade-active');
+                                     newCardImg.classList.add('background-img', 'base');
+                                     // objectURL is revoked by pfp section.
+                                 }, 600); // Same delay
+                             };
+                             tempCardImage.onerror = (e) => {
+                                 console.error("Failed to load new personality card background:", objectURL, e);
+                             };
+                             if (tempCardImage.complete && tempCardImage.naturalWidth > 0) {
+                                 tempCardImage.onload();
+                             }
+                        } else {
+                            // Fallback if no wrapper, revert to direct swap (should not happen with new structure)
+                            const cardImg = personalityCard.querySelector('.background-img');
+                            if (cardImg) cardImg.src = objectURL;
                         }
                     }
                 }
@@ -191,7 +229,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
 // --- NEW: Dynamic command processing during streaming ---
 async function processDynamicCommands(currentText, messageElement, characterId) {
     if (characterId === null) return;
-    const commandRegex = /\[(.*?):(.*?)]/g; // Matches [command:value]
+    const commandRegex = /\[(.*?):(.*?)]/g;
     let match;
 
     // Initialize a Set for this message element if it doesn't exist
@@ -203,9 +241,9 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     // Reset regex lastIndex to search from the beginning of the accumulating text
     commandRegex.lastIndex = 0;
     while ((match = commandRegex.exec(currentText)) !== null) {
-        const fullTagString = match[0]; // e.g., "[avatar:happy]"
-        const command = match[1].trim().toLowerCase(); // e.g., "avatar"
-        const value = match[2].trim(); // e.g., "happy"
+        const fullTagString = match[0];
+        const command = match[1].trim().toLowerCase();
+        const value = match[2].trim();
 
         if (!processedTags.has(fullTagString)) {
             await executeCommandAction(command, value, messageElement, characterId);
@@ -311,7 +349,9 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
             <div class="message-header">
-                <img class="pfp" src="${pfpSrc}" loading="lazy"></img>
+                <div class="pfp-wrapper">
+                    <img class="pfp base" src="${pfpSrc}" loading="lazy">
+                </div>
                 <h3 class="message-role">${selectedPersonalityTitle}</h3>
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>

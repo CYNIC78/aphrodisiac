@@ -1,3 +1,5 @@
+--- START OF FILE main.css ---
+
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,200;0,400;0,800;1,200;1,400;1,800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
 
@@ -30,14 +32,15 @@
     scrollbar-width: thin;
 }
 
-img {
+/* Base img opacity removed for crossfade management */
+/* img {
     opacity: 0;
-}
+} */
 
 /* Show images with non-empty src values */
-img[src]:not([src=""]):not([src="undefined"]):not([src="null"]) {
+/* img[src]:not([src=""]):not([src="undefined"]):not([src="null"]) {
     opacity: 1;
-}
+} */
 
 body {
     font-family: 'Noto Sans', sans-serif;
@@ -1130,21 +1133,6 @@ input[name="currentChat"][value="none"] {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @media (min-width: 1032px) {
     .sidebar {
         display: flex;
@@ -1433,7 +1421,7 @@ input[name="currentChat"][value="none"] {
 
     .badge {
         background-color: #253a5c;
-        border: 1px solid rgba(35, 108, 119, 0.508);
+        border: 1px solid rgba(35, 104, 123, 0.508);
         color: #b6ebfb;
     }
 
