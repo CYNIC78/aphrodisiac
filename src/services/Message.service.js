@@ -125,41 +125,33 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
-                    // --- Update Message PFP with Cinematic Crossfade ---
+                    // --- Brutal crossfade for .pfp ---
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
-                        const tempImage = new Image();
-                        tempImage.src = objectURL;
+                        const oldImg = pfpWrapper.querySelector('.pfp');
 
-                        tempImage.onload = () => {
-                            const newImg = document.createElement('img');
-                            newImg.src = objectURL;
-                            newImg.className = 'pfp fading-in';
-                            newImg.style.opacity = '0';
+                        const newImg = document.createElement('img');
+                        newImg.src = objectURL;
+                        newImg.className = 'pfp';
+                        newImg.style.opacity = '0';
 
-                            pfpWrapper.appendChild(newImg);
+                        pfpWrapper.appendChild(newImg);
 
-                            requestAnimationFrame(() => {
-                                newImg.classList.add('fade-active');
-                            });
+                        // Force render tick before transition
+                        requestAnimationFrame(() => {
+                            newImg.style.opacity = '1';
+                        });
 
-                            setTimeout(() => {
-                                const oldImg = pfpWrapper.querySelector('.pfp.base');
-                                if (oldImg) oldImg.remove();
-
-                                newImg.classList.remove('fading-in', 'fade-active');
-                                newImg.classList.add('base');
-                                URL.revokeObjectURL(objectURL);
-                            }, 600);
-                        };
-
-                        tempImage.onerror = () => {
-                            console.error("Failed to load new avatar image for message:", objectURL);
+                        // After fade-in complete, remove old image
+                        setTimeout(() => {
+                            if (oldImg && oldImg.parentElement === pfpWrapper) {
+                                oldImg.remove();
+                            }
                             URL.revokeObjectURL(objectURL);
-                        };
+                        }, 500); // match CSS transition duration
                     }
 
-                    // --- Update Sidebar Personality Card with Smooth Transition (unchanged) ---
+                    // --- Sidebar card crossfade (unchanged) ---
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
                         const cardImg = personalityCard.querySelector('.background-img');
@@ -205,6 +197,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
             break;
     }
 }
+
 
 
 // --- NEW: Dynamic command processing during streaming ---
