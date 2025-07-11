@@ -611,10 +611,12 @@ button {
 }
 
 .btn-array-personalityactions {
-    display: flex;
-    justify-content: flex-end; /* This aligns its internal items to the right */
-    align-items: flex-start; /* This aligns its internal items to the top */
+    position: absolute; /* Make it position absolutely */
+    top: 0.5rem;      /* Position 0.5rem from the top edge */
+    right: 0.5rem;    /* Position 0.5rem from the right edge */
+    display: flex;    /* Keep it as a flex container for its own buttons */
     gap: 0.3rem;
+    z-index: 10;      /* Ensure it's above the image */
 }
 
 .card-personality {
@@ -631,9 +633,6 @@ button {
     background-position: center;
     flex-direction: row-reverse;
     justify-content: space-between;
-    /* --- THE FIX IS HERE --- */
-    align-items: flex-start; /* <--- ADDED THIS LINE */
-    /* ---------------------- */
     min-height: 3.5rem;
     text-wrap: nowrap;
     padding: 1rem;
@@ -1315,7 +1314,7 @@ input[name="currentChat"][value="none"] {
 
     #message-box {
         background-color: #dfeeff !important;
-        border: 1px solid #8f9eb3;
+        border: 1px solid #cbdbf0;
     }
 
     :has(>#messageInput:focus-visible) {
@@ -1751,3 +1750,53 @@ input[name="currentChat"][value="none"] {
     display: none;
     */
 }
+
+
+
+
+
+
+
+
+/*  chatGPT crossfade attempt  */
+
+.pfp-wrapper {
+    position: relative;
+    width: 48px;
+    height: 48px;
+}
+
+.pfp {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    transition: opacity 0.5s ease-in-out;
+}.pfp {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    opacity: 1;
+    transition: opacity 0.4s ease-in-out;
+}
+
+.pfp.fading-in {
+    opacity: 0;
+    z-index: 2;
+}
+
+.pfp.fading-in.fade-active {
+    opacity: 1;
+}
+
+
+
+
+/*  chatGPT crossfade attempt  */
