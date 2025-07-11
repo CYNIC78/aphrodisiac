@@ -612,8 +612,8 @@ button {
 
 .btn-array-personalityactions {
     display: flex;
-    justify-content: end;
-	align-items: flex-start;
+    justify-content: flex-end; /* This aligns its internal items to the right */
+    align-items: flex-start; /* This aligns its internal items to the top */
     gap: 0.3rem;
 }
 
