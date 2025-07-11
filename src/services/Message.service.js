@@ -123,65 +123,22 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
-                    const elementsToUpdate = [];
                     const pfpElement = messageElement.querySelector('.pfp');
-                    if (pfpElement) elementsToUpdate.push(pfpElement);
+                    if (pfpElement) {
+                        pfpElement.src = objectURL; // Instant switch
+                    }
+
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
-                    const cardImg = personalityCard ? personalityCard.querySelector('.background-img') : null;
-                    if (cardImg) elementsToUpdate.push(cardImg);
-
-                    if (elementsToUpdate.length === 0) {
-                        URL.revokeObjectURL(objectURL);
-                        return;
-                    }
-
-                    // 1. Create a temporary Image object to pre-load the new avatar reliably
-                    const tempPreloadImg = new Image();
-                    tempPreloadImg.src = objectURL;
-
-                    // Use a Promise to wait for the temporary image to load or error
-                    await new Promise((resolve, reject) => {
-                        tempPreloadImg.onload = resolve;
-                        tempPreloadImg.onerror = (e) => {
-                            console.error("Temporary image preload failed:", e);
-                            reject(e); // Propagate error
-                        };
-                        // Important: If image is already cached, onload might fire synchronously.
-                        // So, check if it's already complete.
-                        if (tempPreloadImg.complete && tempPreloadImg.naturalWidth > 0) {
-                            resolve(); // Already loaded, resolve immediately
+                    if (personalityCard) {
+                        const cardImg = personalityCard.querySelector('.background-img');
+                        if (cardImg) {
+                            cardImg.src = objectURL; // Instant switch
                         }
-                    });
-
-                    // 2. Once the new image is loaded (or from cache):
-                    for (const imgElement of elementsToUpdate) {
-                        imgElement.classList.add('hide-for-swap'); // Instantly hide the current image (opacity:0, transition:none)
-                        imgElement.offsetHeight; // Force reflow to ensure this opacity:0 state is rendered
-
-                        imgElement.src = objectURL; // Set the actual element's src (now that it's pre-loaded)
-
-                        // 3. On the next animation frame, remove the hiding class to trigger the fade-in
-                        requestAnimationFrame(() => {
-                            imgElement.classList.remove('hide-for-swap'); // This re-enables transition and starts fade
-                        });
                     }
-
-                    // Revoke URL after all elements have had a chance to set their src
-                    URL.revokeObjectURL(objectURL);
-
+                    URL.revokeObjectURL(objectURL); // Revoke immediately as it's an instant switch
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
-                // Even on error, try to restore visibility if hide-for-swap was added
-                const pfpElement = messageElement.querySelector('.pfp');
-                if (pfpElement && pfpElement.classList.contains('hide-for-swap')) {
-                    pfpElement.classList.remove('hide-for-swap');
-                }
-                const personalityCard = document.querySelector(`#personality-${characterId}`);
-                const cardImg = personalityCard ? personalityCard.querySelector('.background-img') : null;
-                if (cardImg && cardImg.classList.contains('hide-for-swap')) {
-                    cardImg.classList.remove('hide-for-swap');
-                }
             }
             break;
 
@@ -243,6 +200,8 @@ function setupMessageEditing(messageElement, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         const originalRawText = currentChat.content[index]?.parts[0]?.text;
 
+        console.log("Edit clicked. Original Raw Text from DB:", originalRawText); // Debug log
+
         if (originalRawText) {
             messageTextDiv.textContent = originalRawText;
         } else {
@@ -268,14 +227,21 @@ function setupMessageEditing(messageElement, db) {
         const newRawText = messageTextDiv.innerText;
         const index = parseInt(messageElement.dataset.messageIndex, 10);
 
+        console.log("Save clicked. New Raw Text from editable div:", newRawText); // Debug log
+
         await updateMessageInDatabase(index, newRawText, db);
 
         // --- REVISED FIX for Re-rendering on Save ---
-        messageTextDiv.innerHTML = ''; // Explicitly clear before re-rendering
-        messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        // Explicitly clear and then re-render to force browser repaint
+        messageTextDiv.innerHTML = '';
+        const renderedHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        console.log("Save clicked. Rendered HTML for display:", renderedHtml); // Debug log
+        messageTextDiv.innerHTML = renderedHtml;
         hljs.highlightAll(); // Re-highlight any code blocks after re-render
         // --- END REVISED FIX ---
 
+        // IMPORTANT: Clear previously processed commands for this message element
+        // This ensures if the user edited and changed a command, it gets re-evaluated.
         if (processedCommandsPerMessage.has(messageElement)) {
             processedCommandsPerMessage.get(messageElement).clear();
         }
@@ -297,8 +263,10 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
 
-        currentChat.content[messageIndex].parts[0].text = newRawText;
+        console.log(`Updating DB message at index ${messageIndex} with new raw text:`, newRawText); // Debug log
+        currentChat.content[messageIndex].parts[0].text = newRawText; // Save the new raw text directly
         await db.chats.put(currentChat);
+        console.log("Message updated in DB successfully."); // Debug log
     } catch (error) { console.error("Error updating message in database:", error); }
 }
 
