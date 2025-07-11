@@ -1,4 +1,3 @@
-
 // FILE: src/services/Message.service.js
 
 //handles sending messages to the api
@@ -6,7 +5,7 @@
 import { GoogleGenAI } from "@google/genai"
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-import * as personalityService from "./Personality.service.js"; // THIS LINE IS CORRECTED BACK
+import * as personalityService from "./Personality.service.js"; // THIS LINE IS CORRECT
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 // NO AssetManager import here. It is loaded on-demand.
@@ -342,30 +341,38 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     if (chunk && chunk.text) {
                         fullRawText += chunk.text; // Accumulate full text for command processing and final save
 
-                        // Process commands dynamically as they arrive, using the fullRawText
+                        // Ensure processedCommandsPerMessage set exists for this message
                         if (!processedCommandsPerMessage.has(newMessage)) {
                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
-                        await processDynamicCommands(fullRawText, newMessage, characterId);
 
-                        // --- Character-by-character typing display for the current chunk ---
                         if (typingSpeed > 0) {
                             for (let i = 0; i < chunk.text.length; i++) {
                                 currentDisplayedText += chunk.text[i]; // Add one character at a time
+
+                                // Process commands as each character is added to currentDisplayedText
+                                // This ensures the command is triggered as it's visually typed.
+                                await processDynamicCommands(currentDisplayedText, newMessage, characterId);
+
                                 // Render the text, wrapping any commands in spans
                                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
                                 helpers.messageContainerScrollToBottom();
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            // If no typing speed, just render the current accumulated full raw text
+                            // If no typing speed, process commands from the full stream chunk immediately
+                            await processDynamicCommands(fullRawText, newMessage, characterId);
+                            // Render the full accumulated text instantly
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                             helpers.messageContainerScrollToBottom();
                         }
                     }
                 }
 
-                // Final render after stream completes (ensure any last chars and commands are displayed/processed)
+                // Final processing and render after stream completes
+                // This ensures any commands at the very end of the *total* message are caught,
+                // and it acts as a final render to ensure all content is displayed correctly.
+                await processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
                 hljs.highlightAll(); // Highlight code blocks if any
@@ -373,6 +380,8 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 return { HTML: messageContent.innerHTML, md: fullRawText }; // Return full raw text for saving to DB
             } catch (error) {
                 console.error("Stream error:", error);
+                // On error, ensure we still process commands and render the available text
+                await processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
                 hljs.highlightAll();
