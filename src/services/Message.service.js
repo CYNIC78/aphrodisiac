@@ -86,217 +86,20 @@ export async function send(msg, db) {
     settingsService.saveSettings();
 }
 
-async function regenerate(responseElement, db) {
-    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
-    const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
-    const chat = await chatsService.getCurrentChat(db);
-    chat.content = chat.content.slice(0, elementIndex - 1);
-    await db.chats.put(chat);
-    await chatsService.loadChat(chat.id, db);
-    await send(message, db);
-}
-
-function wrapCommandsInSpan(text) {
-    const commandRegex = /\[(.*?):(.*?)]/g;
-    return text.replace(commandRegex, `<span class="command-block">$&</span>`);
-}
-
-async function executeCommandAction(command, value, messageElement, characterId) {
-    if (characterId === null) return;
-    const { assetManagerService } = await import('./AssetManager.service.js');
-    const settings = settingsService.getSettings();
-
-    switch (command) {
-        case 'avatar':
-            try {
-                const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
-                if (assets && assets.length > 0) {
-                    const asset = assets[0];
-                    const objectURL = URL.createObjectURL(asset.data);
-
-                    // Кроссфейд аватарки в сообщении
-                    const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
-                    if (pfpWrapper) {
-                        const oldImg = pfpWrapper.querySelector('.pfp');
-                        const newImg = document.createElement('img');
-                        newImg.src = objectURL;
-                        newImg.className = 'pfp';
-                        newImg.style.opacity = '0';
-                        pfpWrapper.appendChild(newImg);
-                        requestAnimationFrame(() => {
-                            newImg.style.transition = 'opacity 0.5s ease-in-out';
-                            newImg.style.opacity = '1';
-                        });
-                        setTimeout(() => {
-                            if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
-                            URL.revokeObjectURL(objectURL);
-                        }, 500);
-                    }
-
-                    // Кроссфейд аватарки в сайдбаре
-                    const personalityCard = document.querySelector(`#personality-${characterId}`);
-                    if (personalityCard) {
-                        const cardWrapper = personalityCard.querySelector('.background-img-wrapper');
-                        if (cardWrapper) {
-                            const oldImg = cardWrapper.querySelector('.background-img');
-                            const newImg = document.createElement('img');
-                            newImg.src = objectURL;
-                            newImg.className = 'background-img';
-                            newImg.style.opacity = '0';
-                            cardWrapper.appendChild(newImg);
-                            requestAnimationFrame(() => {
-                                newImg.style.transition = 'opacity 0.5s ease-in-out';
-                                newImg.style.opacity = '1';
-                            });
-                            setTimeout(() => {
-                                if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
-                                URL.revokeObjectURL(objectURL);
-                            }, 500);
-                        } else {
-                            const img = personalityCard.querySelector('.background-img');
-                            if (img) {
-                                img.src = objectURL;
-                                setTimeout(() => URL.revokeObjectURL(objectURL), 750);
-                            } else {
-                                URL.revokeObjectURL(objectURL);
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error(`Error processing [avatar] command:`, e);
-            }
-            break;
-
-        case 'sfx':
-        case 'audio':
-            if (settings.audio.enabled) {
-                try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
-                    if (assets && assets.length > 0) {
-                        const asset = assets[0];
-                        const objectURL = URL.createObjectURL(asset.data);
-                        const audio = new Audio(objectURL);
-                        audio.volume = settings.audio.volume;
-                        audio.play().catch(e => console.error("Audio playback failed:", e));
-                        audio.onended = () => URL.revokeObjectURL(objectURL);
-                    }
-                } catch (e) {
-                    console.error(`Error processing [audio/sfx] command:`, e);
-                }
-            }
-            break;
-    }
-}
-
-async function processDynamicCommands(currentText, messageElement, characterId) {
-    if (characterId === null) return;
-    const commandRegex = /\[(.*?):(.*?)]/g;
-    let match;
-
-    if (!processedCommandsPerMessage.has(messageElement)) {
-        processedCommandsPerMessage.set(messageElement, new Set());
-    }
-    const processedTags = processedCommandsPerMessage.get(messageElement);
-
-    commandRegex.lastIndex = 0;
-    while ((match = commandRegex.exec(currentText)) !== null) {
-        const fullTagString = match[0];
-        const command = match[1].trim().toLowerCase();
-        const value = match[2].trim();
-
-        if (!processedTags.has(fullTagString)) {
-            await executeCommandAction(command, value, messageElement, characterId);
-            processedTags.add(fullTagString);
-        }
-    }
-}
-
-function setupMessageEditing(messageElement, db) {
-    const editButton = messageElement.querySelector('.btn-edit');
-    const saveButton = messageElement.querySelector('.btn-save');
-    const messageTextDiv = messageElement.querySelector('.message-text');
-
-    if (!editButton || !saveButton || !messageTextDiv) return;
-
-    const messageContainer = document.querySelector(".message-container");
-    const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
-    messageElement.dataset.messageIndex = messageIndex;
-
-    editButton.addEventListener('click', async () => {
-        const index = parseInt(messageElement.dataset.messageIndex, 10);
-        const currentChat = await chatsService.getCurrentChat(db);
-        const originalRawText = currentChat.content[index]?.parts[0]?.text;
-
-        if (originalRawText) {
-            messageTextDiv.textContent = originalRawText;
-        } else {
-            messageTextDiv.textContent = messageTextDiv.innerText;
-        }
-
-        messageTextDiv.setAttribute("contenteditable", "true");
-        messageTextDiv.focus();
-
-        const range = document.createRange();
-        range.selectNodeContents(messageTextDiv);
-        range.collapse(false);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        editButton.style.display = 'none';
-        saveButton.style.display = 'inline-block';
-    });
-
-    saveButton.addEventListener('click', async () => {
-        messageTextDiv.removeAttribute("contenteditable");
-        const newRawText = messageTextDiv.innerText;
-        const index = parseInt(messageElement.dataset.messageIndex, 10);
-
-        await updateMessageInDatabase(index, newRawText, db);
-
-        messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
-
-        if (processedCommandsPerMessage.has(messageElement)) {
-            processedCommandsPerMessage.get(messageElement).clear();
-        }
-
-        const chat = await chatsService.getCurrentChat(db);
-        const characterId = chat.content[index]?.personalityid;
-        if (characterId !== undefined) {
-            await processDynamicCommands(newRawText, messageElement, characterId);
-        }
-
-        editButton.style.display = 'inline-block';
-        saveButton.style.display = 'none';
-    });
-}
-
-async function updateMessageInDatabase(messageIndex, newRawText, db) {
-    if (!db) return;
-    try {
-        const currentChat = await chatsService.getCurrentChat(db);
-        if (!currentChat || !currentChat.content[messageIndex]) return;
-
-        currentChat.content[messageIndex].parts[0].text = newRawText;
-        await db.chats.put(currentChat);
-    } catch (error) {
-        console.error("Error updating message in database:", error);
-    }
-}
-
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
-	const pfpElement = newMessage.querySelector('.pfp');
-	requestAnimationFrame(() => {
-		pfpElement.src = avatarUrl;
-	});
+
+    let avatarUrl = "";
+    if (sender !== "user" && characterId !== null) {
+        avatarUrl = await personalityService.getPersonalityAvatarUrl({ id: characterId });
+    }
+
     newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
 
-    if (sender != "user") {
+    if (sender !== "user") {
         newMessage.classList.add("message-model");
         newMessage.innerHTML = `
             <div class="message-header">
@@ -313,9 +116,16 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>`;
 
+        const pfpElement = newMessage.querySelector(".pfp");
+        requestAnimationFrame(() => {
+            if (pfpElement && avatarUrl) {
+                pfpElement.src = avatarUrl;
+            }
+        });
+
         const refreshButton = newMessage.querySelector(".btn-refresh");
         refreshButton.addEventListener("click", async () => {
-            try { await regenerate(newMessage, db) } catch (error) { console.error(error); alert("Error during regeneration."); }
+            try { await regenerate(newMessage, db); } catch (error) { console.error(error); alert("Error during regeneration."); }
         });
 
         const messageContent = newMessage.querySelector(".message-text");
@@ -332,15 +142,13 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                         fullRawText += chunk.text;
 
                         if (!processedCommandsPerMessage.has(newMessage)) {
-                           processedCommandsPerMessage.set(newMessage, new Set());
+                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
 
                         if (typingSpeed > 0) {
                             for (let i = 0; i < chunk.text.length; i++) {
                                 currentDisplayedText += chunk.text[i];
-
                                 await processDynamicCommands(currentDisplayedText, newMessage, characterId);
-
                                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
                                 helpers.messageContainerScrollToBottom();
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
@@ -381,6 +189,22 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text">${msg}</div>`;
     }
+
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
+}
+
+function wrapCommandsInSpan(text) {
+    const commandRegex = /\[(.*?):(.*?)]/g;
+    return text.replace(commandRegex, `<span class="command-block">$&</span>`);
+}
+
+async function regenerate(responseElement, db) {
+    const message = responseElement.previousElementSibling.querySelector(".message-text").textContent;
+    const elementIndex = [...responseElement.parentElement.children].indexOf(responseElement);
+    const chat = await chatsService.getCurrentChat(db);
+    chat.content = chat.content.slice(0, elementIndex - 1);
+    await db.chats.put(chat);
+    await chatsService.loadChat(chat.id, db);
+    await send(message, db);
 }
