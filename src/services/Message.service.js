@@ -77,7 +77,6 @@ export async function send(msg, db) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
 
-    // FIX: Re-introduce `await` here to ensure `stream` is an async iterable
     const stream = await chat.sendMessageStream({ message: messageToSendToAI });
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
@@ -103,7 +102,6 @@ function wrapCommandsInSpan(text) {
 
 async function executeCommandAction(command, value, messageElement, characterId) {
     if (characterId === null) return;
-    // Lazy import AssetManager.service.js here for efficiency
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
 
@@ -115,7 +113,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
-                    // Кроссфейд аватарки в сообщении
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
                         const oldImg = pfpWrapper.querySelector('.pfp');
@@ -123,11 +120,10 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         newImg.src = objectURL;
                         newImg.className = 'pfp';
                         newImg.style.opacity = '0';
-                        // Add error handling for the new image
                         newImg.onerror = () => {
                             console.error(`Failed to load avatar for command [avatar:${value}]:`, objectURL);
-                            newImg.src = './assets/default_avatar.png'; // Fallback image
-                            newImg.style.opacity = '1'; // Ensure fallback is visible
+                            newImg.src = './assets/default_avatar.png';
+                            newImg.style.opacity = '1';
                             URL.revokeObjectURL(objectURL);
                         };
                         pfpWrapper.appendChild(newImg);
@@ -141,7 +137,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         }, 500);
                     }
 
-                    // Кроссфейд аватарки в сайдбаре
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
                         const cardWrapper = personalityCard.querySelector('.background-img-wrapper');
@@ -151,11 +146,10 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             newImg.src = objectURL;
                             newImg.className = 'background-img';
                             newImg.style.opacity = '0';
-                            // Add error handling for the new image
                             newImg.onerror = () => {
                                 console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
-                                newImg.src = './assets/default_avatar.png'; // Fallback image
-                                newImg.style.opacity = '1'; // Ensure fallback is visible
+                                newImg.src = './assets/default_avatar.png';
+                                newImg.style.opacity = '1';
                                 URL.revokeObjectURL(objectURL);
                             };
                             cardWrapper.appendChild(newImg);
@@ -171,10 +165,9 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             const img = personalityCard.querySelector('.background-img');
                             if (img) {
                                 img.src = objectURL;
-                                // Add error handling for the image
                                 img.onerror = () => {
                                     console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
-                                    img.src = './assets/default_avatar.png'; // Fallback image
+                                    img.src = './assets/default_avatar.png';
                                 };
                                 setTimeout(() => URL.revokeObjectURL(objectURL), 750);
                             } else {
@@ -200,7 +193,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         audio.volume = settings.audio.volume;
                         audio.play().catch(e => console.error("Audio playback failed:", e));
                         audio.onended = () => URL.revokeObjectURL(objectURL);
-                        // Add error handling for audio
                         audio.onerror = () => {
                             console.error(`Failed to load audio for command [${command}:${value}]:`, objectURL);
                             URL.revokeObjectURL(objectURL);
@@ -240,26 +232,17 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
+    const deleteButton = messageElement.querySelector('.btn-delete'); // NEW
     const messageTextDiv = messageElement.querySelector('.message-text');
 
-    if (!editButton || !saveButton || !messageTextDiv) return;
-
-    const messageContainer = document.querySelector(".message-container");
-    const messageIndex = Array.from(messageContainer.children).indexOf(messageElement);
-    messageElement.dataset.messageIndex = messageIndex;
+    if (!editButton || !saveButton || !messageTextDiv || !deleteButton) return; // MODIFIED
 
     editButton.addEventListener('click', async () => {
         const index = parseInt(messageElement.dataset.messageIndex, 10);
         const currentChat = await chatsService.getCurrentChat(db);
         const originalRawText = currentChat.content[index]?.parts[0]?.text;
 
-        if (originalRawText) {
-            messageTextDiv.textContent = originalRawText;
-        } else {
-            // Fallback for cases where originalRawText might be missing (shouldn't happen with proper saving)
-            messageTextDiv.textContent = messageTextDiv.innerText;
-        }
-
+        messageTextDiv.textContent = originalRawText || messageTextDiv.innerText;
         messageTextDiv.setAttribute("contenteditable", "true");
         messageTextDiv.focus();
 
@@ -279,7 +262,6 @@ function setupMessageEditing(messageElement, db) {
         const newRawText = messageTextDiv.innerText;
         const index = parseInt(messageElement.dataset.messageIndex, 10);
 
-        // 1. Save the updated raw text to the database
         await updateMessageInDatabase(index, newRawText, db);
 
         const chat = await chatsService.getCurrentChat(db);
@@ -287,15 +269,40 @@ function setupMessageEditing(messageElement, db) {
         const characterId = messageData?.personalityid;
         const sender = messageData?.role;
 
-        // 2. Trigger the re-typing animation
         const settings = settingsService.getSettings();
         await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
 
-        // 3. Reset the UI
         editButton.style.display = 'inline-block';
         saveButton.style.display = 'none';
     });
+
+    // NEW DELETE BUTTON LISTENER
+    deleteButton.addEventListener('click', async () => {
+        if (!confirm("Are you sure you want to delete this message? This action cannot be undone.")) {
+            return;
+        }
+
+        const chatId = chatsService.getCurrentChatId();
+        const indexToDelete = parseInt(messageElement.dataset.messageIndex, 10);
+
+        const success = await chatsService.deleteMessage(chatId, indexToDelete, db);
+
+        if (success) {
+            // Remove from UI
+            messageElement.remove();
+
+            // CRITICAL: Re-index all subsequent messages in the DOM
+            const messageContainer = document.querySelector(".message-container");
+            const allMessages = messageContainer.querySelectorAll('.message');
+            allMessages.forEach((msgEl, newIndex) => {
+                msgEl.dataset.messageIndex = newIndex;
+            });
+        } else {
+            alert("Failed to delete the message. Please check the console for errors.");
+        }
+    });
 }
+
 
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
@@ -315,30 +322,26 @@ async function retypeMessage(messageElement, newRawText, characterId, typingSpee
     if (!messageContent) return;
 
     let currentDisplayedText = "";
-    messageContent.innerHTML = ""; // Clear the content to start fresh
+    messageContent.innerHTML = "";
 
-    // Ensure command history for this element is cleared before re-typing
     if (processedCommandsPerMessage.has(messageElement)) {
         processedCommandsPerMessage.get(messageElement).clear();
     }
 
-    if (typingSpeed > 0 && sender !== "user") { // Only type for AI messages
+    if (typingSpeed > 0 && sender !== "user") {
         for (let i = 0; i < newRawText.length; i++) {
             currentDisplayedText += newRawText[i];
-            // Process commands as the text types out
             await processDynamicCommands(currentDisplayedText, messageElement, characterId);
             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
             helpers.messageContainerScrollToBottom();
             await new Promise(resolve => setTimeout(resolve, typingSpeed));
         }
     } else {
-        // If no typing speed or it's a user message, just render it all at once
         await processDynamicCommands(newRawText, messageElement, characterId);
         messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
         helpers.messageContainerScrollToBottom();
     }
 
-    // Final processing and highlight after typing completes
     await processDynamicCommands(newRawText, messageElement, characterId);
     messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
     hljs.highlightAll();
@@ -348,10 +351,9 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     const newMessage = document.createElement("div");
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
+    const messageIndex = messageContainer.children.length; // Get index before appending
+    newMessage.dataset.messageIndex = messageIndex;
     messageContainer.append(newMessage);
-
-    // Set message index immediately for consistent lookup
-    newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
 
     if (sender !== "user") {
         newMessage.classList.add("message-model");
@@ -364,22 +366,20 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
                     <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
             <div class="message-text"></div>`;
 
-        // AFTER innerHTML, query the pfpElement and set its src using requestAnimationFrame
         const pfpElement = newMessage.querySelector('.pfp');
         if (pfpElement && pfpSrc) {
             requestAnimationFrame(() => {
                 pfpElement.src = pfpSrc;
-                // Optional: Add an onerror handler for the initial load
                 pfpElement.onerror = () => {
                     console.error("Failed to load initial personality avatar:", pfpSrc);
-                    // Fallback to a default image if loading fails
-                    pfpElement.src = './assets/default_avatar.png'; // <--- IMPORTANT: Update with your default avatar path
+                    pfpElement.src = './assets/default_avatar.png';
                 };
             });
         }
@@ -392,10 +392,8 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageContent = newMessage.querySelector(".message-text");
 
         if (!netStream) {
-            // For non-streaming messages (e.g., loaded from history)
             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(msg), { breaks: true });
-            // Process commands immediately for non-streaming messages
-            if (characterId !== null) { // Ensure characterId is valid
+            if (characterId !== null) {
                 await processDynamicCommands(msg, newMessage, characterId);
             }
         } else {
@@ -406,22 +404,19 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 for await (const chunk of netStream) {
                     if (chunk && chunk.text) {
                         fullRawText += chunk.text;
-
                         if (!processedCommandsPerMessage.has(newMessage)) {
                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
 
                         if (typingSpeed > 0) {
-                            // Typing effect: process commands on each new character to ensure responsiveness
                             for (let i = 0; i < chunk.text.length; i++) {
                                 currentDisplayedText += chunk.text[i];
-                                await processDynamicCommands(currentDisplayedText, newMessage, characterId); // Process here
+                                await processDynamicCommands(currentDisplayedText, newMessage, characterId);
                                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
                                 helpers.messageContainerScrollToBottom();
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            // No typing effect: process commands as full chunks arrive
                             await processDynamicCommands(fullRawText, newMessage, characterId);
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                             helpers.messageContainerScrollToBottom();
@@ -429,7 +424,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     }
                 }
 
-                // Final processing and rendering after stream ends
                 await processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
@@ -438,7 +432,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
                 console.error("Stream error:", error);
-                // Ensure commands are processed and content is rendered even on error
                 await processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
@@ -454,6 +447,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
@@ -461,4 +455,5 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
+    return newMessage; // Return the created element
 }

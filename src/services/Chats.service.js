@@ -1,7 +1,9 @@
-import * as messageService from "./Message.service"
-import * as helpers from "../utils/helpers"
-import * as personalityService from "./Personality.service";
-import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
+// FILE: src/services/Chats.service.js
+
+import * as messageService from "./Message.service.js";
+import * as helpers from "../utils/helpers.js";
+import * as personalityService from "./Personality.service.js";
+import * as settingsService from "./Settings.service.js";
 
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
@@ -185,36 +187,42 @@ export async function loadChat(chatID, db) {
         }
         messageContainer.innerHTML = "";
         const chat = await getChatById(chatID, db);
+        let messageIndex = 0; // Keep track of index for dataset
         for (const msg of chat.content) {
+            let insertedMessageElement;
             if (msg.role === "model") {
                 const personality = msg.personalityid ?
                     await personalityService.get(msg.personalityid, db) :
                     await personalityService.getByName(msg.personality, db);
-                await messageService.insertMessage(
+                insertedMessageElement = await messageService.insertMessage(
                     msg.role,
                     msg.parts[0].text,
                     personality.name,
                     null,
                     db,
-                    personality.image
+                    personality.image,
+                    0, // typingSpeed = 0 for instant load
+                    personality.id
                 );
+            } else {
+                insertedMessageElement = await messageService.insertMessage(msg.role, msg.parts[0].text, null, null, db);
             }
-            else {
-                await messageService.insertMessage(msg.role, msg.parts[0].text, null, null, db);
+            // The insertMessage function needs to return the element it creates
+            if (insertedMessageElement) {
+                insertedMessageElement.dataset.messageIndex = messageIndex++;
             }
-
         }
         // Always scroll to bottom when loading a chat
         messageContainer.scrollTo({
             top: messageContainer.scrollHeight,
             behavior: 'auto'
         });
-    }
-    catch (error) {
+    } catch (error) {
         alert("Error, please report this to the developer. You might need to restart the page to continue normal usage. Error: " + error);
         console.error(error);
     }
 }
+
 
 export async function getAllChats(db) {
     const chats = await db.chats.orderBy('timestamp').toArray(); // Get all objects
@@ -225,4 +233,26 @@ export async function getAllChats(db) {
 export async function getChatById(id, db) {
     const chat = await db.chats.get(id);
     return chat;
+}
+
+// NEW FUNCTION TO DELETE A SINGLE MESSAGE
+export async function deleteMessage(chatId, messageIndex, db) {
+    if (chatId === null || messageIndex === undefined) return false;
+    try {
+        const chat = await db.chats.get(chatId);
+        if (!chat || !chat.content[messageIndex]) {
+            console.error("Attempted to delete a message that does not exist.", { chatId, messageIndex });
+            return false;
+        }
+
+        // Remove the message from the content array
+        chat.content.splice(messageIndex, 1);
+
+        // Save the updated chat object back to the database
+        await db.chats.put(chat);
+        return true; // Indicate success
+    } catch (error) {
+        console.error("Error deleting message from database:", error);
+        return false; // Indicate failure
+    }
 }
