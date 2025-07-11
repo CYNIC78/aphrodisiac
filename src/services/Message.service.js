@@ -1,5 +1,3 @@
---- START OF FILE Message.service.js ---
-
 // FILE: src/services/Message.service.js
 
 //handles sending messages to the api
