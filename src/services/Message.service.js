@@ -123,19 +123,47 @@ async function executeCommandAction(command, value, messageElement, characterId)
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
 
+                    const elementsToUpdate = [];
                     const pfpElement = messageElement.querySelector('.pfp');
-                    if (pfpElement) {
-                        pfpElement.src = objectURL; // Instant switch
+                    if (pfpElement) elementsToUpdate.push(pfpElement);
+                    const personalityCard = document.querySelector(`#personality-${characterId}`);
+                    const cardImg = personalityCard ? personalityCard.querySelector('.background-img') : null;
+                    if (cardImg) elementsToUpdate.push(cardImg);
+
+                    if (elementsToUpdate.length === 0) {
+                        URL.revokeObjectURL(objectURL);
+                        return;
                     }
 
-                    const personalityCard = document.querySelector(`#personality-${characterId}`);
-                    if (personalityCard) {
-                        const cardImg = personalityCard.querySelector('.background-img');
-                        if (cardImg) {
-                            cardImg.src = objectURL; // Instant switch
+                    // --- REVISED AVATAR LOGIC: Use temporary image to ensure load, then assign ---
+                    const tempImg = new Image();
+                    tempImg.src = objectURL; // Start loading the image
+
+                    tempImg.onload = () => {
+                        for (const imgElement of elementsToUpdate) {
+                            // Ensure the element is visible with its default CSS (no hide-for-swap)
+                            // This effectively makes it an instant switch for now.
+                            imgElement.classList.remove('hide-for-swap'); // Remove any lingering hide class
+                            imgElement.src = objectURL; // Set the source of the visible element
                         }
+                        // Revoke URL *after* a small delay, giving the browser time to render
+                        setTimeout(() => URL.revokeObjectURL(objectURL), 750); // 750ms delay
+                    };
+                    tempImg.onerror = (e) => {
+                        console.error("Failed to load avatar image from objectURL:", objectURL, e);
+                        // Still try to make sure elements are not hidden if an error occurs
+                        for (const imgElement of elementsToUpdate) {
+                            imgElement.classList.remove('hide-for-swap');
+                        }
+                        URL.revokeObjectURL(objectURL);
+                    };
+
+                    // If image is already in cache, onload might fire synchronously
+                    if (tempImg.complete && tempImg.naturalWidth > 0) {
+                        tempImg.onload(); // Manually trigger onload logic if image is already complete
                     }
-                    URL.revokeObjectURL(objectURL); // Revoke immediately as it's an instant switch
+
+
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
@@ -229,16 +257,15 @@ function setupMessageEditing(messageElement, db) {
 
         console.log("Save clicked. New Raw Text from editable div:", newRawText); // Debug log
 
-        await updateMessageInDatabase(index, newRawText, db);
+        await updateMessageInDatabase(index, newRawText, db); // Update the database first
 
-        // --- REVISED FIX for Re-rendering on Save ---
-        // Explicitly clear and then re-render to force browser repaint
-        messageTextDiv.innerHTML = '';
+        // --- FIX for Re-rendering on Save ---
+        // Ensure the content is completely replaced and re-rendered
         const renderedHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
         console.log("Save clicked. Rendered HTML for display:", renderedHtml); // Debug log
-        messageTextDiv.innerHTML = renderedHtml;
+        messageTextDiv.innerHTML = renderedHtml; // Assign the new HTML
         hljs.highlightAll(); // Re-highlight any code blocks after re-render
-        // --- END REVISED FIX ---
+        // --- END FIX ---
 
         // IMPORTANT: Clear previously processed commands for this message element
         // This ensures if the user edited and changed a command, it gets re-evaluated.
