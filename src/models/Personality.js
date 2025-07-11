@@ -1,13 +1,14 @@
-// FILE: src/models/Personality.js
-
 export class Personality {
-    constructor(name = "", image = "", description = "", prompt = "", tagPrompt = "", reminder = "", toneExamples = []) {
+    constructor(name = "", image = "", description = "", prompt = "", aggressiveness = 0, sensuality = 0, internetEnabled = false, roleplayEnabled = false, reminder = "", toneExamples = []) {
         this.name = name;
         this.image = image;
         this.description = description;
         this.prompt = prompt;
-        this.tagPrompt = tagPrompt; // NEW
-        this.reminder = reminder;
+        this.aggressiveness = aggressiveness;
+        this.sensuality = sensuality;
+        this.internetEnabled = internetEnabled;
+        this.roleplayEnabled = roleplayEnabled;
+        this.reminder = reminder; // <--- NEW LINE
         this.toneExamples = toneExamples;
     }
 }
