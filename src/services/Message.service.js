@@ -290,7 +290,10 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     messageContainer.append(newMessage);
-
+	const pfpElement = newMessage.querySelector('.pfp');
+	requestAnimationFrame(() => {
+		pfpElement.src = avatarUrl;
+	});
     newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
 
     if (sender != "user") {
@@ -298,7 +301,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.innerHTML = `
             <div class="message-header">
                 <div class="pfp-wrapper">
-                    <img class="pfp" src="${pfpSrc}" loading="lazy" />
+                    <img class="pfp" src="" loading="lazy" />
                 </div>
                 <h3 class="message-role">${selectedPersonalityTitle}</h3>
                 <div class="message-actions">
