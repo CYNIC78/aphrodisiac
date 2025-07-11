@@ -188,7 +188,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             const audio = new Audio(objectURL);
                             audio.volume = settings.audio.volume;
                             audio.play().catch(e => console.error("Audio playback failed:", e));
-                            // No revoke here; AssetManagerService manages it.
                         } else {
                              console.warn(`[DEBUG - M.service] No valid audio URL for asset ID: ${asset.id}`);
                         }
@@ -302,7 +301,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     // Append the new message element to the DOM first
-    messageContainer.append(newMessage); // <--- Appended BEFORE setting avatar src
+    messageContainer.append(newMessage);
 
     newMessage.dataset.messageIndex = Array.from(messageContainer.children).indexOf(newMessage);
 
@@ -320,7 +319,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.innerHTML = `
             <div class="message-header">
                 <div class="pfp-wrapper">
-                    <img class="pfp" loading="lazy" />  <!-- REMOVED src="${avatarUrl}" -->
+                    <img class="pfp" loading="lazy" />  <!-- The src attribute is intentionally removed from here -->
                 </div>
                 <h3 class="message-role">${selectedPersonalityTitle}</h3>
                 <div class="message-actions">
@@ -336,6 +335,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const pfpImg = newMessage.querySelector('.pfp');
         if (pfpImg && avatarUrl) {
             requestAnimationFrame(() => {
+                console.log(`[DEBUG - M.service] Assigning PFP src via requestAnimationFrame: ${avatarUrl}`); // Added debug log
                 pfpImg.src = avatarUrl;
             });
         }
