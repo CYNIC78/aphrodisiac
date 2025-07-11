@@ -77,8 +77,9 @@ export async function send(msg, db) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
 
-    // Pass the pfpSrc from selectedPersonality.image to insertMessage
-    const reply = await insertMessage("model", "", selectedPersonality.name, chat.sendMessageStream({ message: messageToSendToAI }), db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
+    // FIX: Re-introduce `await` here to ensure `stream` is an async iterable
+    const stream = await chat.sendMessageStream({ message: messageToSendToAI });
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
@@ -103,7 +104,7 @@ function wrapCommandsInSpan(text) {
 async function executeCommandAction(command, value, messageElement, characterId) {
     if (characterId === null) return;
     // Lazy import AssetManager.service.js here for efficiency
-    const { assetManagerService } = await import('./AssetManager.service.js'); 
+    const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
 
     switch (command) {
@@ -125,7 +126,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         // Add error handling for the new image
                         newImg.onerror = () => {
                             console.error(`Failed to load avatar for command [avatar:${value}]:`, objectURL);
-                            newImg.src = 'path/to/default-avatar.png'; // Fallback image
+                            newImg.src = './assets/default_avatar.png'; // Fallback image
                             newImg.style.opacity = '1'; // Ensure fallback is visible
                             URL.revokeObjectURL(objectURL);
                         };
@@ -153,7 +154,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             // Add error handling for the new image
                             newImg.onerror = () => {
                                 console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
-                                newImg.src = 'path/to/default-sidebar-avatar.png'; // Fallback image
+                                newImg.src = './assets/default_avatar.png'; // Fallback image
                                 newImg.style.opacity = '1'; // Ensure fallback is visible
                                 URL.revokeObjectURL(objectURL);
                             };
@@ -173,7 +174,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                                 // Add error handling for the image
                                 img.onerror = () => {
                                     console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
-                                    img.src = 'path/to/default-sidebar-avatar.png'; // Fallback image
+                                    img.src = './assets/default_avatar.png'; // Fallback image
                                 };
                                 setTimeout(() => URL.revokeObjectURL(objectURL), 750);
                             } else {
@@ -327,7 +328,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         newMessage.innerHTML = `
             <div class="message-header">
                 <div class="pfp-wrapper">
-                    <img class="pfp" src="" loading="lazy" /> 
+                    <img class="pfp" src="" loading="lazy" />
                 </div>
                 <h3 class="message-role">${selectedPersonalityTitle}</h3>
                 <div class="message-actions">
@@ -348,7 +349,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 pfpElement.onerror = () => {
                     console.error("Failed to load initial personality avatar:", pfpSrc);
                     // Fallback to a default image if loading fails
-                    pfpElement.src = 'path/to/default-avatar.png'; // <--- IMPORTANT: Update with your default avatar path
+                    pfpElement.src = './assets/default_avatar.png'; // <--- IMPORTANT: Update with your default avatar path
                 };
             });
         }
