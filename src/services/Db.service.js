@@ -63,5 +63,3 @@ export async function setupDB() {
 }
 
 export const db = await setupDB();
-
-export const db = await setupDB();
