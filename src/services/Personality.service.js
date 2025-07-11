@@ -4,41 +4,10 @@ import * as overlayService from "./Overlay.service";
 import { db } from "./Db.service";
 import { Personality } from "../models/Personality";
 import { assetManagerService } from "./AssetManager.service.js";
-import * as settingsService from "./Settings.service.js";
+import * as settingsService from "./Settings.service.js"; // NEW: Import settings service
 
-// Removed: personalityImageUrls map and its associated URL.revokeObjectURL calls.
-// Blob URL management is now centralized in AssetManager.service.js.
-
-// NEW: Centralized function to get the correct avatar URL for a given personality
-export async function getPersonalityAvatarUrl(personality) { // <<-- EXPORT KEYWORD IS NOW HERE
-    if (!personality || typeof personality.id !== 'number') {
-        console.warn("[DEBUG - P.service] Invalid personality object provided to getPersonalityAvatarUrl. Returning placeholder.");
-        return "/media/default/images/placeholder.png";
-    }
-
-    if (personality.id === -1) {
-        console.log(`[DEBUG - P.service] Request for Aphrodite avatar. Returning default: ${getDefault().image}`);
-        return getDefault().image; // Aphrodite's default image URL
-    }
-
-    try {
-        const avatarUrlFromAsset = await assetManagerService.getFirstImageObjectUrlByTags(
-            ['avatar', personality.name.toLowerCase()],
-            personality.id
-        );
-
-        if (avatarUrlFromAsset) {
-            console.log(`[DEBUG - P.service] Found asset URL for ${personality.name} (ID: ${personality.id}): ${avatarUrlFromAsset}`);
-            return avatarUrlFromAsset;
-        } else {
-            console.log(`[DEBUG - P.service] No specific avatar asset found for ${personality.name} (ID: ${personality.id}). Falling back to personality.image.`);
-            return personality.image; // Fallback to the personality's default image field
-        }
-    } catch (error) {
-        console.error(`[DEBUG - P.service] Error retrieving avatar URL for ${personality.name} (ID: ${personality.id}):`, error);
-        return personality.image; // Fallback on error
-    }
-}
+// Map to store Object URLs for personality images for proper memory management
+const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
 
 // Move the migration logic to a separate function that can be called from main.js
 export async function migratePersonalities(database) {
@@ -184,8 +153,12 @@ export async function remove(id) {
     if (id < 0) {
         return;
     }
-    // Removed: URL.revokeObjectURL and personalityImageUrls.delete from here.
-    // AssetManagerService handles revocation on delete.
+    // Revoke the object URL for the personality being removed
+    if (personalityImageUrls.has(id)) {
+        URL.revokeObjectURL(personalityImageUrls.get(id));
+        personalityImageUrls.delete(id);
+        console.log(`Revoked object URL for personality ID: ${id}`);
+    }
     await db.personalities.delete(id);
     // Delete all assets associated with this character
     await assetManagerService.deleteAssetsByCharacterId(id);
@@ -261,9 +234,11 @@ export function createAddPersonalityCard() {
 }
 
 export async function removeAll() {
-    // Removed: URL.revokeObjectURL and personalityImageUrls.clear from here.
-    // AssetManagerService handles all Object URL revocation.
-    
+    // Revoke all existing object URLs before clearing database and UI
+    personalityImageUrls.forEach(url => URL.revokeObjectURL(url));
+    personalityImageUrls.clear();
+    console.log('Revoked all personality image object URLs.');
+
     // Delete assets for all personalities before clearing personalities table
     const allPersonalities = await db.personalities.toArray();
     for (const p of allPersonalities) {
@@ -419,21 +394,25 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
     if (!imgElement || !personality || typeof personality.id !== 'number') return;
 
-    // Removed: URL.revokeObjectURL and personalityImageUrls.delete from here.
-    // AssetManagerService now centrally manages blob URLs.
+    if (personalityImageUrls.has(personality.id)) {
+        URL.revokeObjectURL(personalityImageUrls.get(personality.id));
+        personalityImageUrls.delete(personality.id);
+    }
 
     try {
-        let avatarUrl = await getPersonalityAvatarUrl(personality);
-        
+        let avatarUrl = null;
+        if (personality.id !== -1) {
+             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], personality.id);
+        }
+       
         if (avatarUrl) {
             imgElement.src = avatarUrl;
-            // Removed: personalityImageUrls.set(personality.id, avatarUrl);
-            // AssetManagerService now caches this URL.
+            personalityImageUrls.set(personality.id, avatarUrl);
         } else {
             imgElement.src = personality.image;
         }
     } catch (error) {
-        console.error(`Error loading avatar for ${personality.name} in UI:`, error);
+        console.error(`Error loading avatar for ${personality.name}:`, error);
         imgElement.src = personality.image;
     }
 }

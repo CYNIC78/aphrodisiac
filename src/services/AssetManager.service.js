@@ -1,12 +1,8 @@
-// FILE: src/services/AssetManager.service.js
-
 import { db } from './Db.service.js';
 
 class AssetManagerService {
     constructor() {
-        // Private map to store Object URLs for assets, keyed by assetId.
-        // This ensures a single URL is managed per asset to prevent premature revocation issues.
-        this._objectUrlCache = new Map(); // Map<assetId, objectURL>
+        // We can add any initial properties here if needed later
     }
 
     /**
@@ -16,23 +12,21 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the personality this asset belongs to.
      * @returns {Promise<number>} The ID of the new asset.
      */
-    async addAsset(file, tags = [], characterId) {
+    async addAsset(file, tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.addAsset: characterId is required.");
             throw new Error("characterId is required to add an asset.");
         }
         console.log(`Adding asset: ${file.name} for character ID ${characterId} with tags: ${tags.join(', ')}`);
         const asset = {
-            characterId: characterId,
+            characterId: characterId, // <-- ADDED: Associate asset with character
             name: file.name,
             type: file.type.startsWith('image/') ? 'image' : 'audio',
             tags: tags,
             data: file, // Dexie handles blobs directly
             timestamp: new Date()
         };
-        const id = await db.assets.add(asset);
-        // Note: No URL.createObjectURL here. It happens on demand in getAssetObjectUrl.
-        return id;
+        return await db.assets.add(asset);
     }
 
     /**
@@ -51,32 +45,15 @@ class AssetManagerService {
      * @returns {Promise<number>}
      */
     async updateAsset(id, changes) {
-        // If 'data' is being updated (i.e., new file uploaded for existing asset),
-        // we should revoke the old URL to prevent memory leaks.
-        if (changes.data) {
-            const oldUrl = this._objectUrlCache.get(id);
-            if (oldUrl) {
-                URL.revokeObjectURL(oldUrl);
-                this._objectUrlCache.delete(id);
-            }
-        }
         return await db.assets.update(id, changes);
     }
 
     /**
      * Deletes an asset from the database.
-     * IMPORTANT: This now also revokes the corresponding Object URL.
      * @param {number} id - The ID of the asset to delete.
      * @returns {Promise<void>}
      */
     async deleteAsset(id) {
-        // Revoke the Object URL from the cache before deleting the asset from DB
-        const url = this._objectUrlCache.get(id);
-        if (url) {
-            URL.revokeObjectURL(url);
-            this._objectUrlCache.delete(id);
-            console.log(`[AssetManagerService] Revoked Object URL for asset ID: ${id}`);
-        }
         return await db.assets.delete(id);
     }
 
@@ -86,24 +63,12 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the character whose assets to delete.
      * @returns {Promise<void>}
      */
-    async deleteAssetsByCharacterId(characterId) {
+    async deleteAssetsByCharacterId(characterId) { // <-- ADDED: New function for per-character deletion
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.deleteAssetsByCharacterId: characterId is required.");
             return;
         }
         console.log(`Deleting all assets for character ID: ${characterId}`);
-        
-        // Retrieve assets first to revoke their URLs
-        const assetsToDelete = await db.assets.where('characterId').equals(characterId).toArray();
-        for (const asset of assetsToDelete) {
-            const url = this._objectUrlCache.get(asset.id);
-            if (url) {
-                URL.revokeObjectURL(url);
-                this._objectUrlCache.delete(asset.id);
-                console.log(`[AssetManagerService] Revoked Object URL for asset ID (batch delete): ${asset.id}`);
-            }
-        }
-
         await db.assets.where('characterId').equals(characterId).delete();
     }
 
@@ -112,7 +77,7 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<any[]>} A promise that resolves to an array of assets.
      */
-    async getAllAssetsForCharacter(characterId) {
+    async getAllAssetsForCharacter(characterId) { // <-- MODIFIED: New function for character-specific retrieval
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.getAllAssetsForCharacter: characterId is required.");
             return [];
@@ -126,20 +91,24 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
      */
-    async searchAssetsByTags(tags = [], characterId) {
+    async searchAssetsByTags(tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.searchAssetsByTags: characterId is required.");
             return [];
         }
         if (!tags || tags.length === 0) {
-            return this.getAllAssetsForCharacter(characterId);
+            return this.getAllAssetsForCharacter(characterId); // Use character-specific getter
         }
         
+        // Step 1: Get all assets for the specific character that have AT LEAST ONE of the desired tags
         const candidateAssets = await db.assets
-                                    .where('characterId').equals(characterId)
-                                    .and(asset => tags.some(tag => asset.tags.includes(tag)))
+                                    .where('characterId').equals(characterId) // <-- Filter by characterId first
+                                    .and(asset => tags.some(tag => asset.tags.includes(tag))) // Filter by tags
                                     .toArray();
 
+        // Step 2: Filter these candidates in JavaScript to ensure ALL tags are present in the asset's tags array.
+        // This is necessary because Dexie's .anyOf() (or .and() combined with a predicate)
+        // only checks for SOME tags, not ALL, when using multi-entry indexes in this way.
         const matchingAssets = candidateAssets.filter(asset =>
             tags.every(tag => asset.tags.includes(tag))
         );
@@ -152,12 +121,12 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<string[]>} A promise that resolves to an array of unique tags.
      */
-    async getAllUniqueTagsForCharacter(characterId) {
+    async getAllUniqueTagsForCharacter(characterId) { // <-- MODIFIED: New function for character-specific tags
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.getAllUniqueTagsForCharacter: characterId is required.");
             return [];
         }
-        const allAssets = await this.getAllAssetsForCharacter(characterId);
+        const allAssets = await this.getAllAssetsForCharacter(characterId); // Get character's assets
         const uniqueTags = new Set();
         allAssets.forEach(asset => {
             asset.tags.forEach(tag => uniqueTags.add(tag));
@@ -167,26 +136,16 @@ class AssetManagerService {
     }
 
     /**
-     * Creates and/or retrieves a stable Object URL for an asset's data Blob.
-     * This URL is cached and only revoked when the asset is deleted or updated.
+     * Creates an Object URL for an asset's data Blob.
+     * This URL can be used as an img.src or audio.src.
      * @param {number} assetId - The ID of the asset.
      * @returns {Promise<string|null>} The Object URL, or null if asset not found or data is not a Blob.
      */
     async getAssetObjectUrl(assetId) {
-        // Check cache first
-        if (this._objectUrlCache.has(assetId)) {
-            console.log(`[AssetManagerService] Returning cached Object URL for asset ID: ${assetId}`);
-            return this._objectUrlCache.get(assetId);
-        }
-
         const asset = await this.getAssetById(assetId);
         if (asset && asset.data instanceof Blob) {
-            const url = URL.createObjectURL(asset.data);
-            this._objectUrlCache.set(assetId, url); // Store in cache
-            console.log(`[AssetManagerService] Created and cached new Object URL for asset ID: ${assetId} -> ${url}`);
-            return url;
+            return URL.createObjectURL(asset.data);
         }
-        console.warn(`[AssetManagerService] No valid Blob data found for asset ID: ${assetId}. Cannot create Object URL.`);
         return null;
     }
 
@@ -196,12 +155,11 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<string|null>} The Object URL of the first matching image asset, or null if none found.
      */
-    async getFirstImageObjectUrlByTags(tags = [], characterId) {
-        const assets = await this.searchAssetsByTags(tags, characterId);
+    async getFirstImageObjectUrlByTags(tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
+        const assets = await this.searchAssetsByTags(tags, characterId); // <-- Pass characterId
         const imageAssets = assets.filter(a => a.type === 'image');
         if (imageAssets.length > 0) {
             // If multiple images match, we take the first one found.
-            // This will now use the cached URL from getAssetObjectUrl.
             return this.getAssetObjectUrl(imageAssets[0].id);
         }
         return null;
