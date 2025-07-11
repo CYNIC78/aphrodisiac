@@ -30,15 +30,14 @@
     scrollbar-width: thin;
 }
 
-/* Base img opacity removed for crossfade management */
-/* img {
+img {
     opacity: 0;
-} */
+}
 
 /* Show images with non-empty src values */
-/* img[src]:not([src=""]):not([src="undefined"]):not([src="null"]) {
+img[src]:not([src=""]):not([src="undefined"]):not([src="null"]) {
     opacity: 1;
-} */
+}
 
 body {
     font-family: 'Noto Sans', sans-serif;
@@ -1131,6 +1130,21 @@ input[name="currentChat"][value="none"] {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @media (min-width: 1032px) {
     .sidebar {
         display: flex;
@@ -1419,7 +1433,7 @@ input[name="currentChat"][value="none"] {
 
     .badge {
         background-color: #253a5c;
-        border: 1px solid rgba(35, 104, 123, 0.508);
+        border: 1px solid rgba(35, 108, 119, 0.508);
         color: #b6ebfb;
     }
 
@@ -1733,3 +1747,40 @@ input[name="currentChat"][value="none"] {
     display: none;
     */
 }
+
+
+
+
+
+
+
+
+/*  chatGPT crossfade attempt  */
+
+.pfp-wrapper {
+    position: relative;
+    width: 48px;
+    height: 48px;
+}
+
+.pfp {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.pfp.fading-in {
+    opacity: 0;
+    z-index: 2;
+}
+
+.pfp.fading-in.fade-active {
+    opacity: 1;
+}
+
+/*  chatGPT crossfade attempt  */
