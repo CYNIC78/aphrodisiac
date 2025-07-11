@@ -9,6 +9,40 @@ import * as settingsService from "./Settings.service.js";
 // Map to store Object URLs for personality images for proper memory management
 const personalityImageUrls = new Map(); // Map<personalityId, objectURL>
 
+// NEW: Centralized function to get the correct avatar URL for a given personality
+export async function getPersonalityAvatarUrl(personality) { // <<-- THIS LINE IS FIXED
+    if (!personality || typeof personality.id !== 'number') {
+        // Fallback for invalid personality object
+        console.warn("Invalid personality object provided to getPersonalityAvatarUrl.");
+        return "/media/default/images/placeholder.png"; // Or a generic default if no personality image is suitable
+    }
+
+    // Handle the default Aphrodite personality specifically, as it doesn't have custom assets
+    if (personality.id === -1) {
+        return getDefault().image; // Use Aphrodite's default image URL
+    }
+
+    try {
+        // Attempt to find an avatar asset with 'avatar' and the personality's name as tags
+        const avatarAsset = await assetManagerService.getFirstImageObjectUrlByTags(
+            ['avatar', personality.name.toLowerCase()], 
+            personality.id
+        );
+
+        // If an asset is found, return its URL
+        if (avatarAsset) {
+            return avatarAsset;
+        } else {
+            // If no specific asset, fall back to the personality's stored image URL
+            return personality.image;
+        }
+    } catch (error) {
+        console.error(`Error retrieving avatar URL for ${personality.name} (ID: ${personality.id}):`, error);
+        // Fallback to personality's image on error, or a generic placeholder
+        return personality.image;
+    }
+}
+
 // Move the migration logic to a separate function that can be called from main.js
 export async function migratePersonalities(database) {
     const chats = await database.chats.toArray();
@@ -82,7 +116,7 @@ export async function initialize() {
             radioButton.click(); 
         }
     } else {
-        // Fallback: If for some reason even Aphrodite's card isn't found (shouldn't happen),
+        // Fallback: If for some reason even Aphrodite's card isn't found (shouldnt happen),
         // ensure settings are updated to reflect the true default.
         settingsService.setActivePersonalityId(-1);
     }
@@ -400,19 +434,21 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     }
 
     try {
-        let avatarUrl = null;
-        if (personality.id !== -1) {
-             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], personality.id);
-        }
-       
+        // Use the new centralized function to get the correct avatar URL
+        const avatarUrl = await getPersonalityAvatarUrl(personality);
+        
         if (avatarUrl) {
             imgElement.src = avatarUrl;
-            personalityImageUrls.set(personality.id, avatarUrl);
+            // Store the object URL if it's a blob URL (e.g., from asset service)
+            if (avatarUrl.startsWith('blob:')) {
+                personalityImageUrls.set(personality.id, avatarUrl);
+            }
         } else {
+            // Fallback to personality.image if getPersonalityAvatarUrl returns null/undefined
             imgElement.src = personality.image;
         }
     } catch (error) {
-        console.error(`Error loading avatar for ${personality.name}:`, error);
-        imgElement.src = personality.image;
+        console.error(`Error loading avatar for ${personality.name} in UI:`, error);
+        imgElement.src = personality.image; // Fallback on error
     }
 }
