@@ -111,6 +111,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
         case 'avatar':
             try {
                 const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
+				console.log(`[executeCommandAction] Assets found for [${command}:${value}] with ID ${characterId}:`, assets);
                 if (assets && assets.length > 0) {
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
