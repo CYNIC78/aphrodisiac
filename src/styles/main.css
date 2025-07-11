@@ -1735,7 +1735,7 @@ input[name="currentChat"][value="none"] {
 .command-block {
     /* For debugging: make it visible */
     display: inline-block;
-    background-color: yellow; /* Temporary visual cue */
+    /* background-color: yellow; /* Temporary visual cue */
     color: black; /* Ensure text is readable */
     padding: 2px 4px;
     border-radius: 3px;
