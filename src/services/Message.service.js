@@ -125,47 +125,65 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
                     const pfpElement = messageElement.querySelector('.pfp');
                     if (pfpElement) {
-                        const tempImage = new Image();
-                        tempImage.src = objectURL;
+                        // 1. Hide the element instantly
+                        pfpElement.classList.add('hide-for-swap');
+                        pfpElement.offsetHeight; // Force reflow to render opacity:0
 
-                        tempImage.onload = () => {
-                            pfpElement.classList.add('hide-for-swap');
-                            pfpElement.offsetHeight; // Force reflow (read property to ensure style is applied)
-                            
-                            // NEW: Use setTimeout to ensure a distinct render cycle for opacity: 0 before fading in
-                            setTimeout(() => {
-                                pfpElement.src = objectURL;
-                                pfpElement.classList.remove('hide-for-swap');
-                            }, 50); // Short delay to allow browser to render opacity:0
-                            
-                            setTimeout(() => URL.revokeObjectURL(objectURL), 750);
+                        // 2. Set the new source, then wait for it to load
+                        const handlePfpLoad = () => {
+                            // 3. Once loaded, trigger the fade-in on the next animation frame
+                            requestAnimationFrame(() => {
+                                pfpElement.classList.remove('hide-for-swap'); // This starts the transition to opacity:1
+                            });
+                            pfpElement.removeEventListener('load', handlePfpLoad); // Clean up
+                            pfpElement.removeEventListener('error', handlePfpError); // Clean up
+                            URL.revokeObjectURL(objectURL); // Revoke after image is loaded and rendered
                         };
-                        tempImage.onerror = () => {
+                        const handlePfpError = () => {
                             console.error("Failed to load new avatar image for message:", objectURL);
+                            requestAnimationFrame(() => { // Still try to unhide in case of error
+                                pfpElement.classList.remove('hide-for-swap');
+                            });
+                            pfpElement.removeEventListener('load', handlePfpLoad);
+                            pfpElement.removeEventListener('error', handlePfpError);
                             URL.revokeObjectURL(objectURL);
                         };
+
+                        pfpElement.addEventListener('load', handlePfpLoad);
+                        pfpElement.addEventListener('error', handlePfpError);
+                        pfpElement.src = objectURL; // Assign new source - this triggers the 'load' event
                     }
 
                     const personalityCard = document.querySelector(`#personality-${characterId}`);
                     if (personalityCard) {
                         const cardImg = personalityCard.querySelector('.background-img');
                         if (cardImg) {
-                            const tempCardImage = new Image();
-                            tempCardImage.src = objectURL;
+                            // 1. Hide the element instantly
+                            cardImg.classList.add('hide-for-swap');
+                            cardImg.offsetHeight; // Force reflow to render opacity:0
 
-                            tempCardImage.onload = () => {
-                                cardImg.classList.add('hide-for-swap');
-                                cardImg.offsetHeight; // Force reflow
-                                
-                                // NEW: Use setTimeout here as well for consistency and smooth fade
-                                setTimeout(() => {
-                                    cardImg.src = objectURL;
-                                    cardImg.classList.remove('hide-for-swap');
-                                }, 50); // Short delay
+                            // 2. Set the new source, then wait for it to load
+                            const handleCardLoad = () => {
+                                // 3. Once loaded, trigger the fade-in on the next animation frame
+                                requestAnimationFrame(() => {
+                                    cardImg.classList.remove('hide-for-swap'); // This starts the transition to opacity:1
+                                });
+                                cardImg.removeEventListener('load', handleCardLoad); // Clean up
+                                cardImg.removeEventListener('error', handleCardError); // Clean up
+                                // objectURL is revoked by the pfpElement's onload, no need to duplicate
                             };
-                            tempCardImage.onerror = () => {
+                            const handleCardError = () => {
                                 console.error("Failed to load personality card image:", objectURL);
+                                requestAnimationFrame(() => { // Still try to unhide in case of error
+                                    cardImg.classList.remove('hide-for-swap');
+                                });
+                                cardImg.removeEventListener('load', handleCardLoad);
+                                cardImg.removeEventListener('error', handleCardError);
                             };
+
+                            cardImg.addEventListener('load', handleCardLoad);
+                            cardImg.addEventListener('error', handleCardError);
+                            cardImg.src = objectURL; // Assign new source - this triggers the 'load' event
                         }
                     }
                 }
