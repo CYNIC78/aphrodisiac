@@ -111,7 +111,6 @@ async function executeCommandAction(command, value, messageElement, characterId)
         case 'avatar':
             try {
                 const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
-				console.log(`[executeCommandAction] Assets found for [${command}:${value}] with ID ${characterId}:`, assets);
                 if (assets && assets.length > 0) {
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
@@ -275,38 +274,27 @@ function setupMessageEditing(messageElement, db) {
         saveButton.style.display = 'inline-block';
     });
 
-	saveButton.addEventListener('click', async () => {
-		console.log("SAVE button clicked for message element:", messageElement); // Add this
-		messageTextDiv.removeAttribute("contenteditable");
-		const newRawText = messageTextDiv.innerText;
-		const index = parseInt(messageElement.dataset.messageIndex, 10);
-		console.log("New raw text from editor:", newRawText); // Add this
+    saveButton.addEventListener('click', async () => {
+        messageTextDiv.removeAttribute("contenteditable");
+        const newRawText = messageTextDiv.innerText;
+        const index = parseInt(messageElement.dataset.messageIndex, 10);
 
-		await updateMessageInDatabase(index, newRawText, db);
+        // 1. Save the updated raw text to the database
+        await updateMessageInDatabase(index, newRawText, db);
 
-		// Re-render the message with parsed markdown and wrapped commands
-		messageTextDiv.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        const chat = await chatsService.getCurrentChat(db);
+        const messageData = chat.content[index];
+        const characterId = messageData?.personalityid;
+        const sender = messageData?.role;
 
-		// Clear processed commands to allow re-execution on edit/save
-		if (processedCommandsPerMessage.has(messageElement)) {
-			processedCommandsPerMessage.get(messageElement).clear();
-			console.log("Processed commands cleared for message:", messageElement); // Add this
-		}
+        // 2. Trigger the re-typing animation
+        const settings = settingsService.getSettings();
+        await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
 
-		const chat = await chatsService.getCurrentChat(db);
-		// Ensure characterId is retrieved correctly for re-execution
-		const characterId = chat.content[index]?.personalityid;
-		console.log("Character ID for command re-execution:", characterId); // Add this
-		if (characterId !== undefined) {
-			await processDynamicCommands(newRawText, messageElement, characterId);
-		} else {
-			console.log("Skipping command re-execution: characterId is undefined or null."); // Add this
-		}
-
-		editButton.style.display = 'inline-block';
-		saveButton.style.display = 'none';
-		console.log("Message re-rendered and saved. Check for command execution."); // Add this
-	});
+        // 3. Reset the UI
+        editButton.style.display = 'inline-block';
+        saveButton.style.display = 'none';
+    });
 }
 
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
@@ -320,6 +308,40 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
     } catch (error) {
         console.error("Error updating message in database:", error);
     }
+}
+
+async function retypeMessage(messageElement, newRawText, characterId, typingSpeed, sender) {
+    const messageContent = messageElement.querySelector(".message-text");
+    if (!messageContent) return;
+
+    let currentDisplayedText = "";
+    messageContent.innerHTML = ""; // Clear the content to start fresh
+
+    // Ensure command history for this element is cleared before re-typing
+    if (processedCommandsPerMessage.has(messageElement)) {
+        processedCommandsPerMessage.get(messageElement).clear();
+    }
+
+    if (typingSpeed > 0 && sender !== "user") { // Only type for AI messages
+        for (let i = 0; i < newRawText.length; i++) {
+            currentDisplayedText += newRawText[i];
+            // Process commands as the text types out
+            await processDynamicCommands(currentDisplayedText, messageElement, characterId);
+            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
+            helpers.messageContainerScrollToBottom();
+            await new Promise(resolve => setTimeout(resolve, typingSpeed));
+        }
+    } else {
+        // If no typing speed or it's a user message, just render it all at once
+        await processDynamicCommands(newRawText, messageElement, characterId);
+        messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        helpers.messageContainerScrollToBottom();
+    }
+
+    // Final processing and highlight after typing completes
+    await processDynamicCommands(newRawText, messageElement, characterId);
+    messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+    hljs.highlightAll();
 }
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
@@ -435,7 +457,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text">${msg}</div>`;
+            <div class="message-text">${marked.parse(msg, { breaks: true })}</div>`;
     }
     hljs.highlightAll();
     setupMessageEditing(newMessage, db);
