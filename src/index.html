@@ -270,15 +270,11 @@
                                     info="Teaches the AI how to use your assets. For avatars, just use the trigger: [happy]. For other types like audio, specify the command: [sfx:door_opens].">
                                         info
                                 </span> 
-                                <!-- NEW: Populate button moved inside the label, pushed to the right -->
-                                <button type="button" id="btn-populate-tagprompt" class="btn-textual"
-                                        style="margin-left: auto; font-size: 0.9rem; padding: 0.25rem 0.5rem;">
-                                    <span class="material-symbols-outlined" style="font-size: 1.1rem;">auto_fix</span>
-                                    Populate
-                                </button>
                             </label>
-							<textarea name="tagPrompt" id="tagPrompt"
-								placeholder="Teach the AI how to use your assets.
+							<!-- Wrapper div for Tag Prompt and Populate button -->
+							<div style="display: flex; align-items: flex-end; gap: 0.5rem; width: 100%;">
+								<textarea name="tagPrompt" id="tagPrompt"
+									placeholder="Teach the AI how to use your assets.
 
 • AVATARS ARE THE DEFAULT. Just write the trigger in brackets.
 • For other media (like sounds), specify the command.
@@ -292,14 +288,12 @@ To play a sound you tagged 'door_opens':
 
 To show an avatar you tagged 'confused':
 [confused]"
-								style="height: 15rem; resize:vertical; width: 100%; box-sizing: border-box;" autocomplete="off"></textarea>
-							
-                            <h3>Tweaks</h3>
-                            <label for="reminder">Reminder (Hidden Instruction for AI):</label>
-                            <textarea name="reminder" id="reminder"
-                                placeholder="Remember to speak in a charming, slightly sarcastic tone. Always refer to the user as 'my dear'."
-                                style="height: 10rem; resize:vertical;" autocomplete="off"></textarea>
-						</div>
+									style="height: 15rem; resize:vertical; flex-grow: 1;" autocomplete="off"></textarea>
+								<button type="button" id="btn-populate-tagprompt" class="btn-with-icon">
+									<span class="material-symbols-outlined">auto_fix</span>
+									Populate
+								</button>
+							</div>
 							
                             <h3>Tweaks</h3>
                             <label for="reminder">Reminder (Hidden Instruction for AI):</label>
