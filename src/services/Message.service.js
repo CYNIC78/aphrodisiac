@@ -9,6 +9,155 @@ import * as helpers from "../utils/helpers.js";
 
 const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
 
+// --- NEW HELPER: Centralizes the logic for swapping avatar images ---
+async function _swapAvatarImage(messageElement, characterId, asset) {
+    if (!asset || !(asset.data instanceof Blob)) return;
+
+    const objectURL = URL.createObjectURL(asset.data);
+
+    const swapImage = (wrapperSelector, imgClass) => {
+        const wrapper = messageElement.querySelector(wrapperSelector);
+        if (wrapper) {
+            const oldImg = wrapper.querySelector(`.${imgClass}`);
+            const newImg = document.createElement('img');
+            newImg.src = objectURL;
+            newImg.className = imgClass;
+            newImg.style.opacity = '0';
+            
+            newImg.onload = () => {
+                wrapper.appendChild(newImg);
+                requestAnimationFrame(() => {
+                    newImg.style.transition = 'opacity 0.5s ease-in-out';
+                    newImg.style.opacity = '1';
+
+                    if (oldImg) oldImg.style.opacity = '0';
+
+                    setTimeout(() => {
+                        if (oldImg && oldImg.parentElement === wrapper) {
+                            oldImg.remove();
+                        }
+                    }, 500);
+                });
+            };
+
+            newImg.onerror = () => {
+                console.error(`Failed to load avatar from asset:`, asset.name);
+                URL.revokeObjectURL(objectURL);
+            };
+        }
+    };
+    
+    // Swap the message PFP
+    swapImage('.pfp-wrapper', 'pfp');
+
+    // After a short delay to allow the objectURL to be used, revoke it.
+    setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
+}
+
+
+// --- NEW ACTION: Handles implicit state changes like [happy] ---
+async function executeStateChangeAction(stateName, messageElement, characterId) {
+    if (characterId === null || !stateName) return;
+
+    const { assetManagerService } = await import('./AssetManager.service.js');
+    const personality = await personalityService.get(characterId);
+
+    if (!personality || !personality.actors || personality.actors.length === 0) {
+        console.warn(`Attempted state change [${stateName}] but personality has no actors.`);
+        return;
+    }
+    
+    // Assume the first actor is the primary one for implicit state changes.
+    const primaryActorName = personality.actors[0].name;
+    const searchTags = [primaryActorName, stateName, 'avatar'];
+
+    try {
+        const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
+        if (assets && assets.length > 0) {
+            await _swapAvatarImage(messageElement, characterId, assets[0]);
+        } else {
+             console.log(`No avatar asset found for state [${stateName}] with tags: ${searchTags.join(', ')}`);
+        }
+    } catch (e) {
+        console.error(`Error processing state change command [${stateName}]:`, e);
+    }
+}
+
+
+// --- MODIFIED ACTION: Handles explicit commands like [sfx:boom] ---
+async function executeCommandAction(command, value, messageElement, characterId) {
+    if (characterId === null) return;
+    const { assetManagerService } = await import('./AssetManager.service.js');
+    const settings = settingsService.getSettings();
+
+    switch (command) {
+        case 'sfx':
+        case 'audio':
+            if (settings.audio.enabled) {
+                try {
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                    if (assets && assets.length > 0) {
+                        const asset = assets[0];
+                        const objectURL = URL.createObjectURL(asset.data);
+                        const audio = new Audio(objectURL);
+                        audio.volume = settings.audio.volume;
+                        audio.play().catch(e => console.error("Audio playback failed:", e));
+                        audio.onended = () => URL.revokeObjectURL(objectURL);
+                        audio.onerror = () => {
+                            console.error(`Failed to load audio for command [${command}:${value}]:`, objectURL);
+                            URL.revokeObjectURL(objectURL);
+                        };
+                    }
+                } catch (e) {
+                    console.error(`Error processing [audio/sfx] command:`, e);
+                }
+            }
+            break;
+        // The old 'avatar' case is now handled by the new implicit system.
+        // We leave this empty but could add fallback logic here later if we choose.
+        case 'avatar':
+            console.warn(`Legacy command [avatar:${value}] used. Please switch to the new [${value}] format.`);
+            // Optional: Add fallback logic here if desired in the future.
+            break;
+    }
+}
+
+
+// --- MODIFIED CORE: The main command processing engine ---
+async function processDynamicCommands(currentText, messageElement, characterId) {
+    if (characterId === null) return;
+    
+    // New regex matches both [value] and [command:value]
+    const commandRegex = /\[(?:(.*?):)?(.*?)\]/g;
+    let match;
+
+    if (!processedCommandsPerMessage.has(messageElement)) {
+        processedCommandsPerMessage.set(messageElement, new Set());
+    }
+    const processedTags = processedCommandsPerMessage.get(messageElement);
+
+    commandRegex.lastIndex = 0; // Reset regex index before each run
+    while ((match = commandRegex.exec(currentText)) !== null) {
+        const fullTagString = match[0];
+        const command = match[1] ? match[1].trim().toLowerCase() : undefined;
+        const value = match[2].trim();
+
+        if (value && !processedTags.has(fullTagString)) {
+            if (command) {
+                // It's an explicit command like [sfx:value]
+                await executeCommandAction(command, value, messageElement, characterId);
+            } else {
+                // It's an implicit state change like [value]
+                await executeStateChangeAction(value, messageElement, characterId);
+            }
+            processedTags.add(fullTagString);
+        }
+    }
+}
+
+
+// --- UNCHANGED FUNCTIONS BELOW (with minor updates for compatibility) ---
+
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
@@ -55,7 +204,7 @@ export async function send(msg, db) {
 
         ---
 
-        TAG PROMPT (Your technical command reference - no separators needed, just [command:value]):
+        TAG PROMPT (Your technical command reference. Use simple state changes like [happy] for avatars, or explicit commands like [sfx:sound] for audio.):
         ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
     `.trim();
 
@@ -85,7 +234,6 @@ export async function send(msg, db) {
     settingsService.saveSettings();
 }
 
-// NEW: Generalized function to handle regeneration from user or model messages
 async function handleRegenerate(clickedElement, db) {
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
@@ -95,165 +243,32 @@ async function handleRegenerate(clickedElement, db) {
     let sliceEndIndex;
 
     if (clickedElement.classList.contains('message-model')) {
-        // Clicked on AI message: resend the user message *before* it.
-        if (elementIndex === 0) return; // Cannot regenerate from the first AI message if there's no user message before it.
+        if (elementIndex === 0) return;
         textToResend = chat.content[elementIndex - 1].parts[0].text;
         sliceEndIndex = elementIndex - 1;
     } else {
-        // Clicked on User message: resend this message.
         textToResend = chat.content[elementIndex].parts[0].text;
         sliceEndIndex = elementIndex;
     }
 
-    // Truncate the chat history to the point before the message we're regenerating from.
     chat.content = chat.content.slice(0, sliceEndIndex);
     await db.chats.put(chat);
-
-    // Visually reload the chat to the truncated state, then send the message to get a new response.
     await chatsService.loadChat(chat.id, db);
     await send(textToResend, db);
 }
 
-
 function wrapCommandsInSpan(text) {
-    const commandRegex = /\[(.*?):(.*?)]/g;
+    // UPDATED REGEX: Matches both [value] and [command:value]
+    const commandRegex = /\[(?:(.*?):)?(.*?)\]/g;
     return text.replace(commandRegex, `<span class="command-block">$&</span>`);
 }
 
-async function executeCommandAction(command, value, messageElement, characterId) {
-    if (characterId === null) return;
-    const { assetManagerService } = await import('./AssetManager.service.js');
-    const settings = settingsService.getSettings();
-
-    switch (command) {
-        case 'avatar':
-            try {
-                const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
-                if (assets && assets.length > 0) {
-                    const asset = assets[0];
-                    const objectURL = URL.createObjectURL(asset.data);
-
-                    const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
-                    if (pfpWrapper) {
-                        const oldImg = pfpWrapper.querySelector('.pfp');
-                        const newImg = document.createElement('img');
-                        newImg.src = objectURL;
-                        newImg.className = 'pfp';
-                        newImg.style.opacity = '0';
-                        newImg.onerror = () => {
-                            console.error(`Failed to load avatar for command [avatar:${value}]:`, objectURL);
-                            newImg.src = './assets/default_avatar.png';
-                            newImg.style.opacity = '1';
-                            URL.revokeObjectURL(objectURL);
-                        };
-                        pfpWrapper.appendChild(newImg);
-                        requestAnimationFrame(() => {
-                            newImg.style.transition = 'opacity 0.5s ease-in-out';
-                            newImg.style.opacity = '1';
-                        });
-                        setTimeout(() => {
-                            if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
-                            URL.revokeObjectURL(objectURL);
-                        }, 500);
-                    }
-
-                    const personalityCard = document.querySelector(`#personality-${characterId}`);
-                    if (personalityCard) {
-                        const cardWrapper = personalityCard.querySelector('.background-img-wrapper');
-                        if (cardWrapper) {
-                            const oldImg = cardWrapper.querySelector('.background-img');
-                            const newImg = document.createElement('img');
-                            newImg.src = objectURL;
-                            newImg.className = 'background-img';
-                            newImg.style.opacity = '0';
-                            newImg.onerror = () => {
-                                console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
-                                newImg.src = './assets/default_avatar.png';
-                                newImg.style.opacity = '1';
-                                URL.revokeObjectURL(objectURL);
-                            };
-                            cardWrapper.appendChild(newImg);
-                            requestAnimationFrame(() => {
-                                newImg.style.transition = 'opacity 0.5s ease-in-out';
-                                newImg.style.opacity = '1';
-                            });
-                            setTimeout(() => {
-                                if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
-                                URL.revokeObjectURL(objectURL);
-                            }, 500);
-                        } else {
-                            const img = personalityCard.querySelector('.background-img');
-                            if (img) {
-                                img.src = objectURL;
-                                img.onerror = () => {
-                                    console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
-                                    img.src = './assets/default_avatar.png';
-                                };
-                                setTimeout(() => URL.revokeObjectURL(objectURL), 750);
-                            } else {
-                                URL.revokeObjectURL(objectURL);
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error(`Error processing [avatar] command:`, e);
-            }
-            break;
-
-        case 'sfx':
-        case 'audio':
-            if (settings.audio.enabled) {
-                try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
-                    if (assets && assets.length > 0) {
-                        const asset = assets[0];
-                        const objectURL = URL.createObjectURL(asset.data);
-                        const audio = new Audio(objectURL);
-                        audio.volume = settings.audio.volume;
-                        audio.play().catch(e => console.error("Audio playback failed:", e));
-                        audio.onended = () => URL.revokeObjectURL(objectURL);
-                        audio.onerror = () => {
-                            console.error(`Failed to load audio for command [${command}:${value}]:`, objectURL);
-                            URL.revokeObjectURL(objectURL);
-                        };
-                    }
-                } catch (e) {
-                    console.error(`Error processing [audio/sfx] command:`, e);
-                }
-            }
-            break;
-    }
-}
-
-async function processDynamicCommands(currentText, messageElement, characterId) {
-    if (characterId === null) return;
-    const commandRegex = /\[(.*?):(.*?)]/g;
-    let match;
-
-    if (!processedCommandsPerMessage.has(messageElement)) {
-        processedCommandsPerMessage.set(messageElement, new Set());
-    }
-    const processedTags = processedCommandsPerMessage.get(messageElement);
-
-    commandRegex.lastIndex = 0;
-    while ((match = commandRegex.exec(currentText)) !== null) {
-        const fullTagString = match[0];
-        const command = match[1].trim().toLowerCase();
-        const value = match[2].trim();
-
-        if (!processedTags.has(fullTagString)) {
-            await executeCommandAction(command, value, messageElement, characterId);
-            processedTags.add(fullTagString);
-        }
-    }
-}
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
     const deleteButton = messageElement.querySelector('.btn-delete');
-    const refreshButton = messageElement.querySelector('.btn-refresh'); // NEW
+    const refreshButton = messageElement.querySelector('.btn-refresh'); 
     const messageTextDiv = messageElement.querySelector('.message-text');
 
     if (!messageTextDiv) return;
@@ -263,18 +278,15 @@ function setupMessageEditing(messageElement, db) {
             const index = parseInt(messageElement.dataset.messageIndex, 10);
             const currentChat = await chatsService.getCurrentChat(db);
             const originalRawText = currentChat.content[index]?.parts[0]?.text;
-
             messageTextDiv.textContent = originalRawText || messageTextDiv.innerText;
             messageTextDiv.setAttribute("contenteditable", "true");
             messageTextDiv.focus();
-
             const range = document.createRange();
             range.selectNodeContents(messageTextDiv);
             range.collapse(false);
             const selection = window.getSelection();
             selection.removeAllRanges();
             selection.addRange(range);
-
             editButton.style.display = 'none';
             saveButton.style.display = 'inline-block';
         });
@@ -283,17 +295,13 @@ function setupMessageEditing(messageElement, db) {
             messageTextDiv.removeAttribute("contenteditable");
             const newRawText = messageTextDiv.innerText;
             const index = parseInt(messageElement.dataset.messageIndex, 10);
-
             await updateMessageInDatabase(index, newRawText, db);
-
             const chat = await chatsService.getCurrentChat(db);
             const messageData = chat.content[index];
             const characterId = messageData?.personalityid;
             const sender = messageData?.role;
-
             const settings = settingsService.getSettings();
             await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
-
             editButton.style.display = 'inline-block';
             saveButton.style.display = 'none';
         });
@@ -301,15 +309,10 @@ function setupMessageEditing(messageElement, db) {
 
     if (deleteButton) {
         deleteButton.addEventListener('click', async () => {
-            if (!confirm("Are you sure you want to delete this message? This action cannot be undone.")) {
-                return;
-            }
-
+            if (!confirm("Are you sure you want to delete this message? This action cannot be undone.")) return;
             const chatId = chatsService.getCurrentChatId();
             const indexToDelete = parseInt(messageElement.dataset.messageIndex, 10);
-
             const success = await chatsService.deleteMessage(chatId, indexToDelete, db);
-
             if (success) {
                 messageElement.remove();
                 const messageContainer = document.querySelector(".message-container");
@@ -323,7 +326,6 @@ function setupMessageEditing(messageElement, db) {
         });
     }
 
-    // Attach listener for the refresh button if it exists
     if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
             try {
@@ -336,13 +338,11 @@ function setupMessageEditing(messageElement, db) {
     }
 }
 
-
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
     try {
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
-
         currentChat.content[messageIndex].parts[0].text = newRawText;
         await db.chats.put(currentChat);
     } catch (error) {
@@ -353,14 +353,11 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
 async function retypeMessage(messageElement, newRawText, characterId, typingSpeed, sender) {
     const messageContent = messageElement.querySelector(".message-text");
     if (!messageContent) return;
-
     let currentDisplayedText = "";
     messageContent.innerHTML = "";
-
     if (processedCommandsPerMessage.has(messageElement)) {
         processedCommandsPerMessage.get(messageElement).clear();
     }
-
     if (typingSpeed > 0 && sender !== "user") {
         for (let i = 0; i < newRawText.length; i++) {
             currentDisplayedText += newRawText[i];
@@ -374,7 +371,6 @@ async function retypeMessage(messageElement, newRawText, characterId, typingSpee
         messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
         helpers.messageContainerScrollToBottom();
     }
-
     await processDynamicCommands(newRawText, messageElement, characterId);
     messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
     hljs.highlightAll();

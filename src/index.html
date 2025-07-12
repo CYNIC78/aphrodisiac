@@ -267,24 +267,24 @@
                                 <span>Tag Prompt</span>
                                 <span class="material-symbols-outlined tooltip" 
                                     style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="This field teaches the AI how to link a system Command to your custom Trigger.
-Format: [Command:Trigger]
-Example: In [avatar:happy], 'avatar' is the Command and 'happy' is your custom Trigger tag.'.">
+                                    info="Teaches the AI what commands it can use. Use [stateName] for avatars (e.g., [happy]) and [sfx:soundName] for audio.">
                                         info
                                 </span> 
                             </label>
 							<textarea name="tagPrompt" id="tagPrompt"
-								placeholder="Teach the AI how to use special effects!
-The format is [Command:Trigger]
+								placeholder="Teach the AI how to use your assets!
 
-• COMMAND is the type of media: 'avatar' for images, or 'sfx' for sounds.
-• TRIGGER is the custom tag you gave the asset in the Asset Manager.
+• For Avatars: Just use the State name. The system is smart enough to find the right actor.
+  Example: To use an image in the 'happy' state, just write [happy] in the chat.
+
+• For Audio: Be specific with the 'sfx' command.
+  Example: To play a sound in the 'sigh' state, write [sfx:sigh]
 
 EXAMPLES FOR THE AI:
-To change the avatar for an image you tagged 'smiling':
-[avatar:smiling]
+To change avatar to the 'surprised' state:
+[surprised]
 
-To play a sound you tagged 'door_opens':
+To play the 'door_opens' sound effect:
 [sfx:door_opens]"
 								style="height: 15rem; resize:vertical;" autocomplete="off"></textarea>
 							
