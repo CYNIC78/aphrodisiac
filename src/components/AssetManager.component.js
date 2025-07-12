@@ -3,19 +3,20 @@
 import { assetManagerService } from '../services/AssetManager.service.js';
 import { showElement, hideElement } from '../utils/helpers.js';
 
+// --- CONSTANTS ---
+const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
+
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
 let currentAssetId = null;
 let activeTags = []; // Holds the currently selected tags for filtering
 let allDbTags = [];  // A cache of all unique tags from the database
-let currentCharacterId = null; // <-- To hold the ID of the currently active personality
+let currentCharacterId = null; // To hold the ID of the currently active personality
 
 // --- UI ELEMENT REFERENCES ---
 let personalityForm, assetDetailView, mediaLibraryStep;
 
 // --- VIEW MANAGEMENT ---
-
-// Switches between the main personality form and the asset detail view
 function showView(viewToShow) {
     const views = [personalityForm, assetDetailView];
     views.forEach(view => {
@@ -27,12 +28,8 @@ function showView(viewToShow) {
     });
 }
 
-// --- RENDERING LOGIC (The Core of the New UI) ---
+// --- RENDERING LOGIC ---
 
-/**
- * Renders the list of clickable tags in the left-side Tag Explorer.
- * @param {string} [filterTerm=''] - A term to filter the displayed tags.
- */
 function renderTagExplorer(filterTerm = '') {
     const listEl = document.querySelector('#tag-explorer-list');
     if (!listEl) return;
@@ -40,7 +37,7 @@ function renderTagExplorer(filterTerm = '') {
     const lowerCaseFilter = filterTerm.toLowerCase();
     const tagsToRender = allDbTags.filter(tag => tag.toLowerCase().includes(lowerCaseFilter));
     
-    listEl.innerHTML = ''; // Clear the list
+    listEl.innerHTML = '';
     tagsToRender.forEach(tag => {
         const item = document.createElement('button');
         item.className = 'tag-explorer-item';
@@ -55,9 +52,6 @@ function renderTagExplorer(filterTerm = '') {
     });
 }
 
-/**
- * Renders the main asset gallery based on the currently active tags and character.
- */
 async function renderGallery() {
     const galleryEl = document.querySelector('#asset-manager-gallery');
     const titleEl = document.querySelector('#gallery-title');
@@ -72,18 +66,14 @@ async function renderGallery() {
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     
     try {
-        // Step 1: Get assets for the CURRENT character.
         const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId);
-
-        // Step 2: Filter the assets in JavaScript based on the activeTags array.
         const assetsToRender = activeTags.length === 0
-            ? allAssets // If no tags are active, show everything for this character.
-            : allAssets.filter(asset => activeTags.every(tag => asset.tags.includes(tag))); // Otherwise, show assets that have ALL active tags.
+            ? allAssets
+            : allAssets.filter(asset => activeTags.every(tag => asset.tags.includes(tag)));
 
-        // Update the gallery title
         titleEl.textContent = activeTags.length > 0 ? `Tagged: ${activeTags.join(', ')}` : 'All Assets';
 
-        galleryEl.innerHTML = ''; // Clear "Loading..."
+        galleryEl.innerHTML = '';
         if (assetsToRender.length === 0) {
             galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found for this personality.</p>`;
             return;
@@ -100,11 +90,6 @@ async function renderGallery() {
     }
 }
 
-
-
-/**
- * Creates a single, clean asset card (image only).
- */
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card';
@@ -125,31 +110,64 @@ function createAssetCard(asset) {
 }
 
 /**
- * Renders the tags inside the Asset Detail View popup.
+ * Renders the tags inside the Asset Detail View, separating system and custom tags.
  */
 function renderTagsInDetailView(tags = []) {
     const tagsContainer = assetDetailView.querySelector('#asset-detail-tags');
-    tagsContainer.innerHTML = '';
-    tags.forEach(tag => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill';
-        pill.textContent = tag;
-        
-        const removeBtn = document.createElement('span');
-        removeBtn.className = 'remove-tag';
-        removeBtn.innerHTML = '×';
-        removeBtn.onclick = () => handleRemoveTagFromAsset(tag);
+    tagsContainer.innerHTML = ''; // Clear previous content
 
-        pill.appendChild(removeBtn);
-        tagsContainer.appendChild(pill);
-    });
+    const systemTags = tags.filter(tag => SYSTEM_TAGS.includes(tag));
+    const customTags = tags.filter(tag => !SYSTEM_TAGS.includes(tag));
+
+    // Render System Command section
+    if (systemTags.length > 0) {
+        const systemHeader = document.createElement('h4');
+        systemHeader.textContent = 'System Command';
+        tagsContainer.appendChild(systemHeader);
+
+        systemTags.forEach(tag => {
+            const pill = document.createElement('div');
+            pill.className = 'tag-pill tag-system'; // Apply system class
+            pill.textContent = tag;
+            
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'remove-tag'; // CSS will hide this
+            pill.appendChild(removeBtn);
+            
+            tagsContainer.appendChild(pill);
+        });
+    }
+
+    // Render Custom Triggers section
+    const customHeader = document.createElement('h4');
+    customHeader.textContent = 'Your Custom Triggers';
+    tagsContainer.appendChild(customHeader);
+    
+    if (customTags.length > 0) {
+        customTags.forEach(tag => {
+            const pill = document.createElement('div');
+            pill.className = 'tag-pill';
+            pill.textContent = tag;
+            
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'remove-tag';
+            removeBtn.innerHTML = '×';
+            removeBtn.onclick = () => handleRemoveTagFromAsset(tag);
+
+            pill.appendChild(removeBtn);
+            tagsContainer.appendChild(pill);
+        });
+    } else {
+        const noTagsMessage = document.createElement('p');
+        noTagsMessage.textContent = 'No custom triggers yet. Add one below!';
+        noTagsMessage.style.cssText = 'opacity: 0.6; font-size: 0.8rem; width: 100%;';
+        tagsContainer.appendChild(noTagsMessage);
+    }
 }
+
 
 // --- EVENT HANDLERS ---
 
-/**
- * Handles a click on a tag in the Tag Explorer sidebar.
- */
 function handleTagClick(tag) {
     const tagIndex = activeTags.indexOf(tag);
     if (tagIndex > -1) {
@@ -167,30 +185,46 @@ async function handleAddTagToAsset() {
     const newTag = input.value.trim().toLowerCase();
     if (!newTag || !currentAssetId) return;
 
+    // Prevent adding a system tag manually
+    if (SYSTEM_TAGS.includes(newTag)) {
+        alert("Cannot add a protected system tag manually.");
+        return;
+    }
+
     const asset = await assetManagerService.getAssetById(currentAssetId);
     if (asset && !asset.tags.includes(newTag)) {
-        const updatedTags = [...asset.tags, newTag];
-        await assetManagerService.updateAsset(currentAssetId, { tags: updatedTags });
-        renderTagsInDetailView(updatedTags);
+        // The service layer automatically preserves the system tag
+        const updatedUserTags = [...asset.tags.filter(t => !SYSTEM_TAGS.includes(t)), newTag];
+        await assetManagerService.updateAsset(currentAssetId, { tags: updatedUserTags });
         
-        // Update the list of all tags for the current character
+        // Refetch the asset to get the final, authoritative list of tags
+        const updatedAsset = await assetManagerService.getAssetById(currentAssetId);
+        renderTagsInDetailView(updatedAsset.tags);
+        
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-        allDbTags.sort((a,b) => a.localeCompare(b));
         renderTagExplorer();
         input.value = '';
     }
 }
 
 async function handleRemoveTagFromAsset(tagToRemove) {
+    // Add a guard against removing system tags, just in case.
+    if (SYSTEM_TAGS.includes(tagToRemove)) {
+        console.warn("Attempted to remove a protected system tag. Action blocked.");
+        return;
+    }
+
     if (!currentAssetId) return;
     const asset = await assetManagerService.getAssetById(currentAssetId);
     if (asset) {
-        const updatedTags = asset.tags.filter(t => t !== tagToRemove);
-        await assetManagerService.updateAsset(currentAssetId, { tags: updatedTags });
-        renderTagsInDetailView(updatedTags);
-        // Update the list of all tags for the current character in case a tag count goes to zero
+        // The service layer automatically preserves the system tag
+        const updatedUserTags = asset.tags.filter(t => t !== tagToRemove && !SYSTEM_TAGS.includes(t));
+        await assetManagerService.updateAsset(currentAssetId, { tags: updatedUserTags });
+
+        const updatedAsset = await assetManagerService.getAssetById(currentAssetId);
+        renderTagsInDetailView(updatedAsset.tags);
+
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-        allDbTags.sort((a,b) => a.localeCompare(b));
         renderTagExplorer();
     }
 }
@@ -198,11 +232,9 @@ async function handleRemoveTagFromAsset(tagToRemove) {
 async function handleDeleteAsset() {
     if (!currentAssetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
-        // This logic is now safe because the service function is correct
         await assetManagerService.deleteAsset(currentAssetId);
         currentAssetId = null;
         showView(personalityForm);
-        // THE FIX IS HERE: We must pass the currentCharacterId to the refresh function.
         await updateMainUI(currentCharacterId); 
     }
 }
@@ -231,15 +263,11 @@ async function showAssetDetailView(assetId) {
     showView(assetDetailView);
 }
 
-/**
- * Updates the main UI of the Asset Manager, now scoped to the current character.
- * @param {number} characterId - The ID of the character whose assets to display.
- */
 async function updateMainUI(characterId) {
     currentCharacterId = characterId;
-    activeTags = []; // Reset active tags when character changes
+    activeTags = []; 
     if (currentCharacterId === null) {
-        allDbTags = []; // No tags if no character selected
+        allDbTags = [];
     } else {
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
     }
@@ -248,7 +276,6 @@ async function updateMainUI(characterId) {
 }
 
 // --- INITIALIZATION ---
-// Modified to be a method that accepts the character ID to display the correct library
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
         showView(personalityForm);
@@ -262,7 +289,6 @@ export function initializeAssetManagerComponent(characterId) {
     
     if (!mediaLibraryStep) return;
 
-    // --- Wire up all event listeners ---
     document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
     document.querySelector('#btn-upload-asset').addEventListener('click', () => document.querySelector('#asset-upload-input').click());
     
@@ -271,15 +297,8 @@ export function initializeAssetManagerComponent(characterId) {
         if (!files.length || currentCharacterId === null) return;
         for (const file of files) {
             try {
-                // Determine the initial tag based on file type
-                let initialTag = 'new'; // Fallback tag
-                if (file.type.startsWith('image/')) {
-                    initialTag = 'image';
-                } else if (file.type.startsWith('audio/')) {
-                    initialTag = 'audio';
-                }
-                // Pass the determined initialTag AND the currentCharacterId
-                await assetManagerService.addAsset(file, [initialTag], currentCharacterId);
+                // The service now handles system tags automatically. Just send an empty array.
+                await assetManagerService.addAsset(file, [], currentCharacterId);
             } catch (error) { console.error('Failed to add asset:', error); }
         }
         event.target.value = ''; 
@@ -291,11 +310,11 @@ export function initializeAssetManagerComponent(characterId) {
         updateMainUI(currentCharacterId);
     });
     document.querySelector('#btn-add-tag').addEventListener('click', handleAddTagToAsset);
-    document.querySelector('#add-tag-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAddTagToAsset(); });
+    document.querySelector('#add-tag-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(), handleAddTagToAsset(); });
     document.querySelector('#btn-delete-asset').addEventListener('click', handleDeleteAsset);
     
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v4 - Per-character).');
+    console.log('Asset Manager Component Initialized (v5 - Protected Tags).');
     isInitialized = true;
 }
