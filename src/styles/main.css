@@ -491,7 +491,7 @@ form {
     padding: 0.5rem;
     flex-grow: 1; /* Allow content to fill space */
     display: flex; /* Enable flex context for children */
-    flex-direction: column; /* Stack children vertically */
+    /* flex-direction: column; Stack children vertically */
 }
 
 #btn-show-sidebar {
