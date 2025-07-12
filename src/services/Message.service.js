@@ -4,16 +4,12 @@ import { GoogleGenAI } from "@google/genai";
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
-// REMOVED: The static import that causes the circular dependency
-// import * as chatsService from "./Chats.service.js"; 
+import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 
 const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
 
 export async function send(msg, db) {
-    // DYNAMIC IMPORT: Get the service right when we need it.
-    const chatsService = await import("./Chats.service.js");
-
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
     if (!selectedPersonality) return;
@@ -89,10 +85,8 @@ export async function send(msg, db) {
     settingsService.saveSettings();
 }
 
+// NEW: Generalized function to handle regeneration from user or model messages
 async function handleRegenerate(clickedElement, db) {
-    // DYNAMIC IMPORT: Get the service right when we need it.
-    const chatsService = await import("./Chats.service.js");
-
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
 
@@ -101,16 +95,21 @@ async function handleRegenerate(clickedElement, db) {
     let sliceEndIndex;
 
     if (clickedElement.classList.contains('message-model')) {
-        if (elementIndex === 0) return;
+        // Clicked on AI message: resend the user message *before* it.
+        if (elementIndex === 0) return; // Cannot regenerate from the first AI message if there's no user message before it.
         textToResend = chat.content[elementIndex - 1].parts[0].text;
         sliceEndIndex = elementIndex - 1;
     } else {
+        // Clicked on User message: resend this message.
         textToResend = chat.content[elementIndex].parts[0].text;
         sliceEndIndex = elementIndex;
     }
 
+    // Truncate the chat history to the point before the message we're regenerating from.
     chat.content = chat.content.slice(0, sliceEndIndex);
     await db.chats.put(chat);
+
+    // Visually reload the chat to the truncated state, then send the message to get a new response.
     await chatsService.loadChat(chat.id, db);
     await send(textToResend, db);
 }
@@ -156,6 +155,45 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
                             URL.revokeObjectURL(objectURL);
                         }, 500);
+                    }
+
+                    const personalityCard = document.querySelector(`#personality-${characterId}`);
+                    if (personalityCard) {
+                        const cardWrapper = personalityCard.querySelector('.background-img-wrapper');
+                        if (cardWrapper) {
+                            const oldImg = cardWrapper.querySelector('.background-img');
+                            const newImg = document.createElement('img');
+                            newImg.src = objectURL;
+                            newImg.className = 'background-img';
+                            newImg.style.opacity = '0';
+                            newImg.onerror = () => {
+                                console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
+                                newImg.src = './assets/default_avatar.png';
+                                newImg.style.opacity = '1';
+                                URL.revokeObjectURL(objectURL);
+                            };
+                            cardWrapper.appendChild(newImg);
+                            requestAnimationFrame(() => {
+                                newImg.style.transition = 'opacity 0.5s ease-in-out';
+                                newImg.style.opacity = '1';
+                            });
+                            setTimeout(() => {
+                                if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
+                                URL.revokeObjectURL(objectURL);
+                            }, 500);
+                        } else {
+                            const img = personalityCard.querySelector('.background-img');
+                            if (img) {
+                                img.src = objectURL;
+                                img.onerror = () => {
+                                    console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
+                                    img.src = './assets/default_avatar.png';
+                                };
+                                setTimeout(() => URL.revokeObjectURL(objectURL), 750);
+                            } else {
+                                URL.revokeObjectURL(objectURL);
+                            }
+                        }
                     }
                 }
             } catch (e) {
@@ -211,14 +249,11 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     }
 }
 
-async function setupMessageEditing(messageElement, db) {
-    // DYNAMIC IMPORT: Get the service right when we need it.
-    const chatsService = await import("./Chats.service.js");
-
+function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
     const deleteButton = messageElement.querySelector('.btn-delete');
-    const refreshButton = messageElement.querySelector('.btn-refresh'); 
+    const refreshButton = messageElement.querySelector('.btn-refresh'); // NEW
     const messageTextDiv = messageElement.querySelector('.message-text');
 
     if (!messageTextDiv) return;
@@ -288,6 +323,7 @@ async function setupMessageEditing(messageElement, db) {
         });
     }
 
+    // Attach listener for the refresh button if it exists
     if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
             try {
@@ -300,11 +336,10 @@ async function setupMessageEditing(messageElement, db) {
     }
 }
 
+
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
     try {
-        // DYNAMIC IMPORT: Get the service right when we need it.
-        const chatsService = await import("./Chats.service.js");
         const currentChat = await chatsService.getCurrentChat(db);
         if (!currentChat || !currentChat.content[messageIndex]) return;
 

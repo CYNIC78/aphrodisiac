@@ -1,11 +1,8 @@
 // FILE: src/components/AssetManager.component.js
-// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) - TRUE FINAL ---
+// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
 import * as personalityService from '../services/Personality.service.js';
-
-// --- CONSTANTS ---
-const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
 
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
@@ -22,6 +19,8 @@ function sanitizeNameForTag(name) {
 }
 
 // --- RENDERING LOGIC ---
+
+// This is the function to replace in src/components/AssetManager.component.js
 
 function renderSceneExplorer() {
     if (!sceneExplorerContainer) return;
@@ -87,6 +86,20 @@ function renderSceneExplorer() {
     sceneExplorerContainer.scrollTop = scrollPosition;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 async function renderGallery() {
     if (!galleryEl || !galleryTitleEl) return;
     if (!currentPersonality || !currentPersonality.id) {
@@ -94,7 +107,6 @@ async function renderGallery() {
         galleryTitleEl.textContent = 'Asset Gallery';
         return;
     }
-    const scrollPosition = galleryEl.scrollTop;
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     try {
         const filterTags = [];
@@ -111,28 +123,15 @@ async function renderGallery() {
             const card = createAssetCard(asset);
             galleryEl.appendChild(card);
         });
-        galleryEl.scrollTop = scrollPosition;
     } catch (error) {
         console.error("Failed to render gallery:", error);
         galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Error loading assets.</p>`;
     }
 }
 
-// This is the function to replace in src/components/AssetManager.component.js
-
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
-
-    const allActorNames = currentPersonality.actors.map(a => a.name);
-    const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
-    
-    // Define the asset's primary context based on its tags
-    const primaryActor = allActorNames.find(name => asset.tags.includes(name));
-    const primaryState = allStateNames.find(name => asset.tags.includes(name));
-    const contextTags = [primaryActor, primaryState].filter(Boolean); // Array of context tags found on this asset
-
-    // --- Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
     if (asset.type === 'image') {
@@ -146,23 +145,6 @@ function createAssetCard(asset) {
         icon.textContent = 'music_note';
         previewContainer.appendChild(icon);
     }
-    
-    // --- Top Overlay for PROTECTED Context and System Tags ---
-    const topOverlay = document.createElement('div');
-    topOverlay.className = 'asset-card-top-overlay';
-    const createSystemPill = (tag) => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill tag-system';
-        pill.textContent = tag;
-        return pill;
-    };
-    if (primaryActor) topOverlay.appendChild(createSystemPill(primaryActor));
-    if (primaryState) topOverlay.appendChild(createSystemPill(primaryState));
-    const typeTag = asset.tags.find(tag => tag === 'avatar' || tag === 'sfx');
-    if (typeTag) topOverlay.appendChild(createSystemPill(typeTag));
-    previewContainer.appendChild(topOverlay);
-
-    // Filename Overlay
     const bottomOverlay = document.createElement('div');
     bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
@@ -171,85 +153,19 @@ function createAssetCard(asset) {
     bottomOverlay.appendChild(filenameEl);
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
-    
-    // --- Info Area for EDITABLE Custom Triggers ---
-    const infoContainer = document.createElement('div');
-    infoContainer.className = 'asset-card-inline-info';
-    
-    // A custom trigger is ANY tag that is NOT a system tag and NOT one of this asset's context tags.
-    const customTriggers = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag) && !contextTags.includes(tag));
-    
-    const customPillsContainer = document.createElement('div');
-    customPillsContainer.className = 'tag-pills-container';
-    customTriggers.forEach(tag => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill';
-        pill.textContent = tag;
-        const removeBtn = document.createElement('span');
-        removeBtn.className = 'remove-tag';
-        removeBtn.innerHTML = '×';
-        removeBtn.title = `Remove trigger "${tag}"`;
-        // --- THIS IS THE FIX ---
-        // It must be wrapped in () => to defer execution until the click.
-        removeBtn.onclick = () => handleRemoveTagFromAsset(asset.id, tag);
-        pill.appendChild(removeBtn);
-    });
-    infoContainer.appendChild(customPillsContainer);
-    
-    // Smart input for adding new tags
-    const addTagInput = document.createElement('input');
-    addTagInput.type = 'text';
-    addTagInput.placeholder = '+ Add custom trigger';
-    addTagInput.className = 'asset-card-inline-input';
-    const saveTag = () => {
-        if (addTagInput.value.trim() !== '') handleAddTagToAsset(asset.id, addTagInput);
-    };
-    addTagInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); saveTag(); addTagInput.blur(); }
-    });
-    addTagInput.addEventListener('blur', saveTag);
-    infoContainer.appendChild(addTagInput);
-    card.appendChild(infoContainer);
-
-    // Delete Button
     const deleteBtn = document.createElement('button');
-    deleteBtn.type = 'button';
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
     deleteBtn.title = 'Delete Asset';
-    deleteBtn.onclick = () => handleDeleteAsset(asset.id);
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        handleDeleteAsset(asset.id);
+    };
     card.appendChild(deleteBtn);
-
     return card;
 }
 
 // --- EVENT HANDLERS ---
-async function handleAddTagToAsset(assetId, inputElement) {
-    const newTag = inputElement.value.trim().toLowerCase();
-    if (!newTag || !assetId) return;
-    const asset = await assetManagerService.getAssetById(assetId);
-    if (asset) {
-        // THE FIX: No checks. No restrictions. Just add the tag.
-        const updatedTags = [...asset.tags, newTag];
-        await assetManagerService.updateAsset(assetId, { tags: updatedTags });
-        inputElement.value = '';
-        await renderGallery();
-    }
-}
-
-async function handleRemoveTagFromAsset(assetId, tagToRemove) {
-    if (!assetId) return;
-    const asset = await assetManagerService.getAssetById(assetId);
-    if (asset) {
-        // THE FIX: To handle duplicates, find the first index of the tag and remove only that one.
-        const indexToRemove = asset.tags.indexOf(tagToRemove);
-        if (indexToRemove > -1) {
-            asset.tags.splice(indexToRemove, 1);
-        }
-        await assetManagerService.updateAsset(assetId, { tags: asset.tags });
-        await renderGallery();
-    }
-}
 
 async function handleAddActor() {
     if (!currentPersonality) return;
@@ -282,13 +198,22 @@ async function handleAddState(actorName) {
 }
 
 async function handleDeleteActor(actorNameToDelete) {
-    if (!confirm(`Are you sure you want to delete the actor "${actorNameToDelete}"?\n\nThis will delete ALL of its states and associated media assets permanently.`)) return;
+    if (!confirm(`Are you sure you want to delete the actor "${actorNameToDelete}"?\n\nThis will delete ALL of its states and associated media assets permanently.`)) {
+        return;
+    }
+    // Delete the assets first
     await assetManagerService.deleteAssetsOnActorDelete(currentPersonality.id, actorNameToDelete);
+    
+    // Then remove the actor from the personality object
     currentPersonality.actors = currentPersonality.actors.filter(actor => actor.name !== actorNameToDelete);
+
+    // If the deleted actor was the active one, reset context
     if (activeContext.actor === actorNameToDelete) {
         activeContext.actor = null;
         activeContext.state = null;
     }
+
+    // Save the updated personality and refresh the entire UI
     await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
     await updateComponentUI(currentPersonality);
 }
@@ -298,15 +223,25 @@ async function handleDeleteState(actorName, stateNameToDelete) {
         alert('Cannot delete the "default" state.');
         return;
     }
-    if (!confirm(`Are you sure you want to delete the state "${stateNameToDelete}"?\n\nIts assets will be moved to the "default" state.`)) return;
+    if (!confirm(`Are you sure you want to delete the state "${stateNameToDelete}"?\n\nIts assets will be moved to the "default" state.`)) {
+        return;
+    }
+
+    // Retag assets in the database
     await assetManagerService.retagAssetsOnStateDelete(currentPersonality.id, actorName, stateNameToDelete);
+
+    // Update the personality object in memory
     const actor = currentPersonality.actors.find(a => a.name === actorName);
     if (actor) {
         actor.states = actor.states.filter(state => state.name !== stateNameToDelete);
     }
+    
+    // If the deleted state was the active one, reset context to the actor's default
     if (activeContext.actor === actorName && activeContext.state === stateNameToDelete) {
         activeContext.state = 'default';
     }
+
+    // Save the updated personality and refresh the UI
     await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
     await updateComponentUI(currentPersonality);
 }
@@ -364,6 +299,7 @@ async function updateComponentUI(personality) {
 }
 
 // --- INITIALIZATION ---
+
 export function initializeAssetManagerComponent(personality) {
     if (!isInitialized) {
         galleryEl = document.querySelector('#asset-manager-gallery');
