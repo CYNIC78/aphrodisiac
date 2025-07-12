@@ -1,5 +1,5 @@
 // FILE: src/components/AssetManager.component.js
-// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) - FINAL ---
+// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) - TRUE FINAL ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
 import * as personalityService from '../services/Personality.service.js';
@@ -121,10 +121,8 @@ async function renderGallery() {
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
-
-    const allActorNames = currentPersonality.actors.map(a => a.name);
-    const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
     
+    // --- Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
     if (asset.type === 'image') {
@@ -139,23 +137,19 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
     
+    // --- Top Overlay for System Tags ONLY ---
     const topOverlay = document.createElement('div');
     topOverlay.className = 'asset-card-top-overlay';
-    const createSystemPill = (tag) => {
+    const systemTypeTag = asset.tags.find(tag => tag === 'avatar' || tag === 'sfx');
+    if(systemTypeTag) {
         const pill = document.createElement('div');
         pill.className = 'tag-pill tag-system';
-        pill.textContent = tag;
-        return pill;
-    };
-
-    const actorTag = allActorNames.find(name => asset.tags.includes(name));
-    if (actorTag) topOverlay.appendChild(createSystemPill(actorTag));
-    const stateTag = allStateNames.find(name => asset.tags.includes(name));
-    if (stateTag) topOverlay.appendChild(createSystemPill(stateTag));
-    const typeTag = SYSTEM_TAGS.find(name => asset.tags.includes(name) && !['image', 'audio'].includes(name));
-    if (typeTag) topOverlay.appendChild(createSystemPill(typeTag));
+        pill.textContent = systemTypeTag;
+        topOverlay.appendChild(pill);
+    }
     previewContainer.appendChild(topOverlay);
 
+    // Filename Overlay
     const bottomOverlay = document.createElement('div');
     bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
@@ -165,15 +159,15 @@ function createAssetCard(asset) {
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
     
+    // --- Info Area for ALL User-Facing Tags (Context and Custom) ---
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
     
-    const contextTags = [...allActorNames, ...allStateNames];
-    const customTriggers = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag) && !contextTags.includes(tag));
+    const allUserTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
     
     const customPillsContainer = document.createElement('div');
     customPillsContainer.className = 'tag-pills-container';
-    customTriggers.forEach(tag => {
+    allUserTags.forEach(tag => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
         pill.textContent = tag;
@@ -190,11 +184,11 @@ function createAssetCard(asset) {
     });
     infoContainer.appendChild(customPillsContainer);
     
+    // Smart input for adding new tags
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
-    addTagInput.placeholder = '+ Add custom trigger';
+    addTagInput.placeholder = '+ Add trigger';
     addTagInput.className = 'asset-card-inline-input';
-    addTagInput.onclick = (e) => e.stopPropagation();
     const saveTag = () => {
         if (addTagInput.value.trim() !== '') {
             handleAddTagToAsset(asset.id, addTagInput);
@@ -211,8 +205,9 @@ function createAssetCard(asset) {
     infoContainer.appendChild(addTagInput);
     card.appendChild(infoContainer);
 
+    // Delete Button
     const deleteBtn = document.createElement('button');
-	deleteBtn.type = 'button'; // <-- THE FIX
+    deleteBtn.type = 'button';
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
     deleteBtn.title = 'Delete Asset';
@@ -226,15 +221,9 @@ function createAssetCard(asset) {
 }
 
 // --- EVENT HANDLERS ---
-// This is the function to replace in src/components/AssetManager.component.js
-
 async function handleAddTagToAsset(assetId, inputElement) {
     const newTag = inputElement.value.trim().toLowerCase();
     if (!newTag || !assetId) return;
-
-    // THE FIX: The restrictive check has been completely removed.
-    // The user now has full control over custom trigger names.
-
     const asset = await assetManagerService.getAssetById(assetId);
     if (asset && !asset.tags.includes(newTag)) {
         const updatedTags = [...asset.tags, newTag];
