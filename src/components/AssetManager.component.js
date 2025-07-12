@@ -1,7 +1,8 @@
 // FILE: src/components/AssetManager.component.js
-// --- REFACTORED FOR INLINE ASSET MANAGEMENT (v8.1 - Bugfix) ---
+// --- REFACTORED FOR INLINE ASSET MANAGEMENT ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
+import { showElement, hideElement } from '../utils/helpers.js';
 
 // --- CONSTANTS ---
 const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
@@ -13,7 +14,8 @@ let allDbTags = [];  // A cache of all unique tags from the database
 let currentCharacterId = null; // To hold the ID of the currently active personality
 
 // --- UI ELEMENT REFERENCES ---
-let mediaLibraryStep; 
+// No longer need assetDetailView. personalityForm is only for context.
+let personalityForm, mediaLibraryStep; 
 
 // --- RENDERING LOGIC ---
 
@@ -77,10 +79,17 @@ async function renderGallery() {
     }
 }
 
+/**
+ * Creates a single, self-contained asset card with all editing functionality built-in.
+ * Replaces the old createAssetCard and the need for a separate detail view.
+ * @param {object} asset - The asset object from the database.
+ * @returns {HTMLElement} The fully interactive card element.
+ */
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline'; // New class for new styling
 
+    // 1. Preview Image/Icon
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
     if (asset.type === 'image') {
@@ -96,17 +105,21 @@ function createAssetCard(asset) {
     }
     card.appendChild(previewContainer);
 
+    // 2. Info Container (Name, Tags, Inputs)
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
 
+    // 2a. Name
     const nameEl = document.createElement('p');
     nameEl.className = 'asset-card-inline-name';
     nameEl.textContent = asset.name;
     infoContainer.appendChild(nameEl);
 
+    // --- RENDER TAGS (logic from old renderTagsInDetailView is now inline) ---
     const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
     const customTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
 
+    // 2b. System Tags Section
     if (systemTags.length > 0) {
         const systemSection = document.createElement('div');
         systemSection.className = 'asset-card-inline-tag-section';
@@ -125,6 +138,7 @@ function createAssetCard(asset) {
         infoContainer.appendChild(systemSection);
     }
     
+    // 2c. Custom Triggers Section
     const customSection = document.createElement('div');
     customSection.className = 'asset-card-inline-tag-section';
     const customHeader = document.createElement('h5');
@@ -142,7 +156,7 @@ function createAssetCard(asset) {
             removeBtn.innerHTML = '×';
             removeBtn.title = `Remove tag "${tag}"`;
             removeBtn.onclick = (e) => {
-                e.stopPropagation();
+                e.stopPropagation(); // Prevent card click events
                 handleRemoveTagFromAsset(asset.id, tag);
             };
             pill.appendChild(removeBtn);
@@ -157,6 +171,7 @@ function createAssetCard(asset) {
     customSection.appendChild(customPillsContainer);
     infoContainer.appendChild(customSection);
 
+    // 2d. Add Tag Form
     const addTagForm = document.createElement('div');
     addTagForm.className = 'asset-card-inline-add-tag-form';
     const addTagInput = document.createElement('input');
@@ -183,8 +198,9 @@ function createAssetCard(asset) {
 
     card.appendChild(infoContainer);
 
+    // 3. Delete Button (top right corner of the card)
     const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
+    deleteBtn.className = 'asset-card-inline-delete-btn';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
     deleteBtn.title = 'Delete Asset';
     deleteBtn.onclick = (e) => {
@@ -196,7 +212,8 @@ function createAssetCard(asset) {
     return card;
 }
 
-// --- EVENT HANDLERS ---
+
+// --- EVENT HANDLERS (Now operating on specific assets via parameters) ---
 
 function handleTagClick(tag) {
     const tagIndex = activeTags.indexOf(tag);
@@ -272,13 +289,17 @@ async function updateMainUI(characterId) {
 // --- INITIALIZATION ---
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
+        // If we revisit this personality, just update the UI
         updateMainUI(characterId);
         return;
     }
 
+    personalityForm = document.querySelector('#form-add-personality');
     mediaLibraryStep = document.querySelector('#media-library-step');
+    
     if (!mediaLibraryStep) return;
 
+    // These event listeners are for the permanent parts of the media library UI
     document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
     document.querySelector('#btn-upload-asset').addEventListener('click', () => document.querySelector('#asset-upload-input').click());
     
@@ -294,8 +315,10 @@ export function initializeAssetManagerComponent(characterId) {
         await updateMainUI(currentCharacterId);
     });
     
+    // All event listeners for the old detail view have been removed.
+    
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v8.1 - Inline Editing).');
+    console.log('Asset Manager Component Initialized (v8 - Inline Editing).');
     isInitialized = true;
 }
