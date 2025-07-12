@@ -226,13 +226,15 @@ function createAssetCard(asset) {
 }
 
 // --- EVENT HANDLERS ---
+// This is the function to replace in src/components/AssetManager.component.js
+
 async function handleAddTagToAsset(assetId, inputElement) {
     const newTag = inputElement.value.trim().toLowerCase();
     if (!newTag || !assetId) return;
-    if (SYSTEM_TAGS.includes(newTag)) { // The only restriction is system tags
-        alert("Cannot add a protected system tag manually.");
-        return;
-    }
+
+    // THE FIX: The restrictive check has been completely removed.
+    // The user now has full control over custom trigger names.
+
     const asset = await assetManagerService.getAssetById(assetId);
     if (asset && !asset.tags.includes(newTag)) {
         const updatedTags = [...asset.tags, newTag];
