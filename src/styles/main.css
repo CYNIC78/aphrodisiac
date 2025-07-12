@@ -994,11 +994,14 @@ input[name="currentChat"][value="none"] {
     z-index: 1;
 }
 
-.asset-card-tag-pill.more-pill {
-    background-color: transparent !important;
-    border: 1px dashed;
-    padding: 0.05rem 0.2rem; /* Adjusted padding to be consistent */
-    cursor: default;
+.asset-card-tag-pill {
+    font-size: 0.75rem; /* <-- RESTORED FONT SIZE */
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.15rem;
+    cursor: pointer;
+    opacity: 0.9;
+    transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+    white-space: nowrap;
 }
 
 .asset-card-tag-pill:hover {
