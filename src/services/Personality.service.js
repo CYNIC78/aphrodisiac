@@ -394,6 +394,7 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
     if (!imgElement || !personality || typeof personality.id !== 'number') return;
 
+    // Revoke previous URL if one exists for this personality to prevent memory leaks
     if (personalityImageUrls.has(personality.id)) {
         URL.revokeObjectURL(personalityImageUrls.get(personality.id));
         personalityImageUrls.delete(personality.id);
@@ -401,18 +402,22 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
 
     try {
         let avatarUrl = null;
-        if (personality.id !== -1) {
-             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', personality.name.toLowerCase()], personality.id);
+        if (personality.id !== -1) { // For custom personalities
+            // MODIFIED: Prioritize searching for a 'default' tagged avatar
+            avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', 'default'], personality.id);
+            // If no 'default' avatar is found, you could optionally fall back to a specific tag like personality.name.toLowerCase()
+            // However, based on the user's request, 'default' should be the primary and only custom tag needed for the card avatar.
         }
        
         if (avatarUrl) {
             imgElement.src = avatarUrl;
             personalityImageUrls.set(personality.id, avatarUrl);
         } else {
+            // Fallback to the image URL stored in the personality object (placeholder for custom, actual for Aphrodite)
             imgElement.src = personality.image;
         }
     } catch (error) {
         console.error(`Error loading avatar for ${personality.name}:`, error);
-        imgElement.src = personality.image;
+        imgElement.src = personality.image; // Ensure image is set to fallback on error
     }
 }
