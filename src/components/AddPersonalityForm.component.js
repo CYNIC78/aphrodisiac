@@ -85,8 +85,24 @@ export function initializeAddPersonalityForm(personalityId = null) {
                     alert("Please save the personality first (by clicking 'Submit' on the last step) to enable tag population. Once saved, you can edit it to populate the tags.");
                     return;
                 }
+
+                // Define the instructional header for the AI
+                const aiInstructionHeader = `---
+DYNAMIC ASSET COMMANDS (Use these in your responses!)
+---
+These tags are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
+
+**How to use:**
+- For **Avatars**: Just type the tag name in brackets. Example: [happy]
+- For **Sound Effects**: Use 'sfx:' followed by the tag name in brackets. Example: [sfx:door_opens]
+
+Your available asset tags are listed below:
+`; // Note: Trailing newline is important for formatting
+
                 const formattedTags = await assetManagerService.getFormattedTagsForCharacterPrompt(currentPersonalityId);
-                tagPromptTextarea.value = formattedTags;
+                
+                // Concatenate the instruction header with the formatted tags
+                tagPromptTextarea.value = aiInstructionHeader + formattedTags;
             });
         }
         // --- END NEW ---
