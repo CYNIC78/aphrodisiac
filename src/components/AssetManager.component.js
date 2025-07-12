@@ -55,20 +55,25 @@ function renderSceneExplorer() {
                     <span class="row-name">${state.name}</span>
                     <button class="row-delete-btn material-symbols-outlined" title="Delete State">delete</button>
                 `;
-                stateRow.addEventListener('click', () => handleStateClick(actor.name, state.name));
+                stateRow.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('row-delete-btn')) return;
+                    handleStateClick(actor.name, state.name)
+                });
+                stateRow.querySelector('.row-delete-btn').addEventListener('click', () => handleDeleteState(actor.name, state.name));
                 statesContainer.appendChild(stateRow);
             });
         }
         const addStateBtn = document.createElement('button');
-        addStateBtn.type = 'button'; // <-- THE FIX: Prevent form submission
+        addStateBtn.type = 'button'; 
         addStateBtn.className = 'btn-add-state';
         addStateBtn.innerHTML = `<span class="material-symbols-outlined">add</span> Add State...`;
-        addStateBtn.addEventListener('click', () => handleAddState(actor.name)); // Give it its own logic
+        addStateBtn.addEventListener('click', () => handleAddState(actor.name));
         statesContainer.appendChild(addStateBtn);
 
         sceneExplorerContainer.appendChild(actorRow);
         sceneExplorerContainer.appendChild(statesContainer);
         
+        actorRow.querySelector('.row-delete-btn').addEventListener('click', () => handleDeleteActor(actor.name));
         actorRow.addEventListener('click', (e) => {
             if (e.target.classList.contains('row-delete-btn')) return;
             const isCollapsed = actorRow.dataset.collapsed === 'true';
@@ -163,10 +168,8 @@ async function handleAddActor() {
 async function handleAddState(actorName) {
     const stateName = prompt(`Enter a new State name for actor "${actorName}":`);
     if (!stateName || stateName.trim() === '') return;
-
     const sanitizedName = sanitizeNameForTag(stateName);
     const actor = currentPersonality.actors.find(a => a.name === actorName);
-
     if (actor) {
         if (actor.states.some(s => s.name === sanitizedName)) {
             alert(`State "${sanitizedName}" already exists for this actor.`);
@@ -174,8 +177,57 @@ async function handleAddState(actorName) {
         }
         actor.states.push({ name: sanitizedName });
         await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
-        renderSceneExplorer(); // Just re-render the explorer list
+        renderSceneExplorer(); 
     }
+}
+
+async function handleDeleteActor(actorNameToDelete) {
+    if (!confirm(`Are you sure you want to delete the actor "${actorNameToDelete}"?\n\nThis will delete ALL of its states and associated media assets permanently.`)) {
+        return;
+    }
+    // Delete the assets first
+    await assetManagerService.deleteAssetsOnActorDelete(currentPersonality.id, actorNameToDelete);
+    
+    // Then remove the actor from the personality object
+    currentPersonality.actors = currentPersonality.actors.filter(actor => actor.name !== actorNameToDelete);
+
+    // If the deleted actor was the active one, reset context
+    if (activeContext.actor === actorNameToDelete) {
+        activeContext.actor = null;
+        activeContext.state = null;
+    }
+
+    // Save the updated personality and refresh the entire UI
+    await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
+    await updateComponentUI(currentPersonality);
+}
+
+async function handleDeleteState(actorName, stateNameToDelete) {
+    if (stateNameToDelete === 'default') {
+        alert('Cannot delete the "default" state.');
+        return;
+    }
+    if (!confirm(`Are you sure you want to delete the state "${stateNameToDelete}"?\n\nIts assets will be moved to the "default" state.`)) {
+        return;
+    }
+
+    // Retag assets in the database
+    await assetManagerService.retagAssetsOnStateDelete(currentPersonality.id, actorName, stateNameToDelete);
+
+    // Update the personality object in memory
+    const actor = currentPersonality.actors.find(a => a.name === actorName);
+    if (actor) {
+        actor.states = actor.states.filter(state => state.name !== stateNameToDelete);
+    }
+    
+    // If the deleted state was the active one, reset context to the actor's default
+    if (activeContext.actor === actorName && activeContext.state === stateNameToDelete) {
+        activeContext.state = 'default';
+    }
+
+    // Save the updated personality and refresh the UI
+    await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
+    await updateComponentUI(currentPersonality);
 }
 
 async function handleStateClick(actorName, stateName) {
