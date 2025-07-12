@@ -93,8 +93,8 @@ DYNAMIC ASSET COMMANDS (Use these in your responses!)
 **These commands are for *your* actions, emotions, and expressions as the character.** They are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
 
 **How to use:**
-- For **Avatars**: Just type the tag name in brackets. Example: [happy]
-- For **Sound Effects**: Use 'sfx:' followed by the tag name in brackets. Example: [sfx:door_opens]
+- For **Avatars**: Just type the tag name(s) in brackets. For multiple tags (e.g., character and state), separate them with a comma. Example: [happy] or [emily,happy]
+- For **Sound Effects**: Use 'sfx:' followed by the tag name(s) in brackets, separated by commas. Example: [sfx:door_opens] or [sfx:footsteps,loud]
 
 Your available asset tags are listed below:
 `; // Note: Trailing newline is important for formatting

@@ -143,18 +143,28 @@ function wrapCommandsInSpan(text) {
 
 
 
-async function executeCommandAction(command, value, messageElement, characterId) {
-    if (characterId === null) return;
+async function executeCommandAction(command, tagsToSearch, messageElement, characterId) {
+    // Add checks for valid input tags
+    if (characterId === null || !tagsToSearch || tagsToSearch.length === 0) return;
+
     const { assetManagerService } = await import('./AssetManager.service.js');
     const settings = settingsService.getSettings();
 
     switch (command) {
         case 'avatar':
             try {
-                const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
+                // Combine the incoming tags with the 'avatar' system tag for search
+                // Use a Set to avoid duplicate tags if 'avatar' is somehow in tagsToSearch
+                const searchTags = [...new Set([...tagsToSearch, 'avatar'])]; 
+                const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
                 if (assets && assets.length > 0) {
-                    const asset = assets[0];
+                    const asset = assets[0]; // Take the first matching asset
                     const objectURL = URL.createObjectURL(asset.data);
+
+                    // ... (rest of your existing avatar display logic here) ...
+                    // All the pfpWrapper and personalityCard image update logic
+                    // should remain exactly as it is.
+                    // The `asset` and `objectURL` are correctly defined above.
 
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
@@ -164,7 +174,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                         newImg.className = 'pfp';
                         newImg.style.opacity = '0';
                         newImg.onerror = () => {
-                            console.error(`Failed to load avatar for command [avatar:${value}]:`, objectURL);
+                            console.error(`Failed to load avatar for command [avatar:${tagsToSearch.join(',')}]:`, objectURL);
                             newImg.src = './assets/default_avatar.png';
                             newImg.style.opacity = '1';
                             URL.revokeObjectURL(objectURL);
@@ -190,7 +200,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             newImg.className = 'background-img';
                             newImg.style.opacity = '0';
                             newImg.onerror = () => {
-                                console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
+                                console.error(`Failed to load sidebar avatar for command [avatar:${tagsToSearch.join(',')}]:`, objectURL);
                                 newImg.src = './assets/default_avatar.png';
                                 newImg.style.opacity = '1';
                                 URL.revokeObjectURL(objectURL);
@@ -209,7 +219,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             if (img) {
                                 img.src = objectURL;
                                 img.onerror = () => {
-                                    console.error(`Failed to load sidebar avatar for command [avatar:${value}]:`, objectURL);
+                                    console.error(`Failed to load sidebar avatar for command [avatar:${tagsToSearch.join(',')}]:`, objectURL);
                                     img.src = './assets/default_avatar.png';
                                 };
                                 setTimeout(() => URL.revokeObjectURL(objectURL), 750);
@@ -218,6 +228,7 @@ async function executeCommandAction(command, value, messageElement, characterId)
                             }
                         }
                     }
+
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
@@ -228,16 +239,18 @@ async function executeCommandAction(command, value, messageElement, characterId)
         case 'audio':
             if (settings.audio.enabled) {
                 try {
-                    const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                    // Combine the incoming tags with the 'audio' system tag for search
+                    const searchTags = [...new Set([...tagsToSearch, 'audio'])]; // Added 'audio' for robustness
+                    const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
                     if (assets && assets.length > 0) {
-                        const asset = assets[0];
+                        const asset = assets[0]; // Take the first matching asset
                         const objectURL = URL.createObjectURL(asset.data);
                         const audio = new Audio(objectURL);
                         audio.volume = settings.audio.volume;
                         audio.play().catch(e => console.error("Audio playback failed:", e));
                         audio.onended = () => URL.revokeObjectURL(objectURL);
                         audio.onerror = () => {
-                            console.error(`Failed to load audio for command [${command}:${value}]:`, objectURL);
+                            console.error(`Failed to load audio for command [${command}:${tagsToSearch.join(',')}]:`, objectURL);
                             URL.revokeObjectURL(objectURL);
                         };
                     }
@@ -248,6 +261,10 @@ async function executeCommandAction(command, value, messageElement, characterId)
             break;
     }
 }
+
+
+
+
 
 async function processDynamicCommands(currentText, messageElement, characterId) {
     if (characterId === null) return;
@@ -271,12 +288,13 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
         if (!processedTags.has(fullTagString)) {
             // If group 1 (the command) exists, use it. Otherwise, default to "avatar".
             const command = (match[1] || 'avatar').trim().toLowerCase();
-            // Group 2 is always the value.
-            const value = match[2].trim();
+            const valueString = match[2].trim(); // Get the raw value string (e.g., "emily,happy")
+
+            // Split the value string by comma, trim each part, and filter out any empty strings
+            const tagsArray = valueString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
             
-            // Only proceed if we have a valid command and value.
-            if (command && value) {
-                await executeCommandAction(command, value, messageElement, characterId);
+            if (command && tagsArray.length > 0) { // Ensure we have an actual command type and at least one tag
+                await executeCommandAction(command, tagsArray, messageElement, characterId); // Pass the array of tags
                 processedTags.add(fullTagString);
             }
         }
