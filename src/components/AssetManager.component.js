@@ -1,8 +1,7 @@
 // FILE: src/components/AssetManager.component.js
-// --- REFACTORED FOR AT-A-GLANCE GRID VIEW (v9.0) ---
+// --- REFACTORED FOR V3 "AT-A-GLANCE" GRID VIEW (v10.0) ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
-import { showElement, hideElement } from '../utils/helpers.js';
 
 // --- CONSTANTS ---
 const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
@@ -79,7 +78,7 @@ async function renderGallery() {
 }
 
 /**
- * Creates a compact, self-contained "At-a-Glance" asset card for the grid view.
+ * Creates the final "At-a-Glance" asset card with the refined overlay structure.
  * @param {object} asset - The asset object from the database.
  * @returns {HTMLElement} The fully interactive card element.
  */
@@ -87,7 +86,7 @@ function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
 
-    // 1. Preview Container (with filename overlay)
+    // --- PART 1: The Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
 
@@ -103,34 +102,44 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
 
-    const filenameOverlay = document.createElement('div');
-    filenameOverlay.className = 'asset-card-filename';
-    filenameOverlay.textContent = asset.name;
-    previewContainer.appendChild(filenameOverlay);
+    // --- PART 1A: The Combined Bottom Overlay ---
+    const bottomOverlay = document.createElement('div');
+    bottomOverlay.className = 'asset-card-bottom-overlay';
+
+    // Filename goes inside the overlay
+    const filenameEl = document.createElement('div');
+    filenameEl.className = 'asset-card-filename';
+    filenameEl.textContent = asset.name;
+    bottomOverlay.appendChild(filenameEl);
+
+    // System tags ALSO go inside the overlay
+    const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
+    if (systemTags.length > 0) {
+        const systemTagsContainer = document.createElement('div');
+        systemTagsContainer.className = 'asset-card-system-tags'; // New class for styling
+        systemTags.forEach(tag => {
+            const pill = document.createElement('div');
+            pill.className = 'tag-pill tag-system';
+            pill.textContent = tag;
+            systemTagsContainer.appendChild(pill);
+        });
+        bottomOverlay.appendChild(systemTagsContainer);
+    }
     
+    previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
 
-    // 2. Info Container (tags and input)
+    // --- PART 2: The Info Area (Custom Triggers Only) ---
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
 
-    const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
     const customTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
-    
-    // A single, unified container for all tag pills
-    const pillsContainer = document.createElement('div');
-    pillsContainer.className = 'tag-pills-container';
-
-    systemTags.forEach(tag => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill tag-system';
-        pill.textContent = tag;
-        pillsContainer.appendChild(pill);
-    });
+    const customPillsContainer = document.createElement('div');
+    customPillsContainer.className = 'tag-pills-container';
 
     customTags.forEach(tag => {
         const pill = document.createElement('div');
-        pill.className = 'tag-pill';
+        pill.className = 'tag-pill'; // Just the normal tag pill
         pill.textContent = tag;
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-tag';
@@ -141,12 +150,12 @@ function createAssetCard(asset) {
             handleRemoveTagFromAsset(asset.id, tag);
         };
         pill.appendChild(removeBtn);
-        pillsContainer.appendChild(pill);
+        customPillsContainer.appendChild(pill);
     });
 
-    infoContainer.appendChild(pillsContainer);
+    infoContainer.appendChild(customPillsContainer);
 
-    // 3. Smart input for adding new tags (no button)
+    // Smart input for adding new custom triggers
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
     addTagInput.placeholder = '+ Add trigger';
@@ -163,7 +172,7 @@ function createAssetCard(asset) {
         if (e.key === 'Enter') {
             e.preventDefault();
             saveTag();
-            addTagInput.blur(); // Lose focus after Enter
+            addTagInput.blur();
         }
     });
     addTagInput.addEventListener('blur', saveTag);
@@ -171,7 +180,7 @@ function createAssetCard(asset) {
     infoContainer.appendChild(addTagInput);
     card.appendChild(infoContainer);
 
-    // 4. Delete Button (top right corner of the card)
+    // --- PART 3: The Delete Button ---
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
@@ -186,7 +195,7 @@ function createAssetCard(asset) {
 }
 
 
-// --- EVENT HANDLERS (Operating on specific assets via parameters) ---
+// --- EVENT HANDLERS (Unchanged) ---
 
 function handleTagClick(tag) {
     const tagIndex = activeTags.indexOf(tag);
@@ -259,7 +268,7 @@ async function updateMainUI(characterId) {
     renderGallery();
 }
 
-// --- INITIALIZATION ---
+// --- INITIALIZATION (Unchanged) ---
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
         updateMainUI(characterId);
@@ -286,6 +295,6 @@ export function initializeAssetManagerComponent(characterId) {
     
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v9.0 - Grid View).');
+    console.log('Asset Manager Component Initialized (v10.0 - Refined Overlay).');
     isInitialized = true;
 }
