@@ -1,14 +1,15 @@
+// FILE: src/components/AddPersonalityForm.component.js
+
 import { Personality } from "../models/Personality";
 import * as personalityService from '../services/Personality.service';
-import * as stepperService from '../services/Stepper.service';
 import * as overlayService from '../services/Overlay.service';
 import { initializeAssetManagerComponent } from './AssetManager.component.js';
 
 let isInitialized = false;
-let currentPersonalityId = null;
+let currentPersonality = null; // Store the full object for context
 
-export function initializeAddPersonalityForm(personalityId = null) {
-    // Only initialize event listeners once
+// UPDATED: Function now accepts the full personality object
+export function initializeAddPersonalityForm(personality = null) {
     if (!isInitialized) {
         const form = document.querySelector("#form-add-personality");
         const btn = document.querySelector('#btn-add-tone-example');
@@ -18,53 +19,50 @@ export function initializeAddPersonalityForm(personalityId = null) {
             return;
         }
 
-        // CRITICAL FIX HERE: Use addEventListener for submit to ensure 'e' (event object) is always passed
-        form.addEventListener('submit', async (e) => { // <-- CRITICAL FIX: Changed from form.submit = ...
-            e.preventDefault(); // Prevent default form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-            // Turn all the form data into a personality object
-            const personality = new Personality();
+            const personalityData = new Personality();
             const data = new FormData(form);
             
-            // Collect form data into personality object
             for (const [key, value] of data.entries()) {
                 if (key.includes("tone-example")) {
-                    if (value) {
-                        personality.toneExamples.push(value);
-                    }
+                    if (value) personalityData.toneExamples.push(value);
                     continue;
                 }
-                if (key === 'id') {
-                    continue;
-                }
-                // Handle checkboxes
+                if (key === 'id') continue;
+                if (key === 'actors') continue; // Actors are managed by the AssetManager component, not the form
+
                 if (key === 'internetEnabled' || key === 'roleplayEnabled') {
-                    personality[key] = data.has(key);
+                    personalityData[key] = data.has(key);
                 } else {
-                    personality[key] = value;
+                    personalityData[key] = value;
                 }
             }
-
-            // Handle both edit and add cases
+            
+            // Get the ID from the form's hidden input
             const idFromForm = data.get('id');
-            let finalPersonalityId = null;
-
-            if (idFromForm) { // This is an edit
-                finalPersonalityId = parseInt(idFromForm);
-                await personalityService.edit(finalPersonalityId, personality);
-                console.log(`Edited personality with ID: ${finalPersonalityId}`);
-            } else { // This is a new personality being added
-                finalPersonalityId = await personalityService.add(personality);
-                console.log(`Added new personality with ID: ${finalPersonalityId}`);
+            if (!idFromForm) {
+                console.error("Form submission failed: No ID found in form. This should not happen with the draft system.");
+                alert("An error occurred. Could not save personality.");
+                return;
             }
-            // After adding/editing, update currentPersonalityId to ensure context is maintained
-            currentPersonalityId = finalPersonalityId;
+            
+            // Because of the draft system, we are ALWAYS editing.
+            const finalPersonalityId = parseInt(idFromForm);
+            
+            // IMPORTANT: Preserve the existing actors data from the object in memory
+            personalityData.actors = currentPersonality.actors;
+
+            await personalityService.edit(finalPersonalityId, personalityData);
+            console.log(`Saved personality with ID: ${finalPersonalityId}`);
+            
+            // Tell the overlay service that the draft was successfully saved and shouldn't be deleted.
+            overlayService.clearActiveDraft();
             
             overlayService.closeOverlay();
-            // After closing, the UI will re-render personalities, which will trigger avatar loads.
-        }); // <-- CRITICAL FIX: End of addEventListener
+        });
 
-        // This code is for setting up the `add tone example` button
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             const input = document.createElement('input');
@@ -74,19 +72,20 @@ export function initializeAddPersonalityForm(personalityId = null) {
             input.placeholder = 'Tone example';
             btn.before(input);
         });
+
         isInitialized = true;
         console.log("Add Personality Form Component Initialized.");
     }
 
-    // Set the current personality ID whenever the form is (re)initialized/opened
-    currentPersonalityId = personalityId;
+    // This runs every time the form is opened
+    currentPersonality = personality; 
     
-    // Pass the current personality ID to the Asset Manager component for context
-    initializeAssetManagerComponent(currentPersonalityId);
+    // Pass the full personality OBJECT to the Asset Manager
+    initializeAssetManagerComponent(currentPersonality);
     
-    // If it's a new personality form, make sure the ID field is clear
+    // Ensure the hidden ID input is set correctly
     const idInput = document.querySelector("#form-add-personality input[name='id']");
     if (idInput) {
-        idInput.value = personalityId !== null ? personalityId.toString() : '';
+        idInput.value = personality ? personality.id : '';
     }
 }

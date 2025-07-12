@@ -1,5 +1,8 @@
+// FILE: src/services/Overlay.service.js
+
 import { showElement, hideElement } from '../utils/helpers';
 import * as stepperService from './Stepper.service';
+import * as personalityService from './Personality.service.js'; // Import personality service
 // Import the component initializers
 import { initializeAddPersonalityForm } from '../components/AddPersonalityForm.component.js';
 import { initializeAssetManagerComponent } from '../components/AssetManager.component.js';
@@ -9,43 +12,74 @@ const overlay = document.querySelector(".overlay");
 const overlayItems = overlay.querySelector(".overlay-content").children;
 const personalityForm = document.querySelector("#form-add-personality");
 
-export function showAddPersonalityForm() {
+let activeDraftId = null; // Variable to track the ID of a draft personality
+
+export async function showAddPersonalityForm() {
+    // 1. Create a draft personality in the database first
+    const draftId = await personalityService.createDraftPersonality();
+    const draftPersonality = await personalityService.get(draftId);
+
+    if (!draftPersonality) {
+        console.error("Failed to create and retrieve a draft personality.");
+        alert("Could not open the form. Please try again.");
+        return;
+    }
+
+    // 2. Store the draft ID so we can clean it up if the user cancels
+    activeDraftId = draftId;
+
+    // 3. Populate the form with draft data and show it
+    // We can use the same logic as showEditPersonalityForm now
+    populateForm(draftPersonality); 
     showElement(overlay, false);
     showElement(personalityForm, false);
-    // Initialize the components without a specific personality ID for a new form
-    initializeAddPersonalityForm(null); // <-- MODIFIED: Pass null characterId for new personality
-    initializeAssetManagerComponent(null); // <-- MODIFIED: Pass null characterId for new personality
+
+    // 4. Initialize components with the FULL draft personality OBJECT
+    initializeAddPersonalityForm(draftPersonality); 
+    initializeAssetManagerComponent(draftPersonality);
 }
 
 export function showEditPersonalityForm(personality) {
-    // Populate the form with the personality data
+    // When editing, there is no draft to manage
+    activeDraftId = null; 
+
+    populateForm(personality);
+    showElement(overlay, false);
+    showElement(personalityForm, false);
+
+    // THE FIX: Pass the FULL personality OBJECT, not just the ID
+    initializeAddPersonalityForm(personality); 
+    initializeAssetManagerComponent(personality); 
+}
+
+// Helper function to populate the form to avoid code duplication
+function populateForm(personality) {
     for (const key in personality) {
         if (key === 'toneExamples') {
-            // Clear existing tone example inputs before populating
             personalityForm.querySelectorAll('.tone-example').forEach((element, index) => {
-                if (index !== 0) element.remove(); // Remove all except the first one
+                if (index !== 0) element.remove();
             });
+            // Clear the first input before populating
+            const firstToneInput = personalityForm.querySelector(`input[name="tone-example-1"]`);
+            if (firstToneInput) firstToneInput.value = '';
 
             for (const [index, tone] of personality.toneExamples.entries()) {
                 if (index === 0) {
-                    const input = personalityForm.querySelector(`input[name="tone-example-1"]`);
-                    if(input) input.value = tone; // Check if input exists
+                    if(firstToneInput) firstToneInput.value = tone;
                     continue;
                 }
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.name = `tone-example-${index + 1}`; // Ensure unique names
+                input.name = `tone-example-${index + 1}`;
                 input.classList.add('tone-example');
                 input.placeholder = 'Tone example';
                 input.value = tone;
-                // Append before the add button
                 const btnAddToneExample = personalityForm.querySelector("#btn-add-tone-example");
-                if(btnAddToneExample) btnAddToneExample.before(input); // Check if button exists
+                if(btnAddToneExample) btnAddToneExample.before(input);
             }
         } else {
             const input = personalityForm.querySelector(`[name="${key}"]`);
-            if (input) { // Ensure input element exists before setting value
-                // Handle checkbox inputs specially
+            if (input) {
                 if (input.type === 'checkbox') {
                     input.checked = personality[key];
                 } else {
@@ -54,12 +88,13 @@ export function showEditPersonalityForm(personality) {
             }
         }
     }
-    showElement(overlay, false);
-    showElement(personalityForm, false);
-    // Initialize the components with the personality's ID for editing
-    initializeAddPersonalityForm(personality.id); // <-- MODIFIED: Pass personality.id
-    initializeAssetManagerComponent(personality.id); // <-- MODIFIED: Pass personality.id
+     // Manually set the hidden ID field
+    const idInput = personalityForm.querySelector('input[name="id"]');
+    if (idInput) {
+        idInput.value = personality.id;
+    }
 }
+
 
 export function showChangelog() {
     const whatsNew = document.querySelector("#whats-new");
@@ -68,26 +103,29 @@ export function showChangelog() {
 }
 
 export function closeOverlay() {
+    // If we were working on a draft and cancelled, delete it.
+    if (activeDraftId !== null) {
+        console.log(`Cancelling form, deleting draft personality ID: ${activeDraftId}`);
+        personalityService.deleteDraftPersonality(activeDraftId);
+    }
+    activeDraftId = null; // Always reset the draft ID on close
+
     hideElement(overlay);
 
     for (const item of overlayItems) {
         hideElement(item);
-        // Reset the form and stepper
         if (item instanceof HTMLFormElement) {
             item.reset();
-            // Remove all but the first tone example input and clear its value
             item.querySelectorAll('.tone-example').forEach((element, index) => {
                 if (index === 0) {
-                    element.value = ''; // Clear the first one's value
+                    element.value = ''; 
                 } else {
-                    element.remove(); // Remove subsequent ones
+                    element.remove();
                 }
             });
-            // Reset checkboxes
             item.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
                 checkbox.checked = false;
             });
-
             const stepper = stepperService.get(item.firstElementChild.id);
             if (stepper) {
                 stepper.step = 0;
@@ -95,4 +133,12 @@ export function closeOverlay() {
             }
         }
     }
+}
+
+/**
+ * NEW: A function to be called when the form is successfully submitted.
+ * This prevents the draft from being deleted upon closing the overlay.
+ */
+export function clearActiveDraft() {
+    activeDraftId = null;
 }
