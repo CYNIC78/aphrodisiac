@@ -986,22 +986,19 @@ input[name="currentChat"][value="none"] {
     padding: 0.5rem;
     display: flex;
     flex-wrap: wrap;
-    /* NEW: Smaller gap for tighter packing */
-    gap: 0.2rem; 
+    /* NEW: Aggressively smaller gap */
+    gap: 0.1rem; /* Very small gap */
     justify-content: center;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
     box-sizing: border-box;
     z-index: 1;
 }
 
-.asset-card-tag-pill {
-    font-size: 0.75rem; /* Slightly smaller for card view */
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.25rem; /* Less rounded than detail view pills */
-    cursor: pointer;
-    opacity: 0.9;
-    transition: opacity 0.2s, background-color 0.2s, color 0.2s;
-    white-space: nowrap; /* Prevent tags from breaking */
+.asset-card-tag-pill.more-pill {
+    background-color: transparent !important;
+    border: 1px dashed;
+    padding: 0.05rem 0.2rem; /* Adjusted padding to be consistent */
+    cursor: default;
 }
 
 .asset-card-tag-pill:hover {
