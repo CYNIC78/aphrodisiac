@@ -261,11 +261,12 @@ form {
     gap: 1rem;
     padding-bottom: 1.5rem;
     flex-grow: 1;
+    /* MODIFIED: We will now center the content within this flexible container */
     max-width: 55rem;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-right: 1.5rem;
+    padding-right: 1.5rem; /* Already existed, keeping it */
 }
 
 .message-text{
@@ -292,6 +293,7 @@ form {
     border-radius: 1rem;
     box-sizing: border-box;
     overflow: hidden;
+    /* MODIFIED: Centering the message box to match the container above it */
     max-width: 55rem;
     width: 100%;
     margin-left: auto;
@@ -442,9 +444,14 @@ form {
 .container {
     box-sizing: border-box;
     display: flex;
+    /* MODIFIED: Gap is now handled by the resizer element */
+    /* gap: 0.5rem; */ 
     padding: 1rem;
+
+
     width: 100dvw;
     height: 100dvh;
+
 }
 
 .sidebar {
@@ -455,12 +462,13 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
+    /* MODIFIED: Use a CSS variable for width, with a fallback */
     width: var(--sidebar-width, 25rem); 
     border-radius: 1rem;
     scrollbar-width: thin;
     height: calc(100dvh - 4rem);
     z-index: 1;
-    /* overflow-y: auto; has been removed to prevent double scrollbars */
+	overflow-y: auto;
 }
 
 .sidebar-section {
@@ -475,23 +483,11 @@ form {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    flex-grow: 1;      /* Make the list of personalities take all available space */
-    overflow-y: auto;  /* Allow the list to scroll if it gets too long */
-    min-height: 0;     /* A required fix for flexbox scrolling children */
 }
-
-#personalitySection > .btn-array {
-    padding-top: 1rem;
-    flex-shrink: 0; /* Prevent the buttons from shrinking if space is tight */
-}
-
 
 #sidebar-content {
     min-height: 0;
     padding: 0.5rem;
-    flex-grow: 1; /* Allow content to fill space */
-    display: flex; /* Enable flex context for children */
-    /* flex-direction: column; Stack children vertically */
 }
 
 #btn-show-sidebar {
@@ -617,10 +613,12 @@ button {
     display: flex;
     flex-direction: column;
     padding: 2rem;
+    /* MODIFIED: Let this panel grow to fill the space */
     flex-grow: 1;
-    min-width: 0; 
+    min-width: 0; /* Important flexbox fix to allow shrinking */
 }
 
+/* --- NEW STYLES FOR RESIZABLE SIDEBAR --- */
 #sidebar-resizer {
     width: 6px;
     cursor: col-resize;
@@ -628,6 +626,7 @@ button {
     flex-shrink: 0;
     border-radius: 3px;
     transition: background-color 0.2s ease;
+    /* Prevent user from selecting text while dragging */
     user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;
@@ -635,7 +634,7 @@ button {
 
 #sidebar-resizer:hover,
 #sidebar-resizer.is-dragging {
-    background-color: #5f96c880; 
+    background-color: #5f96c880; /* Use theme color with transparency */
 }
 
 @media (prefers-color-scheme: light) {
@@ -644,6 +643,7 @@ button {
         background-color: #4c7cbe80;
     }
 }
+/* --- END NEW STYLES --- */
 
 
 .btn-array-personalityactions {
@@ -1161,12 +1161,13 @@ input[name="currentChat"][value="none"] {
         top: 0;
         height: calc(100dvh - 2rem);
         margin: 0;
-        width: calc(100dvw - 2rem) !important;
+        width: calc(100dvw - 2rem) !important; /* !important to override JS-set width */
         position: fixed;
         border-radius: 0;
         display: none;
     }
 
+    /* NEW: Hide the resizer on mobile */
     #sidebar-resizer {
         display: none !important;
     }
@@ -1704,10 +1705,8 @@ input[name="currentChat"][value="none"] {
 
 .pfp-wrapper {
     position: relative;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    overflow: hidden;
+    width: 48px;
+    height: 48px;
 }
 
 .pfp {
@@ -1715,7 +1714,27 @@ input[name="currentChat"][value="none"] {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 50%;
     top: 0;
     left: 0;
     transition: opacity 0.5s ease-in-out;
+}.pfp {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    top: 0;
+    left: 0;
+    opacity: 1;
+    transition: opacity 0.4s ease-in-out;
+}
+
+.pfp.fading-in {
+    opacity: 0;
+    z-index: 2;
+}
+
+.pfp.fading-in.fade-active {
+    opacity: 1;
 }
