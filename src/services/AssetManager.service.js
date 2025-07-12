@@ -1,4 +1,9 @@
+// FILE: src/services/AssetManager.service.js
+
 import { db } from './Db.service.js';
+
+// Define system tags that are managed automatically and hidden from the user UI.
+const SYSTEM_TAGS = ['avatar', 'sfx', 'audio'];
 
 class AssetManagerService {
     constructor() {
@@ -7,23 +12,32 @@ class AssetManagerService {
 
     /**
      * Adds a new asset to the database, associated with a character.
+     * Automatically adds the correct system tag ('avatar' or 'sfx') based on file type.
      * @param {File} file - The file to be added.
-     * @param {string[]} tags - An array of tags for the asset.
+     * @param {string[]} tags - An array of USER-DEFINED tags for the asset.
      * @param {number} characterId - The ID of the personality this asset belongs to.
      * @returns {Promise<number>} The ID of the new asset.
      */
-    async addAsset(file, tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
+    async addAsset(file, tags = [], characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.addAsset: characterId is required.");
             throw new Error("characterId is required to add an asset.");
         }
-        console.log(`Adding asset: ${file.name} for character ID ${characterId} with tags: ${tags.join(', ')}`);
+
+        const assetType = file.type.startsWith('image/') ? 'image' : 'audio';
+        const systemTag = assetType === 'image' ? 'avatar' : 'sfx';
+        
+        // Combine user tags with the automatically determined system tag.
+        const allTags = [...new Set([...tags, systemTag])]; // Use a Set to prevent duplicates.
+
+        console.log(`Adding asset: ${file.name} for character ID ${characterId} with final tags: ${allTags.join(', ')}`);
+        
         const asset = {
-            characterId: characterId, // <-- ADDED: Associate asset with character
+            characterId: characterId,
             name: file.name,
-            type: file.type.startsWith('image/') ? 'image' : 'audio',
-            tags: tags,
-            data: file, // Dexie handles blobs directly
+            type: assetType,
+            tags: allTags, // Save the combined list of tags
+            data: file,
             timestamp: new Date()
         };
         return await db.assets.add(asset);
@@ -40,11 +54,21 @@ class AssetManagerService {
     
     /**
      * Updates a specific asset in the database.
+     * Ensures the correct system tag is preserved when user-defined tags are changed.
      * @param {number} id - The ID of the asset to update.
      * @param {object} changes - An object with the properties to change.
      * @returns {Promise<number>}
      */
     async updateAsset(id, changes) {
+        // If tags are being updated, we must ensure the system tag is preserved.
+        if (changes.tags) {
+            const assetToUpdate = await db.assets.get(id);
+            if (assetToUpdate) {
+                const systemTag = assetToUpdate.type === 'image' ? 'avatar' : 'sfx';
+                // Combine the new user tags with the existing system tag.
+                changes.tags = [...new Set([...changes.tags, systemTag])];
+            }
+        }
         return await db.assets.update(id, changes);
     }
 
@@ -59,11 +83,10 @@ class AssetManagerService {
 
     /**
      * Deletes all assets associated with a specific character.
-     * This is crucial for clean character deletion.
      * @param {number} characterId - The ID of the character whose assets to delete.
      * @returns {Promise<void>}
      */
-    async deleteAssetsByCharacterId(characterId) { // <-- ADDED: New function for per-character deletion
+    async deleteAssetsByCharacterId(characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.deleteAssetsByCharacterId: characterId is required.");
             return;
@@ -77,7 +100,7 @@ class AssetManagerService {
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<any[]>} A promise that resolves to an array of assets.
      */
-    async getAllAssetsForCharacter(characterId) { // <-- MODIFIED: New function for character-specific retrieval
+    async getAllAssetsForCharacter(characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.getAllAssetsForCharacter: characterId is required.");
             return [];
@@ -87,28 +110,25 @@ class AssetManagerService {
 
     /**
      * Searches for assets (for a specific character) that contain ALL of the given tags.
+     * This function is used by the core system and searches ALL tags, including hidden ones.
      * @param {string[]} tags - An array of tags to filter by.
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
      */
-    async searchAssetsByTags(tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
+    async searchAssetsByTags(tags = [], characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.searchAssetsByTags: characterId is required.");
             return [];
         }
         if (!tags || tags.length === 0) {
-            return this.getAllAssetsForCharacter(characterId); // Use character-specific getter
+            return this.getAllAssetsForCharacter(characterId);
         }
         
-        // Step 1: Get all assets for the specific character that have AT LEAST ONE of the desired tags
         const candidateAssets = await db.assets
-                                    .where('characterId').equals(characterId) // <-- Filter by characterId first
-                                    .and(asset => tags.some(tag => asset.tags.includes(tag))) // Filter by tags
+                                    .where('characterId').equals(characterId)
+                                    .and(asset => tags.some(tag => asset.tags.includes(tag)))
                                     .toArray();
 
-        // Step 2: Filter these candidates in JavaScript to ensure ALL tags are present in the asset's tags array.
-        // This is necessary because Dexie's .anyOf() (or .and() combined with a predicate)
-        // only checks for SOME tags, not ALL, when using multi-entry indexes in this way.
         const matchingAssets = candidateAssets.filter(asset =>
             tags.every(tag => asset.tags.includes(tag))
         );
@@ -117,27 +137,31 @@ class AssetManagerService {
     }
     
     /**
-     * Gets a sorted, unique list of all tags for a specific character's assets in the database.
+     * Gets a sorted, unique list of USER-FACING tags for a specific character's assets.
+     * It actively filters out the hidden system tags.
      * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<string[]>} A promise that resolves to an array of unique tags.
+     * @returns {Promise<string[]>} A promise that resolves to an array of unique, user-defined tags.
      */
-    async getAllUniqueTagsForCharacter(characterId) { // <-- MODIFIED: New function for character-specific tags
+    async getAllUniqueTagsForCharacter(characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.getAllUniqueTagsForCharacter: characterId is required.");
             return [];
         }
-        const allAssets = await this.getAllAssetsForCharacter(characterId); // Get character's assets
+        const allAssets = await this.getAllAssetsForCharacter(characterId);
         const uniqueTags = new Set();
         allAssets.forEach(asset => {
             asset.tags.forEach(tag => uniqueTags.add(tag));
         });
-        const sortedTags = Array.from(uniqueTags).sort((a, b) => a.localeCompare(b));
+        
+        // Filter out the system-managed tags before returning to the UI.
+        const userFacingTags = Array.from(uniqueTags).filter(tag => !SYSTEM_TAGS.includes(tag));
+        
+        const sortedTags = userFacingTags.sort((a, b) => a.localeCompare(b));
         return sortedTags;
     }
 
     /**
      * Creates an Object URL for an asset's data Blob.
-     * This URL can be used as an img.src or audio.src.
      * @param {number} assetId - The ID of the asset.
      * @returns {Promise<string|null>} The Object URL, or null if asset not found or data is not a Blob.
      */
@@ -150,16 +174,15 @@ class AssetManagerService {
     }
 
     /**
-     * Searches for image assets (for a specific character) that contain ALL of the given tags and returns the Object URL of the first one found.
+     * Searches for image assets that contain ALL of the given tags and returns the Object URL of the first one found.
      * @param {string[]} tags - An array of tags to filter by.
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<string|null>} The Object URL of the first matching image asset, or null if none found.
      */
-    async getFirstImageObjectUrlByTags(tags = [], characterId) { // <-- MODIFIED: Added characterId parameter
-        const assets = await this.searchAssetsByTags(tags, characterId); // <-- Pass characterId
+    async getFirstImageObjectUrlByTags(tags = [], characterId) {
+        const assets = await this.searchAssetsByTags(tags, characterId);
         const imageAssets = assets.filter(a => a.type === 'image');
         if (imageAssets.length > 0) {
-            // If multiple images match, we take the first one found.
             return this.getAssetObjectUrl(imageAssets[0].id);
         }
         return null;
