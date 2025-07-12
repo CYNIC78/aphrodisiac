@@ -90,7 +90,7 @@ export function initializeAddPersonalityForm(personalityId = null) {
                 const aiInstructionHeader = `---
 DYNAMIC ASSET COMMANDS (Use these in your responses!)
 ---
-These tags are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
+**These commands are for *your* actions, emotions, and expressions as the character.** They are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
 
 **How to use:**
 - For **Avatars**: Just type the tag name in brackets. Example: [happy]
