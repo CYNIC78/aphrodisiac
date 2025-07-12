@@ -20,6 +20,8 @@ function sanitizeNameForTag(name) {
 
 // --- RENDERING LOGIC ---
 
+// This is the function to replace in src/components/AssetManager.component.js
+
 function renderSceneExplorer() {
     if (!sceneExplorerContainer) return;
     const scrollPosition = sceneExplorerContainer.scrollTop;
@@ -40,7 +42,7 @@ function renderSceneExplorer() {
         actorRow.innerHTML = `
             <span class="material-symbols-outlined row-icon">arrow_drop_down</span>
             <span class="row-name">${actor.name}</span>
-            <button class="row-delete-btn material-symbols-outlined" title="Delete Actor">delete</button>
+            <button type="button" class="row-delete-btn material-symbols-outlined" title="Delete Actor">delete</button>
         `;
         const statesContainer = document.createElement('div');
         statesContainer.className = 'states-container';
@@ -53,7 +55,7 @@ function renderSceneExplorer() {
                 }
                 stateRow.innerHTML = `
                     <span class="row-name">${state.name}</span>
-                    <button class="row-delete-btn material-symbols-outlined" title="Delete State">delete</button>
+                    <button type="button" class="row-delete-btn material-symbols-outlined" title="Delete State">delete</button>
                 `;
                 stateRow.addEventListener('click', (e) => {
                     if (e.target.classList.contains('row-delete-btn')) return;
@@ -83,6 +85,20 @@ function renderSceneExplorer() {
     });
     sceneExplorerContainer.scrollTop = scrollPosition;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 async function renderGallery() {
     if (!galleryEl || !galleryTitleEl) return;
