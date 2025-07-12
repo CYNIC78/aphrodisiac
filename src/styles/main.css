@@ -793,151 +793,45 @@ button {
 
 .media-library-layout {
     display: grid;
-    grid-template-columns: 280px 1fr; /* Widen the explorer panel */
+    grid-template-columns: 240px 1fr; 
     gap: 1rem;
     height: 100%;
 }
 
-/* ============================================= */
-/* === NEW: SCENE EXPLORER STYLES (v12.0)    === */
-/* ============================================= */
-
-.scene-explorer {
+.tag-explorer {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem;
     border-radius: 0.5rem;
-    overflow: hidden; /* Important for containing the scrolling list */
 }
 
-.scene-explorer-header {
-    flex-shrink: 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid;
-    margin-bottom: 0.5rem;
+#tag-explorer-search {
+    flex-shrink: 0; 
 }
 
-.scene-explorer-header h3 {
-    margin: 0;
-}
-
-#scene-explorer-personality-name {
-    font-size: 0.9rem;
-    opacity: 0.7;
-    font-weight: bold;
-}
-
-#scene-explorer-actors-container {
+#tag-explorer-list {
     flex-grow: 1;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    padding-right: 0.5rem; /* For scrollbar spacing */
+    padding-right: 0.5rem; 
 }
 
-.scene-explorer-placeholder {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
-    opacity: 0.6;
-    font-size: 0.9rem;
-    text-align: center;
-}
-
-/* Base styles for both Actor and State rows */
-.scene-explorer-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.tag-explorer-item {
+    width: 100%;
     padding: 0.5rem 0.75rem;
     border-radius: 0.25rem;
     cursor: pointer;
-    transition: background-color 0.2s;
-    user-select: none;
+    text-align: left;
+    transition: background-color 0.2s, color 0.2s;
+    justify-content: flex-start; 
 }
 
-.scene-explorer-actor-row {
-    font-weight: bold;
+.tag-explorer-item.selected {
+    font-weight: 800; 
 }
-
-.scene-explorer-state-row {
-    padding-left: 2rem; /* Indent states under their actor */
-}
-
-.scene-explorer-row.active {
-    font-weight: 800;
-}
-
-.scene-explorer-row .row-name {
-    flex-grow: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Icons and Buttons within rows */
-.scene-explorer-row .row-icon {
-    font-size: 1.2rem;
-    transition: transform 0.2s ease-in-out;
-}
-.scene-explorer-actor-row[data-collapsed="true"] .row-icon {
-    transform: rotate(-90deg);
-}
-
-.scene-explorer-row .row-delete-btn {
-    font-size: 1.2rem;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-    background: none;
-    padding: 0;
-    margin: 0;
-    line-height: 1;
-}
-.scene-explorer-row:hover .row-delete-btn {
-    opacity: 1;
-}
-
-.states-container {
-    display: flex; /* Changed from none to flex by default */
-    flex-direction: column;
-    gap: 0.25rem;
-    width: 100%; 
-    padding-top: 0.25rem;
-    padding-left: 1rem; /* Indent the container itself */
-}
-
-.scene-explorer-actor-row[data-collapsed="true"] ~ .states-container {
-    display: none; /* Hide when collapsed */
-}
-
-/* "Add State..." button inside an actor */
-.btn-add-state {
-    font-style: italic;
-    opacity: 0.7;
-    justify-content: flex-start;
-    padding-left: 1rem; /* Adjust padding to align with states */
-    font-weight: normal;
-    background: none;
-    gap: 0.25rem;
-}
-.btn-add-state .material-symbols-outlined {
-    font-size: 1rem;
-}
-
-/* "Add Actor" button at the bottom */
-#btn-add-actor {
-    margin-top: auto; /* Push to bottom */
-    flex-shrink: 0;
-    padding: 0.5rem;
-}
-
-
-/* ============================================= */
-/* === END SCENE EXPLORER STYLES             === */
-/* ============================================= */
 
 .gallery-main {
     display: flex;
@@ -1142,18 +1036,10 @@ button {
 /* ================================================= */
 
 @media (prefers-color-scheme: dark) {
-    /* Scene Explorer Dark */
-    .scene-explorer { background-color: rgba(0,0,0,0.2); }
-    .scene-explorer-header { border-color: rgba(255, 255, 255, 0.1); }
-    .scene-explorer-row:not(.active):hover { background-color: rgba(255,255,255,0.1); }
-    .scene-explorer-row.active { background-color: #5f96c8; color: #0b2469; }
-    .scene-explorer-row.active .row-delete-btn { color: #0b2469; }
-    .btn-add-state, .btn-add-state:hover { color: #849caf; }
-    #btn-add-actor {
-        background-color: transparent;
-        border: 1px dashed rgba(255, 255, 255, 0.2);
-    }
-    #btn-add-actor:hover { background-color: rgba(255,255,255,0.1); }
+    .tag-explorer { background-color: rgba(0,0,0,0.2); }
+    #asset-manager-gallery { border-color: rgba(255, 255, 255, 0.1); }
+    .tag-explorer-item:not(.selected):hover { background-color: rgba(255,255,255,0.1); }
+    .tag-explorer-item.selected { background-color: #5f96c8; color: #0b2469; }
     
     .asset-card-inline { background-color: #283542; }
     .asset-card-inline-delete-btn { background-color: #a43131; color: #ffffff; }
@@ -1166,19 +1052,10 @@ button {
 }
 
 @media (prefers-color-scheme: light) {
-    /* Scene Explorer Light */
-    .scene-explorer { background-color: rgba(0,0,0,0.05); }
-    .scene-explorer-header { border-color: rgba(0, 0, 0, 0.1); }
-    .scene-explorer-row:not(.active):hover { background-color: rgba(0,0,0,0.05); }
-    .scene-explorer-row.active { background-color: #4c7cbe; color: #edf1f8; }
-    .scene-explorer-row.active .row-delete-btn { color: #edf1f8; }
-    .btn-add-state, .btn-add-state:hover { color: #556d8a; }
-    #btn-add-actor {
-        background-color: transparent;
-        border: 1px dashed rgba(0,0,0,0.2);
-        color: #3c66a1;
-    }
-    #btn-add-actor:hover { background-color: rgba(0,0,0,0.05); }
+    .tag-explorer { background-color: rgba(0,0,0,0.05); }
+    #asset-manager-gallery { border-color: rgba(0,0,0,0.1); }
+    .tag-explorer-item:not(.selected):hover { background-color: rgba(0,0,0,0.05); }
+    .tag-explorer-item.selected { background-color: #4c7cbe; color: #edf1f8; }
 
     .asset-card-inline { background-color: #ffffff; border: 1px solid rgba(0,0,0,0.1); }
     .asset-card-inline-delete-btn { background-color: #d9534f; color: #ffffff; }

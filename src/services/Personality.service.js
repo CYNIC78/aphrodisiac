@@ -106,8 +106,7 @@ export function getDefault() {
 You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`,
         '', // tagPrompt
 		'', // reminder
-        [], // toneExamples
-        [] // actors
+        [] // toneExamples
     );
 }
 
@@ -273,19 +272,11 @@ export async function removeAll() {
 }
 
 export async function add(personality) {
-    // NEW: Scene Explorer - Default Actor/State creation
-    if (!personality.actors || personality.actors.length === 0) {
-        const defaultActorName = personality.name.toLowerCase().trim().replace(/\s+/g, '-');
-        personality.actors = [
-            { name: defaultActorName, states: [{ name: 'default' }] }
-        ];
-        console.log(`SCENE EXPLORER: Initialized default actor '${defaultActorName}' and state 'default' for new personality '${personality.name}'.`);
-    }
-
     const id = await db.personalities.add(personality); // Insert in db
-    const newPersonalityWithId = { ...personality, id: id }; // Create full object
-    const newCard = insert(newPersonalityWithId); 
+    const newPersonalityWithId = { id: id, ...personality }; // Create full object
+    const newCard = insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar and append card
     
+    // NEW: If adding a new personality, select it automatically
     if (newCard) {
         newCard.querySelector('input').click();
     }
@@ -294,37 +285,25 @@ export async function add(personality) {
     if (addCard) {
         document.querySelector("#personalitiesDiv").appendChild(addCard);
     }
-    return id;
+    return id; // Return the ID, not the card element
 }
-
-/**
- * NEW FUNCTION: A lightweight data-only update for use by the Asset Manager.
- * It does not trigger any UI re-renders in the sidebar.
- * @param {number} id - The ID of the personality to update.
- * @param {object} personalityData - The full personality object with the data to save.
- */
-export async function updatePersonalityData(id, personalityData) {
-    // We must remove the 'id' from the object before updating, as it's the key.
-    const dataToUpdate = { ...personalityData };
-    delete dataToUpdate.id;
-    return await db.personalities.update(id, dataToUpdate);
-}
-
 
 export async function edit(id, personality) {
     const element = document.querySelector(`#personality-${id}`);
-    const input = element.querySelector("input"); 
+    const input = element.querySelector("input"); // Get reference to the radio button input
 
     await db.personalities.update(id, personality);
 
-    const updatedPersonality = { id, ...personality }; 
-    const newCard = generateCard(updatedPersonality); 
-    element.replaceWith(newCard); 
+    const updatedPersonality = { id, ...personality }; // Create updated personality object
+    const newCard = generateCard(updatedPersonality); // Generate new card HTML
+    element.replaceWith(newCard); // Replace old card in DOM
 
     await loadAndApplyPersonalityAvatar(newCard, updatedPersonality);
 
-    if (input.checked) { 
-        newCard.querySelector("input").click(); 
+    // NEW: If the edited personality was checked, ensure it remains checked and its ID is saved.
+    // The generateCard function now adds a 'change' listener, so clicking it will save its ID.
+    if (input.checked) { // Check the state of the *original* input element before it was replaced
+        newCard.querySelector("input").click(); // Click the new card's radio button
     }
 }
 
@@ -365,8 +344,9 @@ export function generateCard(personality) {
     const deleteButton = card.querySelector(".btn-delete-card");
     const editButton = card.querySelector(".btn-edit-card");
     const mediaLibraryButton = card.querySelector(".btn-media-library-card"); 
-    const input = card.querySelector("input"); 
+    const input = card.querySelector("input"); // Get reference to the radio button
 
+    // NEW: Add event listener to the radio button to save active personality ID
     input.addEventListener("change", () => {
         settingsService.setActivePersonalityId(personality.id);
     });
@@ -379,10 +359,11 @@ export function generateCard(personality) {
     if (deleteButton) {
         deleteButton.addEventListener("click", (event) => {
             handleButtonClick(event, () => {
+                // The `remove` function now handles defaulting to Aphrodite and saving the ID.
                 if (personality.id !== undefined && personality.id !== null) {
                     remove(personality.id);
                 }
-                card.remove(); 
+                card.remove(); // Remove the card from the DOM after handling deletion logic
             });
         });
     }
@@ -413,6 +394,7 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
     if (!imgElement || !personality || typeof personality.id !== 'number') return;
 
+    // Revoke previous URL if one exists for this personality to prevent memory leaks
     if (personalityImageUrls.has(personality.id)) {
         URL.revokeObjectURL(personalityImageUrls.get(personality.id));
         personalityImageUrls.delete(personality.id);
@@ -420,18 +402,22 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
 
     try {
         let avatarUrl = null;
-        if (personality.id !== -1) { 
+        if (personality.id !== -1) { // For custom personalities
+            // MODIFIED: Prioritize searching for a 'default' tagged avatar
             avatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', 'default'], personality.id);
+            // If no 'default' avatar is found, you could optionally fall back to a specific tag like personality.name.toLowerCase()
+            // However, based on the user's request, 'default' should be the primary and only custom tag needed for the card avatar.
         }
        
         if (avatarUrl) {
             imgElement.src = avatarUrl;
             personalityImageUrls.set(personality.id, avatarUrl);
         } else {
+            // Fallback to the image URL stored in the personality object (placeholder for custom, actual for Aphrodite)
             imgElement.src = personality.image;
         }
     } catch (error) {
         console.error(`Error loading avatar for ${personality.name}:`, error);
-        imgElement.src = personality.image;
+        imgElement.src = personality.image; // Ensure image is set to fallback on error
     }
 }
