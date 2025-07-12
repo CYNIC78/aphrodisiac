@@ -986,7 +986,8 @@ input[name="currentChat"][value="none"] {
     padding: 0.5rem;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
+    gap: 0.1rem;
+    justify-content: center; /* <-- NEW: Centers tags horizontally */
     /* Gradient for readability over image */
     background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
     box-sizing: border-box;
