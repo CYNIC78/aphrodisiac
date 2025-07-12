@@ -115,10 +115,33 @@ async function handleRegenerate(clickedElement, db) {
 }
 
 
-function wrapCommandsInSpan(text) {
-    const commandRegex = /\[(.*?):(.*?)]/g;
-    return text.replace(commandRegex, `<span class="command-block">$&</span>`);
+// Helper function to escape special characters for use in a regular expression.
+// (Already there, but making sure it's present)
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
 }
+
+function wrapCommandsInSpan(text) {
+    // The regex for finding the commands remains the same, as it correctly identifies both forms.
+    const commandRegex = /\[(\S+)\]/g;
+
+    // This replacement will capture the content inside the brackets (e.g., "happy" or "sfx:sigh").
+    // It then reconstructs the string using the HTML entities for square brackets
+    // inside our command-block span. This tells Markdown to treat it as literal text.
+    return text.replace(commandRegex, (fullMatch, contentInsideBrackets) => {
+        // fullMatch will be something like "[happy]" or "[sfx:sigh]"
+        // contentInsideBrackets will be "happy" or "sfx:sigh"
+
+        // Reconstruct the content with HTML entities for the brackets
+        const escapedContent = `[${contentInsideBrackets}]`;
+        
+        // Wrap this escaped content in our command-block span.
+        return `<span class="command-block">${escapedContent}</span>`;
+    });
+}
+
+
+
 
 async function executeCommandAction(command, value, messageElement, characterId) {
     if (characterId === null) return;
