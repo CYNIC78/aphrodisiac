@@ -983,15 +983,14 @@ input[name="currentChat"][value="none"] {
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 0.25rem;
+    padding: 0.5rem;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.1rem;
-    justify-content: center; /* <-- NEW: Centers tags horizontally */
-    /* Gradient for readability over image */
+    /* NEW: Smaller gap for tighter packing */
+    gap: 0.2rem; 
+    justify-content: center;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
     box-sizing: border-box;
-    /* Ensure tags are visible even on hover scale */
     z-index: 1;
 }
 
