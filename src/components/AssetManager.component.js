@@ -121,15 +121,7 @@ async function renderGallery() {
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
-
-    const allActorNames = currentPersonality.actors.map(a => a.name);
-    const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
     
-    // Define the asset's primary context based on its tags
-    const primaryActor = allActorNames.find(name => asset.tags.includes(name));
-    const primaryState = allStateNames.find(name => asset.tags.includes(name));
-    const contextTags = [primaryActor, primaryState].filter(Boolean); // Array of context tags found on this asset
-
     // --- Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
@@ -145,19 +137,16 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
     
-    // --- Top Overlay for PROTECTED Context and System Tags ---
+    // --- Top Overlay for System Tags ONLY ---
     const topOverlay = document.createElement('div');
     topOverlay.className = 'asset-card-top-overlay';
-    const createSystemPill = (tag) => {
+    const systemTypeTag = asset.tags.find(tag => tag === 'avatar' || tag === 'sfx');
+    if(systemTypeTag) {
         const pill = document.createElement('div');
         pill.className = 'tag-pill tag-system';
-        pill.textContent = tag;
-        return pill;
-    };
-    if (primaryActor) topOverlay.appendChild(createSystemPill(primaryActor));
-    if (primaryState) topOverlay.appendChild(createSystemPill(primaryState));
-    const typeTag = asset.tags.find(tag => tag === 'avatar' || tag === 'sfx');
-    if (typeTag) topOverlay.appendChild(createSystemPill(typeTag));
+        pill.textContent = systemTypeTag;
+        topOverlay.appendChild(pill);
+    }
     previewContainer.appendChild(topOverlay);
 
     // Filename Overlay
@@ -170,24 +159,26 @@ function createAssetCard(asset) {
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
     
-    // --- Info Area for EDITABLE Custom Triggers ---
+    // --- Info Area for ALL User-Facing Tags (Context and Custom) ---
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
     
-    // A custom trigger is ANY tag that is NOT a system tag and NOT one of this asset's context tags.
-    const customTriggers = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag) && !contextTags.includes(tag));
+    const allUserTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
     
     const customPillsContainer = document.createElement('div');
     customPillsContainer.className = 'tag-pills-container';
-    customTriggers.forEach(tag => {
+    allUserTags.forEach(tag => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
         pill.textContent = tag;
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-tag';
         removeBtn.innerHTML = '×';
-        removeBtn.title = `Remove trigger "${tag}"`;
-        removeBtn.onclick = () => handleRemoveTagFromAsset(asset.id, tag);
+        removeBtn.title = `Remove tag "${tag}"`;
+        removeBtn.onclick = () => {
+            // Pass a function to handle removal correctly if there are duplicates
+            handleRemoveTagFromAsset(asset.id, tag);
+        };
         pill.appendChild(removeBtn);
         customPillsContainer.appendChild(pill);
     });
@@ -196,10 +187,12 @@ function createAssetCard(asset) {
     // Smart input for adding new tags
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
-    addTagInput.placeholder = '+ Add custom trigger';
+    addTagInput.placeholder = '+ Add trigger';
     addTagInput.className = 'asset-card-inline-input';
     const saveTag = () => {
-        if (addTagInput.value.trim() !== '') handleAddTagToAsset(asset.id, addTagInput);
+        if (addTagInput.value.trim() !== '') {
+            handleAddTagToAsset(asset.id, addTagInput);
+        }
     };
     addTagInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); saveTag(); addTagInput.blur(); }
@@ -220,38 +213,17 @@ function createAssetCard(asset) {
     return card;
 }
 
-
 // --- EVENT HANDLERS ---
-// This is the function to replace in src/components/AssetManager.component.js
-
 async function handleAddTagToAsset(assetId, inputElement) {
     const newTag = inputElement.value.trim().toLowerCase();
     if (!newTag || !assetId) return;
-
     const asset = await assetManagerService.getAssetById(assetId);
-    if (!asset) return;
-    
-    // --- THIS IS THE FIX ---
-    // First, determine what the asset's existing custom triggers are by filtering out all other types.
-    const allActorNames = currentPersonality.actors.map(a => a.name);
-    const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
-    const contextTags = [...allActorNames, ...allStateNames];
-    
-    const existingCustomTriggers = asset.tags.filter(tag => 
-        !SYSTEM_TAGS.includes(tag) && 
-        !contextTags.includes(tag)
-    );
-
-    // Now, ask the CORRECT question: Does this tag already exist in the list of CUSTOM triggers?
-    if (!existingCustomTriggers.includes(newTag)) {
+    if (asset) {
+        // THE FIX: No checks. No restrictions. Just add the tag.
         const updatedTags = [...asset.tags, newTag];
         await assetManagerService.updateAsset(assetId, { tags: updatedTags });
         inputElement.value = '';
         await renderGallery();
-    } else {
-        // If it already exists as a custom trigger, do nothing, but clear the input.
-        inputElement.value = '';
-        console.log(`Custom trigger "${newTag}" already exists on this asset.`);
     }
 }
 
@@ -259,8 +231,12 @@ async function handleRemoveTagFromAsset(assetId, tagToRemove) {
     if (!assetId) return;
     const asset = await assetManagerService.getAssetById(assetId);
     if (asset) {
-        const updatedTags = asset.tags.filter(t => t !== tagToRemove);
-        await assetManagerService.updateAsset(assetId, { tags: updatedTags });
+        // THE FIX: To handle duplicates, find the first index of the tag and remove only that one.
+        const indexToRemove = asset.tags.indexOf(tagToRemove);
+        if (indexToRemove > -1) {
+            asset.tags.splice(indexToRemove, 1);
+        }
+        await assetManagerService.updateAsset(assetId, { tags: asset.tags });
         await renderGallery();
     }
 }
