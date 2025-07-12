@@ -311,13 +311,22 @@ To play a sound you tagged 'door_opens':
 						<!-- ================================== -->
 						<div class="step" id="media-library-step">
 							<div class="media-library-layout">
-								<div class="tag-explorer">
-									<h3>Tags</h3>
-									<input type="search" id="tag-explorer-search" placeholder="Filter tags..." aria-label="Filter media assets by tag">
-									<div id="tag-explorer-list">
-										<!-- All unique tags will be rendered here by JS -->
+								
+								<!-- NEW: Scene Explorer Panel -->
+								<div class="scene-explorer">
+									<div class="scene-explorer-header">
+										<h3>Scene Explorer</h3>
+										<p id="scene-explorer-personality-name"></p>
 									</div>
+									<div id="scene-explorer-actors-container">
+										<!-- JS will inject Actor/State rows here -->
+									</div>
+									<button type="button" class="btn-with-icon" id="btn-add-actor">
+										<span class="material-symbols-outlined">add</span>
+										Add Actor
+									</button>
 								</div>
+								
 								<div class="gallery-main">
 									<div class="gallery-header">
 										<h3 id="gallery-title">All Assets</h3>

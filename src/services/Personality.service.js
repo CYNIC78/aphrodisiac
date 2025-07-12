@@ -106,7 +106,8 @@ export function getDefault() {
 You are an AI persona created by CYNIC for the Aphrodisiac platform, designed to explore these themes.`,
         '', // tagPrompt
 		'', // reminder
-        [] // toneExamples
+        [], // toneExamples
+        [] // actors
     );
 }
 
@@ -272,8 +273,20 @@ export async function removeAll() {
 }
 
 export async function add(personality) {
+    // NEW: Scene Explorer - Default Actor/State creation
+    // If a new personality is being added and has no actors defined,
+    // create a default actor based on the personality's name and a 'default' state.
+    if (!personality.actors || personality.actors.length === 0) {
+        // Sanitize the name for use as a tag/identifier (lowercase, trims whitespace, replaces spaces with hyphens)
+        const defaultActorName = personality.name.toLowerCase().trim().replace(/\s+/g, '-');
+        personality.actors = [
+            { name: defaultActorName, states: [{ name: 'default' }] }
+        ];
+        console.log(`SCENE EXPLORER: Initialized default actor '${defaultActorName}' and state 'default' for new personality '${personality.name}'.`);
+    }
+
     const id = await db.personalities.add(personality); // Insert in db
-    const newPersonalityWithId = { id: id, ...personality }; // Create full object
+    const newPersonalityWithId = { ...personality, id: id }; // Create full object
     const newCard = insert(newPersonalityWithId); // Call insert, which will call loadAndApplyPersonalityAvatar and append card
     
     // NEW: If adding a new personality, select it automatically

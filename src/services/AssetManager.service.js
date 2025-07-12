@@ -14,7 +14,7 @@ class AssetManagerService {
      * Adds a new asset to the database, associated with a character.
      * Automatically adds the correct system tag ('avatar' or 'sfx') based on file type.
      * @param {File} file - The file to be added.
-     * @param {string[]} tags - An array of USER-DEFINED tags for the asset.
+     ** @param {string[]} tags - An array of USER-DEFINED tags for the asset (e.g., ['actorName', 'stateName']).
      * @param {number} characterId - The ID of the personality this asset belongs to.
      * @returns {Promise<number>} The ID of the new asset.
      */
@@ -66,7 +66,8 @@ class AssetManagerService {
             if (assetToUpdate) {
                 const systemTag = assetToUpdate.type === 'image' ? 'avatar' : 'sfx';
                 // Combine the new user tags with the existing system tag.
-                changes.tags = [...new Set([...changes.tags, systemTag])];
+                const userTags = changes.tags.filter(t => !SYSTEM_TAGS.includes(t));
+                changes.tags = [...new Set([...userTags, systemTag])];
             }
         }
         return await db.assets.update(id, changes);
@@ -111,7 +112,7 @@ class AssetManagerService {
     /**
      * Searches for assets (for a specific character) that contain ALL of the given tags.
      * This function is used by the core system and searches ALL tags, including hidden ones.
-     * @param {string[]} tags - An array of tags to filter by.
+     * @param {string[]} tags - An array of tags to filter by (e.g., ['actorName', 'stateName']).
      * @param {number} characterId - The ID of the personality.
      * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
      */
@@ -124,11 +125,13 @@ class AssetManagerService {
             return this.getAllAssetsForCharacter(characterId);
         }
         
+        // This query is slightly inefficient but robust. It first finds any asset that has at least one of the tags.
         const candidateAssets = await db.assets
                                     .where('characterId').equals(characterId)
                                     .and(asset => tags.some(tag => asset.tags.includes(tag)))
                                     .toArray();
 
+        // Then, it filters that list down to only assets that have ALL of the tags.
         const matchingAssets = candidateAssets.filter(asset =>
             tags.every(tag => asset.tags.includes(tag))
         );
@@ -186,6 +189,55 @@ class AssetManagerService {
             return this.getAssetObjectUrl(imageAssets[0].id);
         }
         return null;
+    }
+
+    // --- NEW FUNCTIONS FOR SCENE EXPLORER ---
+
+    /**
+     * NEW: Re-tags assets from a deleted state to the 'default' state for a given actor.
+     * @param {number} characterId - The ID of the personality.
+     * @param {string} actorName - The name of the actor whose state is being deleted.
+     * @param {string} stateNameToDelete - The name of the state being deleted.
+     */
+    async retagAssetsOnStateDelete(characterId, actorName, stateNameToDelete) {
+        const newStateName = 'default';
+        // Find all assets tagged with the specific actor and the state-to-delete.
+        const assetsToRetag = await this.searchAssetsByTags([actorName, stateNameToDelete], characterId);
+
+        const updates = [];
+        for (const asset of assetsToRetag) {
+            // Remove the old state name from the tags array.
+            const newTags = asset.tags.filter(tag => tag !== stateNameToDelete);
+            // Add the 'default' state name, ensuring it's not already there.
+            if (!newTags.includes(newStateName)) {
+                newTags.push(newStateName);
+            }
+            // Add the update to a list for bulk operation.
+            updates.push({ key: asset.id, changes: { tags: newTags } });
+        }
+
+        if (updates.length > 0) {
+            await db.assets.bulkUpdate(updates);
+        }
+        console.log(`Retagged ${assetsToRetag.length} assets from state '${stateNameToDelete}' to '${newStateName}' for actor '${actorName}'.`);
+    }
+
+    /**
+     * NEW: Deletes all assets associated with a given actor.
+     * @param {number} characterId - The ID of the personality.
+     * @param {string} actorNameToDelete - The name of the actor to delete all assets for.
+     */
+    async deleteAssetsOnActorDelete(characterId, actorNameToDelete) {
+        // Find all assets that have the actor's tag.
+        const assetsToDelete = await this.searchAssetsByTags([actorNameToDelete], characterId);
+        
+        if (assetsToDelete.length > 0) {
+            const assetIdsToDelete = assetsToDelete.map(asset => asset.id);
+            await db.assets.bulkDelete(assetIdsToDelete);
+            console.log(`Deleted ${assetIdsToDelete.length} assets associated with actor '${actorNameToDelete}'.`);
+        } else {
+            console.log(`No assets found for actor '${actorNameToDelete}' to delete.`);
+        }
     }
 }
 

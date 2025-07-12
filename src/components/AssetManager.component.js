@@ -1,68 +1,76 @@
 // FILE: src/components/AssetManager.component.js
-// --- REFACTORED FOR V4 "FRAMED OVERLAY" VIEW (v11.0) ---
+// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
-
-// --- CONSTANTS ---
-const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
+import * as personalityService from '../services/Personality.service.js';
 
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
-let activeTags = []; // Holds the currently selected tags for filtering
-let allDbTags = [];  // A cache of all unique tags from the database
-let currentCharacterId = null; // To hold the ID of the currently active personality
+let currentPersonality = null; // The full personality object, including the 'actors' array
+let activeContext = { actor: null, state: null }; // Tracks the selected Actor and State for filtering
 
 // --- UI ELEMENT REFERENCES ---
-let mediaLibraryStep; 
+let sceneExplorerContainer, galleryEl, galleryTitleEl, uploadBtn, uploadInput;
 
 // --- RENDERING LOGIC ---
 
-function renderTagExplorer(filterTerm = '') {
-    const listEl = document.querySelector('#tag-explorer-list');
-    if (!listEl) return;
+/**
+ * Renders the entire Scene Explorer UI based on the current personality's 'actors' data.
+ * NOTE: This is the function we will build out in our next step. For now, it's a placeholder.
+ */
+function renderSceneExplorer() {
+    sceneExplorerContainer = document.querySelector('#scene-explorer-actors-container');
+    if (!sceneExplorerContainer) return;
 
-    const lowerCaseFilter = filterTerm.toLowerCase();
-    const tagsToRender = allDbTags.filter(tag => tag.toLowerCase().includes(lowerCaseFilter));
+    // Clear previous content
+    sceneExplorerContainer.innerHTML = '';
     
-    listEl.innerHTML = '';
-    tagsToRender.forEach(tag => {
-        const item = document.createElement('button');
-        item.className = 'tag-explorer-item';
-        item.textContent = tag;
-        item.onclick = () => handleTagClick(tag);
-        
-        if (activeTags.includes(tag)) {
-            item.classList.add('selected');
-        }
-        
-        listEl.appendChild(item);
-    });
+    // Set the personality name at the top of the explorer
+    const personalityNameEl = document.querySelector('#scene-explorer-personality-name');
+    if(personalityNameEl) {
+        personalityNameEl.textContent = currentPersonality ? currentPersonality.name : '';
+    }
+
+    if (!currentPersonality || !currentPersonality.actors || currentPersonality.actors.length === 0) {
+        sceneExplorerContainer.innerHTML = '<p class="scene-explorer-placeholder">No actors defined.</p>';
+        return;
+    }
+    
+    // In our next step, we will add the logic here to loop through `currentPersonality.actors`
+    // and generate the interactive Actor and State rows.
+    console.log("Scene Explorer rendering logic will be implemented here.");
 }
 
-async function renderGallery() {
-    const galleryEl = document.querySelector('#asset-manager-gallery');
-    const titleEl = document.querySelector('#gallery-title');
-    if (!galleryEl || !titleEl) return;
 
-    if (currentCharacterId === null) {
-        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Create a personality to use its media library.</p>`;
-        titleEl.textContent = 'Media Library';
+/**
+ * Renders the asset gallery, filtered by the active Actor and State context.
+ */
+async function renderGallery() {
+    if (!galleryEl || !galleryTitleEl) return;
+
+    if (!currentPersonality) {
+        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Save the personality to enable the media library.</p>`;
+        galleryTitleEl.textContent = 'Asset Gallery';
         return;
     }
 
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     
     try {
-        const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId);
-        const assetsToRender = activeTags.length === 0
-            ? allAssets
-            : allAssets.filter(asset => activeTags.every(tag => asset.tags.includes(tag)));
+        // Determine tags to filter by based on the active context
+        const filterTags = [];
+        if (activeContext.actor) filterTags.push(activeContext.actor);
+        if (activeContext.state) filterTags.push(activeContext.state);
 
-        titleEl.textContent = activeTags.length > 0 ? `Tagged: ${activeTags.join(', ')}` : 'All Assets';
+        // Fetch assets. If no context is selected, it gets all assets for the character.
+        const assetsToRender = await assetManagerService.searchAssetsByTags(filterTags, currentPersonality.id);
+        
+        // Update the gallery title
+        galleryTitleEl.textContent = filterTags.length > 0 ? `Assets for: ${filterTags.join(' / ')}` : 'All Assets';
 
         galleryEl.innerHTML = '';
         if (assetsToRender.length === 0) {
-            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found for this personality.</p>`;
+            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found for this context. Upload some!</p>`;
             return;
         }
 
@@ -78,7 +86,7 @@ async function renderGallery() {
 }
 
 /**
- * Creates the "Framed Overlay" asset card.
+ * Creates an asset card. Tag management is removed as it's now handled by the Scene Explorer.
  * @param {object} asset - The asset object from the database.
  * @returns {HTMLElement} The fully interactive card element.
  */
@@ -86,10 +94,9 @@ function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
 
-    // --- PART 1: The Preview Area ---
+    // Preview Area (Image or Icon)
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
-
     if (asset.type === 'image') {
         const img = document.createElement('img');
         img.src = URL.createObjectURL(asset.data);
@@ -101,81 +108,18 @@ function createAssetCard(asset) {
         icon.textContent = 'music_note';
         previewContainer.appendChild(icon);
     }
-
-    // --- NEW: TOP OVERLAY for System Tags (Your brilliant idea!) ---
-    const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
-    if (systemTags.length > 0) {
-        const topOverlay = document.createElement('div');
-        topOverlay.className = 'asset-card-top-overlay'; // New specific class
-        systemTags.forEach(tag => {
-            const pill = document.createElement('div');
-            pill.className = 'tag-pill tag-system';
-            pill.textContent = tag;
-            topOverlay.appendChild(pill);
-        });
-        previewContainer.appendChild(topOverlay);
-    }
     
-    // --- NEW: BOTTOM OVERLAY for Filename ---
+    // Filename Overlay
     const bottomOverlay = document.createElement('div');
-    bottomOverlay.className = 'asset-card-bottom-overlay'; // New specific class
+    bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
     filenameEl.className = 'asset-card-filename';
     filenameEl.textContent = asset.name;
     bottomOverlay.appendChild(filenameEl);
     previewContainer.appendChild(bottomOverlay);
-
     card.appendChild(previewContainer);
 
-    // --- PART 2: The Info Area (Custom Triggers Only) ---
-    const infoContainer = document.createElement('div');
-    infoContainer.className = 'asset-card-inline-info';
-
-    const customTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
-    const customPillsContainer = document.createElement('div');
-    customPillsContainer.className = 'tag-pills-container';
-
-    customTags.forEach(tag => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill';
-        pill.textContent = tag;
-        const removeBtn = document.createElement('span');
-        removeBtn.className = 'remove-tag';
-        removeBtn.innerHTML = '×';
-        removeBtn.title = `Remove tag "${tag}"`;
-        removeBtn.onclick = (e) => {
-            e.stopPropagation();
-            handleRemoveTagFromAsset(asset.id, tag);
-        };
-        pill.appendChild(removeBtn);
-        customPillsContainer.appendChild(pill);
-    });
-
-    infoContainer.appendChild(customPillsContainer);
-
-    // Smart input
-    const addTagInput = document.createElement('input');
-    addTagInput.type = 'text';
-    addTagInput.placeholder = '+ Add trigger';
-    addTagInput.className = 'asset-card-inline-input';
-    addTagInput.onclick = (e) => e.stopPropagation();
-    const saveTag = () => {
-        if (addTagInput.value.trim() !== '') {
-            handleAddTagToAsset(asset.id, addTagInput);
-        }
-    };
-    addTagInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            saveTag();
-            addTagInput.blur();
-        }
-    });
-    addTagInput.addEventListener('blur', saveTag);
-    infoContainer.appendChild(addTagInput);
-    card.appendChild(infoContainer);
-
-    // --- PART 3: The Delete Button ---
+    // Delete Button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
@@ -190,106 +134,86 @@ function createAssetCard(asset) {
 }
 
 
-// --- EVENT HANDLERS (Unchanged) ---
-
-function handleTagClick(tag) {
-    const tagIndex = activeTags.indexOf(tag);
-    if (tagIndex > -1) {
-        activeTags.splice(tagIndex, 1);
-    } else {
-        activeTags.push(tag);
-    }
-    
-    renderTagExplorer(document.querySelector('#tag-explorer-search').value);
-    renderGallery();
-}
-
-async function handleAddTagToAsset(assetId, inputElement) {
-    const newTag = inputElement.value.trim().toLowerCase();
-    if (!newTag || !assetId) return;
-
-    if (SYSTEM_TAGS.includes(newTag)) {
-        alert("Cannot add a protected system tag manually.");
-        return;
-    }
-
-    const asset = await assetManagerService.getAssetById(assetId);
-    if (asset && !asset.tags.includes(newTag)) {
-        const updatedUserTags = [...asset.tags.filter(t => !SYSTEM_TAGS.includes(t)), newTag];
-        await assetManagerService.updateAsset(assetId, { tags: updatedUserTags });
-        
-        inputElement.value = '';
-        await updateMainUI(currentCharacterId);
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-        renderTagExplorer();
-    }
-}
-
-async function handleRemoveTagFromAsset(assetId, tagToRemove) {
-    if (SYSTEM_TAGS.includes(tagToRemove)) {
-        console.warn("Attempted to remove a protected system tag. Action blocked.");
-        return;
-    }
-    if (!assetId) return;
-
-    const asset = await assetManagerService.getAssetById(assetId);
-    if (asset) {
-        const updatedUserTags = asset.tags.filter(t => t !== tagToRemove && !SYSTEM_TAGS.includes(t));
-        await assetManagerService.updateAsset(assetId, { tags: updatedUserTags });
-
-        await updateMainUI(currentCharacterId);
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-        renderTagExplorer();
-    }
-}
+// --- EVENT HANDLERS ---
 
 async function handleDeleteAsset(assetId) {
     if (!assetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
         await assetManagerService.deleteAsset(assetId);
-        await updateMainUI(currentCharacterId); 
+        await renderGallery(); // Just re-render the gallery
     }
 }
 
-async function updateMainUI(characterId) {
-    currentCharacterId = characterId;
-    activeTags = []; 
-    if (currentCharacterId === null) {
-        allDbTags = [];
-    } else {
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-    }
-    renderTagExplorer(document.querySelector('#tag-explorer-search')?.value || '');
-    renderGallery();
-}
+async function handleUpload(event) {
+    const files = event.target.files;
+    if (!files.length || !currentPersonality) return;
 
-// --- INITIALIZATION (Unchanged) ---
-export function initializeAssetManagerComponent(characterId) {
-    if (isInitialized) {
-        updateMainUI(characterId);
+    // Check if a state is selected. If not, prompt the user.
+    if (!activeContext.actor || !activeContext.state) {
+        alert("Please select an Actor and a State in the Scene Explorer before uploading assets.");
         return;
     }
 
-    mediaLibraryStep = document.querySelector('#media-library-step');
-    if (!mediaLibraryStep) return;
+    const tagsForUpload = [activeContext.actor, activeContext.state];
 
-    document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
-    document.querySelector('#btn-upload-asset').addEventListener('click', () => document.querySelector('#asset-upload-input').click());
-    
-    document.querySelector('#asset-upload-input').addEventListener('change', async (event) => {
-        const files = event.target.files;
-        if (!files.length || currentCharacterId === null) return;
-        for (const file of files) {
-            try {
-                await assetManagerService.addAsset(file, [], currentCharacterId);
-            } catch (error) { console.error('Failed to add asset:', error); }
+    for (const file of files) {
+        try {
+            await assetManagerService.addAsset(file, tagsForUpload, currentPersonality.id);
+        } catch (error) { 
+            console.error('Failed to add asset:', error);
+            alert(`Failed to upload ${file.name}. See console for details.`);
         }
-        event.target.value = ''; 
-        await updateMainUI(currentCharacterId);
-    });
-    
-    updateMainUI(characterId);
+    }
+    event.target.value = ''; // Clear the input
+    await renderGallery(); // Refresh the gallery to show the new assets
+}
 
-    console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
-    isInitialized = true;
+
+/**
+ * Updates the entire component's UI for a given personality.
+ * @param {object} personality - The full personality object.
+ */
+async function updateComponentUI(personality) {
+    currentPersonality = personality;
+
+    // If there's a personality, set a default context if none is active
+    if (currentPersonality && currentPersonality.actors?.length > 0) {
+        if (!activeContext.actor || !currentPersonality.actors.find(a => a.name === activeContext.actor)) {
+             activeContext.actor = currentPersonality.actors[0].name;
+             activeContext.state = currentPersonality.actors[0].states[0]?.name || null;
+        }
+    } else {
+        activeContext = { actor: null, state: null };
+    }
+
+    renderSceneExplorer();
+    await renderGallery();
+}
+
+// --- INITIALIZATION ---
+
+/**
+ * The main entry point for the component, called by Overlay.service.js.
+ * @param {object} personality - The full personality object being edited.
+ */
+export function initializeAssetManagerComponent(personality) {
+    if (!isInitialized) {
+        // Get stable UI element references once
+        galleryEl = document.querySelector('#asset-manager-gallery');
+        galleryTitleEl = document.querySelector('#gallery-title');
+        uploadBtn = document.querySelector('#btn-upload-asset');
+        uploadInput = document.querySelector('#asset-upload-input');
+        
+        // Attach event listeners once
+        uploadBtn.addEventListener('click', () => uploadInput.click());
+        uploadInput.addEventListener('change', handleUpload);
+
+        // We will add listeners for '#btn-add-actor' etc. in the next steps
+
+        isInitialized = true;
+        console.log('Asset Manager Component Initialized (v12.0 - Scene Explorer).');
+    }
+
+    // This runs every time the media library is opened
+    updateComponentUI(personality);
 }
