@@ -228,7 +228,12 @@ async function executeCommandAction(command, value, messageElement, characterId)
 
 async function processDynamicCommands(currentText, messageElement, characterId) {
     if (characterId === null) return;
-    const commandRegex = /\[(.*?):(.*?)]/g;
+
+    // This new regex is the key. It captures two groups:
+    // 1. An optional command followed by a colon (e.g., "sfx:").
+    // 2. The main value/trigger (e.g., "happy" or "sigh").
+    // This allows it to match both [sfx:sigh] and [happy].
+    const commandRegex = /\[(?:(.*?):)?(.*?)\]/g;
     let match;
 
     if (!processedCommandsPerMessage.has(messageElement)) {
@@ -236,18 +241,29 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     }
     const processedTags = processedCommandsPerMessage.get(messageElement);
 
-    commandRegex.lastIndex = 0;
+    commandRegex.lastIndex = 0; // Reset regex state before each execution
     while ((match = commandRegex.exec(currentText)) !== null) {
         const fullTagString = match[0];
-        const command = match[1].trim().toLowerCase();
-        const value = match[2].trim();
 
         if (!processedTags.has(fullTagString)) {
-            await executeCommandAction(command, value, messageElement, characterId);
-            processedTags.add(fullTagString);
+            // If group 1 (the command) exists, use it. Otherwise, default to "avatar".
+            const command = (match[1] || 'avatar').trim().toLowerCase();
+            // Group 2 is always the value.
+            const value = match[2].trim();
+            
+            // Only proceed if we have a valid command and value.
+            if (command && value) {
+                await executeCommandAction(command, value, messageElement, characterId);
+                processedTags.add(fullTagString);
+            }
         }
     }
 }
+
+
+
+
+
 
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');

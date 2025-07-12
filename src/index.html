@@ -267,25 +267,25 @@
                                 <span>Tag Prompt</span>
                                 <span class="material-symbols-outlined tooltip" 
                                     style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-                                    info="This field teaches the AI how to link a system Command to your custom Trigger.
-Format: [Command:Trigger]
-Example: In [avatar:happy], 'avatar' is the Command and 'happy' is your custom Trigger tag.'.">
+                                    info="Teaches the AI how to use your assets. For avatars, just use the trigger: [happy]. For other types like audio, specify the command: [sfx:door_opens].">
                                         info
                                 </span> 
                             </label>
 							<textarea name="tagPrompt" id="tagPrompt"
-								placeholder="Teach the AI how to use special effects!
-The format is [Command:Trigger]
+								placeholder="Teach the AI how to use your assets.
 
-• COMMAND is the type of media: 'avatar' for images, or 'sfx' for sounds.
-• TRIGGER is the custom tag you gave the asset in the Asset Manager.
+• AVATARS ARE THE DEFAULT. Just write the trigger in brackets.
+• For other media (like sounds), specify the command.
 
 EXAMPLES FOR THE AI:
-To change the avatar for an image you tagged 'smiling':
-[avatar:smiling]
+To change to an avatar you tagged 'smiling':
+[smiling]
 
 To play a sound you tagged 'door_opens':
-[sfx:door_opens]"
+[sfx:door_opens]
+
+To show an avatar you tagged 'confused':
+[confused]"
 								style="height: 15rem; resize:vertical;" autocomplete="off"></textarea>
 							
                             <h3>Tweaks</h3>
