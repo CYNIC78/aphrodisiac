@@ -246,8 +246,20 @@ async function handleRemoveTagFromAsset(assetId, tagToRemove) {
 async function handleDeleteAsset(assetId) {
     if (!assetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
+        // First, delete the asset from the database
         await assetManagerService.deleteAsset(assetId);
-        await updateMainUI(currentCharacterId); 
+
+        // --- SURGICAL REFRESH ---
+        // Now, we'll gently update the UI instead of using the "hard reset" updateMainUI function.
+        
+        // 1. Re-fetch the master list of tags, as one might have disappeared.
+        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
+        
+        // 2. Re-render the tag explorer on the left.
+        renderTagExplorer(document.querySelector('#tag-explorer-search')?.value || '');
+
+        // 3. Re-render the asset gallery on the right, respecting the current filters.
+        await renderGallery();
     }
 }
 
