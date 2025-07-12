@@ -1,32 +1,19 @@
 // FILE: src/components/AssetManager.component.js
+// --- REFACTORED FOR INLINE ASSET MANAGEMENT (v8.1 - Bugfix) ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
-import { showElement, hideElement } from '../utils/helpers.js';
 
 // --- CONSTANTS ---
 const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
 
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
-let currentAssetId = null;
 let activeTags = []; // Holds the currently selected tags for filtering
 let allDbTags = [];  // A cache of all unique tags from the database
 let currentCharacterId = null; // To hold the ID of the currently active personality
 
 // --- UI ELEMENT REFERENCES ---
-let personalityForm, assetDetailView, mediaLibraryStep;
-
-// --- VIEW MANAGEMENT ---
-function showView(viewToShow) {
-    const views = [personalityForm, assetDetailView];
-    views.forEach(view => {
-        if (view === viewToShow) {
-            showElement(view, false);
-        } else {
-            hideElement(view);
-        }
-    });
-}
+let mediaLibraryStep; 
 
 // --- RENDERING LOGIC ---
 
@@ -92,81 +79,55 @@ async function renderGallery() {
 
 function createAssetCard(asset) {
     const card = document.createElement('div');
-    card.className = 'asset-card';
-    card.addEventListener('click', () => showAssetDetailView(asset.id));
+    card.className = 'asset-card-inline'; // New class for new styling
 
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'asset-card-inline-preview';
     if (asset.type === 'image') {
         const img = document.createElement('img');
         img.src = URL.createObjectURL(asset.data);
         img.alt = asset.name;
-        card.appendChild(img);
+        previewContainer.appendChild(img);
     } else {
         const icon = document.createElement('span');
         icon.className = 'material-symbols-outlined asset-icon';
         icon.textContent = 'music_note';
-        card.appendChild(icon);
+        previewContainer.appendChild(icon);
+    }
+    card.appendChild(previewContainer);
+
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'asset-card-inline-info';
+
+    const nameEl = document.createElement('p');
+    nameEl.className = 'asset-card-inline-name';
+    nameEl.textContent = asset.name;
+    infoContainer.appendChild(nameEl);
+
+    const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
+    const customTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
+
+    if (systemTags.length > 0) {
+        const systemSection = document.createElement('div');
+        systemSection.className = 'asset-card-inline-tag-section';
+        const systemHeader = document.createElement('h5');
+        systemHeader.textContent = 'System Command';
+        systemSection.appendChild(systemHeader);
+        const systemPillsContainer = document.createElement('div');
+        systemPillsContainer.className = 'tag-pills-container';
+        systemTags.forEach(tag => {
+            const pill = document.createElement('div');
+            pill.className = 'tag-pill tag-system';
+            pill.textContent = tag;
+            systemPillsContainer.appendChild(pill);
+        });
+        systemSection.appendChild(systemPillsContainer);
+        infoContainer.appendChild(systemSection);
     }
     
-    // NEW: Add the tags overlay
-    const customTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
-    if (customTags.length > 0) {
-        const overlay = document.createElement('div');
-        overlay.className = 'asset-card-tags-overlay';
-
-        customTags.slice(0, 3).forEach(tag => { // Show up to 3 tags
-            const pill = document.createElement('span');
-            pill.className = 'asset-card-tag-pill';
-            pill.textContent = tag;
-            overlay.appendChild(pill);
-        });
-        
-        if (customTags.length > 3) {
-            const morePill = document.createElement('span');
-            morePill.className = 'asset-card-tag-pill more-pill';
-            morePill.textContent = `+${customTags.length - 3}`;
-            overlay.appendChild(morePill);
-        }
-
-        card.appendChild(overlay);
-    }
-
-    return card;
-}
-
-/**
- * Renders the tags inside the Asset Detail View, separating system and custom tags.
- */
-function renderTagsInDetailView(tags = []) {
-    const tagsContainer = assetDetailView.querySelector('#asset-detail-tags');
-    tagsContainer.innerHTML = '';
-
-    const systemTags = tags.filter(tag => SYSTEM_TAGS.includes(tag));
-    const customTags = tags.filter(tag => !SYSTEM_TAGS.includes(tag));
-
-    // Create and append the "System Command" section
-    const systemSection = document.createElement('div');
-    systemSection.className = 'asset-detail-section';
-    const systemHeader = document.createElement('h4');
-    systemHeader.textContent = 'System Command';
-    systemSection.appendChild(systemHeader);
-    const systemPillsContainer = document.createElement('div');
-    systemPillsContainer.className = 'tag-pills-container';
-    systemTags.forEach(tag => {
-        const pill = document.createElement('div');
-        pill.className = 'tag-pill tag-system';
-        pill.textContent = tag;
-        const removeBtn = document.createElement('span');
-        removeBtn.className = 'remove-tag';
-        pill.appendChild(removeBtn);
-        systemPillsContainer.appendChild(pill);
-    });
-    systemSection.appendChild(systemPillsContainer);
-    tagsContainer.appendChild(systemSection);
-
-    // Create and append the "Your Custom Triggers" section
     const customSection = document.createElement('div');
-    customSection.className = 'asset-detail-section';
-    const customHeader = document.createElement('h4');
+    customSection.className = 'asset-card-inline-tag-section';
+    const customHeader = document.createElement('h5');
     customHeader.textContent = 'Your Custom Triggers';
     customSection.appendChild(customHeader);
     const customPillsContainer = document.createElement('div');
@@ -179,20 +140,61 @@ function renderTagsInDetailView(tags = []) {
             const removeBtn = document.createElement('span');
             removeBtn.className = 'remove-tag';
             removeBtn.innerHTML = '×';
-            removeBtn.onclick = () => handleRemoveTagFromAsset(tag);
+            removeBtn.title = `Remove tag "${tag}"`;
+            removeBtn.onclick = (e) => {
+                e.stopPropagation();
+                handleRemoveTagFromAsset(asset.id, tag);
+            };
             pill.appendChild(removeBtn);
             customPillsContainer.appendChild(pill);
         });
     } else {
         const noTagsMessage = document.createElement('p');
-        noTagsMessage.textContent = 'No custom triggers yet. Add one below!';
-        noTagsMessage.style.cssText = 'opacity: 0.6; font-size: 0.8rem; width: 100%;';
+        noTagsMessage.className = 'asset-card-inline-no-tags-msg';
+        noTagsMessage.textContent = 'No triggers yet. Add one below.';
         customPillsContainer.appendChild(noTagsMessage);
     }
     customSection.appendChild(customPillsContainer);
-    tagsContainer.appendChild(customSection);
-}
+    infoContainer.appendChild(customSection);
 
+    const addTagForm = document.createElement('div');
+    addTagForm.className = 'asset-card-inline-add-tag-form';
+    const addTagInput = document.createElement('input');
+    addTagInput.type = 'text';
+    addTagInput.placeholder = 'Add a trigger...';
+    addTagInput.className = 'asset-card-inline-input';
+    addTagInput.onclick = (e) => e.stopPropagation();
+    addTagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddTagToAsset(asset.id, addTagInput);
+        }
+    });
+    const addTagBtn = document.createElement('button');
+    addTagBtn.textContent = 'Add';
+    addTagBtn.className = 'asset-card-inline-add-btn';
+    addTagBtn.onclick = (e) => {
+        e.stopPropagation();
+        handleAddTagToAsset(asset.id, addTagInput);
+    };
+    addTagForm.appendChild(addTagInput);
+    addTagForm.appendChild(addTagBtn);
+    infoContainer.appendChild(addTagForm);
+
+    card.appendChild(infoContainer);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
+    deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
+    deleteBtn.title = 'Delete Asset';
+    deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        handleDeleteAsset(asset.id);
+    };
+    card.appendChild(deleteBtn);
+
+    return card;
+}
 
 // --- EVENT HANDLERS ---
 
@@ -208,82 +210,51 @@ function handleTagClick(tag) {
     renderGallery();
 }
 
-async function handleAddTagToAsset() {
-    const input = document.querySelector('#add-tag-input');
-    const newTag = input.value.trim().toLowerCase();
-    if (!newTag || !currentAssetId) return;
+async function handleAddTagToAsset(assetId, inputElement) {
+    const newTag = inputElement.value.trim().toLowerCase();
+    if (!newTag || !assetId) return;
 
     if (SYSTEM_TAGS.includes(newTag)) {
         alert("Cannot add a protected system tag manually.");
         return;
     }
 
-    const asset = await assetManagerService.getAssetById(currentAssetId);
+    const asset = await assetManagerService.getAssetById(assetId);
     if (asset && !asset.tags.includes(newTag)) {
         const updatedUserTags = [...asset.tags.filter(t => !SYSTEM_TAGS.includes(t)), newTag];
-        await assetManagerService.updateAsset(currentAssetId, { tags: updatedUserTags });
+        await assetManagerService.updateAsset(assetId, { tags: updatedUserTags });
         
-        const updatedAsset = await assetManagerService.getAssetById(currentAssetId);
-        renderTagsInDetailView(updatedAsset.tags);
-        
+        inputElement.value = '';
+        await updateMainUI(currentCharacterId);
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
         renderTagExplorer();
-        input.value = '';
     }
 }
 
-async function handleRemoveTagFromAsset(tagToRemove) {
+async function handleRemoveTagFromAsset(assetId, tagToRemove) {
     if (SYSTEM_TAGS.includes(tagToRemove)) {
         console.warn("Attempted to remove a protected system tag. Action blocked.");
         return;
     }
+    if (!assetId) return;
 
-    if (!currentAssetId) return;
-    const asset = await assetManagerService.getAssetById(currentAssetId);
+    const asset = await assetManagerService.getAssetById(assetId);
     if (asset) {
         const updatedUserTags = asset.tags.filter(t => t !== tagToRemove && !SYSTEM_TAGS.includes(t));
-        await assetManagerService.updateAsset(currentAssetId, { tags: updatedUserTags });
+        await assetManagerService.updateAsset(assetId, { tags: updatedUserTags });
 
-        const updatedAsset = await assetManagerService.getAssetById(currentAssetId);
-        renderTagsInDetailView(updatedAsset.tags);
-
+        await updateMainUI(currentCharacterId);
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
         renderTagExplorer();
     }
 }
 
-async function handleDeleteAsset() {
-    if (!currentAssetId) return;
+async function handleDeleteAsset(assetId) {
+    if (!assetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
-        await assetManagerService.deleteAsset(currentAssetId);
-        currentAssetId = null;
-        showView(personalityForm);
+        await assetManagerService.deleteAsset(assetId);
         await updateMainUI(currentCharacterId); 
     }
-}
-
-async function showAssetDetailView(assetId) {
-    currentAssetId = assetId;
-    const asset = await assetManagerService.getAssetById(assetId);
-    if (!asset) return;
-
-    const previewEl = assetDetailView.querySelector('#asset-detail-preview');
-    const nameEl = assetDetailView.querySelector('#asset-detail-name');
-    
-    previewEl.innerHTML = '';
-    if (asset.type === 'image') {
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(asset.data);
-        previewEl.appendChild(img);
-    } else {
-        const icon = document.createElement('span');
-        icon.className = 'material-symbols-outlined asset-icon-large';
-        icon.textContent = 'music_note';
-        previewEl.appendChild(icon);
-    }
-    nameEl.textContent = asset.name;
-    renderTagsInDetailView(asset.tags);
-    showView(assetDetailView);
 }
 
 async function updateMainUI(characterId) {
@@ -294,22 +265,18 @@ async function updateMainUI(characterId) {
     } else {
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
     }
-    renderTagExplorer();
+    renderTagExplorer(document.querySelector('#tag-explorer-search')?.value || '');
     renderGallery();
 }
 
 // --- INITIALIZATION ---
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
-        showView(personalityForm);
         updateMainUI(characterId);
         return;
     }
 
-    personalityForm = document.querySelector('#form-add-personality');
-    assetDetailView = document.querySelector('#asset-detail-view');
     mediaLibraryStep = document.querySelector('#media-library-step');
-    
     if (!mediaLibraryStep) return;
 
     document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
@@ -327,16 +294,8 @@ export function initializeAssetManagerComponent(characterId) {
         await updateMainUI(currentCharacterId);
     });
     
-    document.querySelector('#btn-asset-detail-back').addEventListener('click', () => {
-        showView(personalityForm);
-        updateMainUI(currentCharacterId);
-    });
-    document.querySelector('#btn-add-tag').addEventListener('click', handleAddTagToAsset);
-    document.querySelector('#add-tag-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(), handleAddTagToAsset(); });
-    document.querySelector('#btn-delete-asset').addEventListener('click', handleDeleteAsset);
-    
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v7 - Card Tags).');
+    console.log('Asset Manager Component Initialized (v8.1 - Inline Editing).');
     isInitialized = true;
 }
