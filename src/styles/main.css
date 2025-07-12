@@ -996,6 +996,7 @@ input[name="currentChat"][value="none"] {
     opacity: 0.6;
 }
 
+/*---ASSET DETAIL START---*/
 #asset-detail-view {
     display: grid;
     grid-template-columns: 1fr 350px;
@@ -1109,6 +1110,42 @@ input[name="currentChat"][value="none"] {
     justify-content: flex-start;
 }
 
+/*--- ASSET DETAIL END ---*/
+
+/* --- Additions for Protected System Tags --- */
+
+.asset-detail-section h4 {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 1rem;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.asset-detail-section h4:first-child {
+    margin-top: 0;
+}
+
+/* Style for the protected, non-deletable system tag */
+.tag-pill.tag-system {
+    background-color: var(--background-light);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    border: 1px solid var(--border-color);
+}
+
+/* Hide the 'x' button inside a system tag */
+.tag-pill.tag-system .remove-tag {
+    display: none;
+}
+
+/* --- Additions for Protected System Tags END --- */
+
+
+
+
 .btn-danger {
     background-color: #a43131;
     color: #ffffff;
@@ -1116,6 +1153,10 @@ input[name="currentChat"][value="none"] {
 .btn-danger:hover {
     background-color: #8b2828;
 }
+
+
+
+
 
 @media (prefers-color-scheme: dark) {
     .tag-explorer { background-color: rgba(0,0,0,0.2); }
