@@ -106,6 +106,30 @@ function createAssetCard(asset) {
         icon.textContent = 'music_note';
         card.appendChild(icon);
     }
+    
+    // NEW: Add the tags overlay
+    const customTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
+    if (customTags.length > 0) {
+        const overlay = document.createElement('div');
+        overlay.className = 'asset-card-tags-overlay';
+
+        customTags.slice(0, 3).forEach(tag => { // Show up to 3 tags
+            const pill = document.createElement('span');
+            pill.className = 'asset-card-tag-pill';
+            pill.textContent = tag;
+            overlay.appendChild(pill);
+        });
+        
+        if (customTags.length > 3) {
+            const morePill = document.createElement('span');
+            morePill.className = 'asset-card-tag-pill more-pill';
+            morePill.textContent = `+${customTags.length - 3}`;
+            overlay.appendChild(morePill);
+        }
+
+        card.appendChild(overlay);
+    }
+
     return card;
 }
 
@@ -313,6 +337,6 @@ export function initializeAssetManagerComponent(characterId) {
     
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v6 - Layout Fix).');
+    console.log('Asset Manager Component Initialized (v7 - Card Tags).');
     isInitialized = true;
 }
