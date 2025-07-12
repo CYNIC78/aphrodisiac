@@ -1,5 +1,5 @@
 // FILE: src/components/AssetManager.component.js
-// --- REFACTORED FOR V3 "AT-A-GLANCE" GRID VIEW (v10.0) ---
+// --- REFACTORED FOR V4 "FRAMED OVERLAY" VIEW (v11.0) ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
 
@@ -78,7 +78,7 @@ async function renderGallery() {
 }
 
 /**
- * Creates the final "At-a-Glance" asset card with the refined overlay structure.
+ * Creates the "Framed Overlay" asset card.
  * @param {object} asset - The asset object from the database.
  * @returns {HTMLElement} The fully interactive card element.
  */
@@ -102,31 +102,29 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
 
-    // --- PART 1A: The Combined Bottom Overlay ---
-    const bottomOverlay = document.createElement('div');
-    bottomOverlay.className = 'asset-card-bottom-overlay';
-
-    // Filename goes inside the overlay
-    const filenameEl = document.createElement('div');
-    filenameEl.className = 'asset-card-filename';
-    filenameEl.textContent = asset.name;
-    bottomOverlay.appendChild(filenameEl);
-
-    // System tags ALSO go inside the overlay
+    // --- NEW: TOP OVERLAY for System Tags (Your brilliant idea!) ---
     const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
     if (systemTags.length > 0) {
-        const systemTagsContainer = document.createElement('div');
-        systemTagsContainer.className = 'asset-card-system-tags'; // New class for styling
+        const topOverlay = document.createElement('div');
+        topOverlay.className = 'asset-card-top-overlay'; // New specific class
         systemTags.forEach(tag => {
             const pill = document.createElement('div');
             pill.className = 'tag-pill tag-system';
             pill.textContent = tag;
-            systemTagsContainer.appendChild(pill);
+            topOverlay.appendChild(pill);
         });
-        bottomOverlay.appendChild(systemTagsContainer);
+        previewContainer.appendChild(topOverlay);
     }
     
+    // --- NEW: BOTTOM OVERLAY for Filename ---
+    const bottomOverlay = document.createElement('div');
+    bottomOverlay.className = 'asset-card-bottom-overlay'; // New specific class
+    const filenameEl = document.createElement('div');
+    filenameEl.className = 'asset-card-filename';
+    filenameEl.textContent = asset.name;
+    bottomOverlay.appendChild(filenameEl);
     previewContainer.appendChild(bottomOverlay);
+
     card.appendChild(previewContainer);
 
     // --- PART 2: The Info Area (Custom Triggers Only) ---
@@ -139,7 +137,7 @@ function createAssetCard(asset) {
 
     customTags.forEach(tag => {
         const pill = document.createElement('div');
-        pill.className = 'tag-pill'; // Just the normal tag pill
+        pill.className = 'tag-pill';
         pill.textContent = tag;
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-tag';
@@ -155,19 +153,17 @@ function createAssetCard(asset) {
 
     infoContainer.appendChild(customPillsContainer);
 
-    // Smart input for adding new custom triggers
+    // Smart input
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
     addTagInput.placeholder = '+ Add trigger';
     addTagInput.className = 'asset-card-inline-input';
     addTagInput.onclick = (e) => e.stopPropagation();
-
     const saveTag = () => {
         if (addTagInput.value.trim() !== '') {
             handleAddTagToAsset(asset.id, addTagInput);
         }
     };
-
     addTagInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -176,7 +172,6 @@ function createAssetCard(asset) {
         }
     });
     addTagInput.addEventListener('blur', saveTag);
-
     infoContainer.appendChild(addTagInput);
     card.appendChild(infoContainer);
 
@@ -295,6 +290,6 @@ export function initializeAssetManagerComponent(characterId) {
     
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v10.0 - Refined Overlay).');
+    console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
     isInitialized = true;
 }

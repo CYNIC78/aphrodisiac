@@ -860,7 +860,7 @@ button {
 }
 
 /* ================================================= */
-/* === ASSET MANAGER GRID STYLES (v10.0 - Final) === */
+/* === ASSET MANAGER GRID STYLES (v11.0 - Framed) === */
 /* ================================================= */
 
 #asset-manager-gallery {
@@ -909,22 +909,31 @@ button {
     font-size: 48px;
 }
 
-/* The new overlay container */
-/* The new overlay container - MOVED TO TOP */
-.asset-card-bottom-overlay {
+/* NEW: Top overlay for system tags */
+.asset-card-top-overlay {
     position: absolute;
-    top: 0; /* Changed from bottom: 0 */
+    top: 0;
     left: 0;
     right: 0;
     padding: 0.5rem;
-    /* Flipped gradient direction for a "fade from top" effect */
     background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%); 
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    z-index: 1;
 }
 
-/* Filename (now lives inside the overlay) */
+/* NEW: Bottom overlay for the filename */
+.asset-card-bottom-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%);
+    z-index: 1;
+}
+
 .asset-card-filename {
     color: white;
     font-size: 0.8rem;
@@ -937,13 +946,6 @@ button {
     padding: 0;
 }
 
-/* System Tags Container (also in the overlay) */
-.asset-card-system-tags {
-    display: flex;
-    gap: 0.25rem;
-}
-
-/* The bottom part of the card (for custom triggers) */
 .asset-card-inline-info {
     display: flex;
     flex-direction: column;
@@ -952,7 +954,6 @@ button {
     flex-grow: 1;
 }
 
-/* Container for custom trigger pills */
 .tag-pills-container {
     display: flex;
     flex-wrap: wrap;
@@ -960,7 +961,6 @@ button {
     min-height: 24px;
 }
 
-/* Base style for ALL tag pills */
 .tag-pill {
     display: inline-flex;
     align-items: center;
@@ -984,7 +984,6 @@ button {
     font-weight: normal;
 }
 
-/* System tags (on the overlay) get a special style */
 .tag-pill.tag-system {
     padding: 0.1rem 0.4rem;
     font-style: italic;
@@ -1032,9 +1031,9 @@ button {
     background-color: #8b2828;
 }
 
-/* =============================================== */
-/* === ASSET MANAGER GRID STYLES (v10.0 - Final) === */
-/* =============================================== */
+/* ================================================= */
+/* === ASSET MANAGER GRID STYLES (v11.0 - Framed) === */
+/* ================================================= */
 
 @media (prefers-color-scheme: dark) {
     .tag-explorer { background-color: rgba(0,0,0,0.2); }
@@ -1062,7 +1061,6 @@ button {
     .asset-card-inline-delete-btn { background-color: #d9534f; color: #ffffff; }
     .asset-card-inline-delete-btn:hover { background-color: #c9302c; }
     .asset-card-inline-preview { background-color: rgba(0,0,0,0.05); }
-    /* System tags in light mode need to be visible on a potentially light image */
     .tag-pill.tag-system { background-color: rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.2); color: rgba(255,255,255,0.9); text-shadow: 1px 1px 1px rgba(0,0,0,0.5); }
     /* Custom triggers in light mode */
     .tag-pill:not(.tag-system) { background-color: #4c7cbe; color: #edf1f8; }
