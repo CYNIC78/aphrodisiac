@@ -976,6 +976,65 @@ input[name="currentChat"][value="none"] {
     cursor: pointer;
 }
 
+
+/* --- NEW STYLES FOR ASSET CARD TAGS --- */
+.asset-card-tags-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    /* Gradient for readability over image */
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+    box-sizing: border-box;
+    /* Ensure tags are visible even on hover scale */
+    z-index: 1;
+}
+
+.asset-card-tag-pill {
+    font-size: 0.75rem; /* Slightly smaller for card view */
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem; /* Less rounded than detail view pills */
+    cursor: pointer;
+    opacity: 0.9;
+    transition: opacity 0.2s, background-color 0.2s, color 0.2s;
+    white-space: nowrap; /* Prevent tags from breaking */
+}
+
+.asset-card-tag-pill:hover {
+    opacity: 1;
+}
+
+.asset-card-tag-pill.more-pill {
+    background-color: transparent !important; /* Always transparent */
+    border: 1px dashed; /* Subtle border for "+X" pill */
+    padding: 0.15rem 0.4rem; /* Adjust padding for dashed border */
+    cursor: default;
+}
+/* --- END NEW STYLES FOR ASSET CARD TAGS --- */
+
+
+/* Existing .asset-card styles (no change here) */
+.asset-card {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+}
+/* --- The rest of your existing main.css file continues below --- */
+
+
+
+
+
+
+
+
+
 .asset-card img {
     width: 100%;
     height: 100%;
