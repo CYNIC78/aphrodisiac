@@ -1,5 +1,5 @@
 // FILE: src/components/AssetManager.component.js
-// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) ---
+// --- REBUILT FOR V5 "SCENE EXPLORER" (v12.0) - FINAL ---
 
 import { assetManagerService } from '../services/AssetManager.service.js';
 import * as personalityService from '../services/Personality.service.js';
@@ -118,19 +118,15 @@ async function renderGallery() {
     }
 }
 
-// --- THIS IS THE FINAL, CORRECTED VERSION OF THE FUNCTION ---
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
 
-    // --- Get all possible Actor and State names to identify them as context tags ---
     const allActorNames = currentPersonality.actors.map(a => a.name);
     const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
-
-    // --- PART 1: The Preview Area ---
+    
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
-
     if (asset.type === 'image') {
         const img = document.createElement('img');
         img.src = URL.createObjectURL(asset.data);
@@ -143,10 +139,8 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
     
-    // --- Top Overlay for Context and System Tags ---
     const topOverlay = document.createElement('div');
     topOverlay.className = 'asset-card-top-overlay';
-    
     const createSystemPill = (tag) => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill tag-system';
@@ -154,19 +148,14 @@ function createAssetCard(asset) {
         return pill;
     };
 
-    // Find and add tags in the specified order: Actor -> State -> Type
     const actorTag = allActorNames.find(name => asset.tags.includes(name));
     if (actorTag) topOverlay.appendChild(createSystemPill(actorTag));
-
     const stateTag = allStateNames.find(name => asset.tags.includes(name));
     if (stateTag) topOverlay.appendChild(createSystemPill(stateTag));
-    
-    const typeTag = SYSTEM_TAGS.find(name => asset.tags.includes(name) && !['image', 'audio'].includes(name)); // 'avatar' or 'sfx'
+    const typeTag = SYSTEM_TAGS.find(name => asset.tags.includes(name) && !['image', 'audio'].includes(name));
     if (typeTag) topOverlay.appendChild(createSystemPill(typeTag));
-
     previewContainer.appendChild(topOverlay);
 
-    // Filename Overlay (Unchanged)
     const bottomOverlay = document.createElement('div');
     bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
@@ -175,21 +164,15 @@ function createAssetCard(asset) {
     bottomOverlay.appendChild(filenameEl);
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
-
-    // --- PART 2: Info Area for CUSTOM Triggers Only ---
+    
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
     
-    // Custom triggers are any tags that are NOT system, actor, or state tags
-    const customTriggers = asset.tags.filter(tag => 
-        !SYSTEM_TAGS.includes(tag) && 
-        !allActorNames.includes(tag) && 
-        !allStateNames.includes(tag)
-    );
+    const contextTags = [...allActorNames, ...allStateNames];
+    const customTriggers = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag) && !contextTags.includes(tag));
     
     const customPillsContainer = document.createElement('div');
     customPillsContainer.className = 'tag-pills-container';
-
     customTriggers.forEach(tag => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
@@ -207,7 +190,6 @@ function createAssetCard(asset) {
     });
     infoContainer.appendChild(customPillsContainer);
     
-    // Smart input field for adding new custom triggers
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
     addTagInput.placeholder = '+ Add custom trigger';
@@ -227,10 +209,8 @@ function createAssetCard(asset) {
     });
     addTagInput.addEventListener('blur', saveTag);
     infoContainer.appendChild(addTagInput);
-    
     card.appendChild(infoContainer);
 
-    // Delete Button (Unchanged)
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
@@ -248,6 +228,10 @@ function createAssetCard(asset) {
 async function handleAddTagToAsset(assetId, inputElement) {
     const newTag = inputElement.value.trim().toLowerCase();
     if (!newTag || !assetId) return;
+    if (SYSTEM_TAGS.includes(newTag)) { // The only restriction is system tags
+        alert("Cannot add a protected system tag manually.");
+        return;
+    }
     const asset = await assetManagerService.getAssetById(assetId);
     if (asset && !asset.tags.includes(newTag)) {
         const updatedTags = [...asset.tags, newTag];
