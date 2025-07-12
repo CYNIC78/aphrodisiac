@@ -4,7 +4,7 @@
 import { assetManagerService } from '../services/AssetManager.service.js';
 import * as personalityService from '../services/Personality.service.js';
 
-// --- CONSTANTS ADDED BACK ---
+// --- CONSTANTS ---
 const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
 
 // --- STATE MANAGEMENT ---
@@ -94,6 +94,7 @@ async function renderGallery() {
         galleryTitleEl.textContent = 'Asset Gallery';
         return;
     }
+    const scrollPosition = galleryEl.scrollTop; // Persist scroll
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     try {
         const filterTags = [];
@@ -110,21 +111,20 @@ async function renderGallery() {
             const card = createAssetCard(asset);
             galleryEl.appendChild(card);
         });
+        galleryEl.scrollTop = scrollPosition; // Restore scroll
     } catch (error) {
         console.error("Failed to render gallery:", error);
         galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Error loading assets.</p>`;
     }
 }
 
-// --- THIS FUNCTION IS THE CORE OF THE FIX ---
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
 
-    // --- PART 1: The Preview Area ---
+    // Preview Area
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
-
     if (asset.type === 'image') {
         const img = document.createElement('img');
         img.src = URL.createObjectURL(asset.data);
@@ -136,8 +136,6 @@ function createAssetCard(asset) {
         icon.textContent = 'music_note';
         previewContainer.appendChild(icon);
     }
-    
-    // --- FIX: RESTORED SYSTEM TAG OVERLAY ---
     const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag) && tag !== 'image');
     if (systemTags.length > 0) {
         const topOverlay = document.createElement('div');
@@ -150,8 +148,6 @@ function createAssetCard(asset) {
         });
         previewContainer.appendChild(topOverlay);
     }
-
-    // Filename Overlay (Unchanged)
     const bottomOverlay = document.createElement('div');
     bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
@@ -161,7 +157,7 @@ function createAssetCard(asset) {
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
 
-    // --- FIX: RESTORED INFO AREA FOR DISPLAYING TAGS ---
+    // Info Area with FULL tag management
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
     
@@ -173,15 +169,43 @@ function createAssetCard(asset) {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
         pill.textContent = tag;
-        // No remove button needed, as tags are managed by the Scene Explorer now
+        const removeBtn = document.createElement('span');
+        removeBtn.className = 'remove-tag';
+        removeBtn.innerHTML = '×';
+        removeBtn.title = `Remove tag "${tag}"`;
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            handleRemoveTagFromAsset(asset.id, tag);
+        };
+        pill.appendChild(removeBtn);
         customPillsContainer.appendChild(pill);
     });
-
     infoContainer.appendChild(customPillsContainer);
+    
+    // "Smart" input field for adding new tags
+    const addTagInput = document.createElement('input');
+    addTagInput.type = 'text';
+    addTagInput.placeholder = '+ Add trigger';
+    addTagInput.className = 'asset-card-inline-input';
+    addTagInput.onclick = (e) => e.stopPropagation();
+    const saveTag = () => {
+        if (addTagInput.value.trim() !== '') {
+            handleAddTagToAsset(asset.id, addTagInput);
+        }
+    };
+    addTagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveTag();
+            addTagInput.blur();
+        }
+    });
+    addTagInput.addEventListener('blur', saveTag);
+    infoContainer.appendChild(addTagInput);
+    
     card.appendChild(infoContainer);
 
-
-    // Delete Button (Unchanged)
+    // Delete Button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
@@ -195,8 +219,36 @@ function createAssetCard(asset) {
     return card;
 }
 
-
 // --- EVENT HANDLERS ---
+
+async function handleAddTagToAsset(assetId, inputElement) {
+    const newTag = inputElement.value.trim().toLowerCase();
+    if (!newTag || !assetId) return;
+
+    if (SYSTEM_TAGS.includes(newTag)) {
+        alert("Cannot add a protected system tag manually.");
+        return;
+    }
+
+    const asset = await assetManagerService.getAssetById(assetId);
+    if (asset && !asset.tags.includes(newTag)) {
+        const updatedTags = [...asset.tags, newTag];
+        await assetManagerService.updateAsset(assetId, { tags: updatedTags });
+        inputElement.value = '';
+        await renderGallery(); // Refresh the gallery to show the new tag
+    }
+}
+
+async function handleRemoveTagFromAsset(assetId, tagToRemove) {
+    if (SYSTEM_TAGS.includes(tagToRemove) || !assetId) return;
+
+    const asset = await assetManagerService.getAssetById(assetId);
+    if (asset) {
+        const updatedTags = asset.tags.filter(t => t !== tagToRemove);
+        await assetManagerService.updateAsset(assetId, { tags: updatedTags });
+        await renderGallery(); // Refresh the gallery
+    }
+}
 
 async function handleAddActor() {
     if (!currentPersonality) return;
@@ -229,9 +281,7 @@ async function handleAddState(actorName) {
 }
 
 async function handleDeleteActor(actorNameToDelete) {
-    if (!confirm(`Are you sure you want to delete the actor "${actorNameToDelete}"?\n\nThis will delete ALL of its states and associated media assets permanently.`)) {
-        return;
-    }
+    if (!confirm(`Are you sure you want to delete the actor "${actorNameToDelete}"?\n\nThis will delete ALL of its states and associated media assets permanently.`)) return;
     await assetManagerService.deleteAssetsOnActorDelete(currentPersonality.id, actorNameToDelete);
     currentPersonality.actors = currentPersonality.actors.filter(actor => actor.name !== actorNameToDelete);
     if (activeContext.actor === actorNameToDelete) {
@@ -247,9 +297,7 @@ async function handleDeleteState(actorName, stateNameToDelete) {
         alert('Cannot delete the "default" state.');
         return;
     }
-    if (!confirm(`Are you sure you want to delete the state "${stateNameToDelete}"?\n\nIts assets will be moved to the "default" state.`)) {
-        return;
-    }
+    if (!confirm(`Are you sure you want to delete the state "${stateNameToDelete}"?\n\nIts assets will be moved to the "default" state.`)) return;
     await assetManagerService.retagAssetsOnStateDelete(currentPersonality.id, actorName, stateNameToDelete);
     const actor = currentPersonality.actors.find(a => a.name === actorName);
     if (actor) {
@@ -315,7 +363,6 @@ async function updateComponentUI(personality) {
 }
 
 // --- INITIALIZATION ---
-
 export function initializeAssetManagerComponent(personality) {
     if (!isInitialized) {
         galleryEl = document.querySelector('#asset-manager-gallery');
