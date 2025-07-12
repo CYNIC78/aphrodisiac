@@ -4,6 +4,9 @@
 import { assetManagerService } from '../services/AssetManager.service.js';
 import * as personalityService from '../services/Personality.service.js';
 
+// --- CONSTANTS ADDED BACK ---
+const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
+
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
 let currentPersonality = null; 
@@ -19,8 +22,6 @@ function sanitizeNameForTag(name) {
 }
 
 // --- RENDERING LOGIC ---
-
-// This is the function to replace in src/components/AssetManager.component.js
 
 function renderSceneExplorer() {
     if (!sceneExplorerContainer) return;
@@ -86,20 +87,6 @@ function renderSceneExplorer() {
     sceneExplorerContainer.scrollTop = scrollPosition;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 async function renderGallery() {
     if (!galleryEl || !galleryTitleEl) return;
     if (!currentPersonality || !currentPersonality.id) {
@@ -129,11 +116,15 @@ async function renderGallery() {
     }
 }
 
+// --- THIS FUNCTION IS THE CORE OF THE FIX ---
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
+
+    // --- PART 1: The Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
+
     if (asset.type === 'image') {
         const img = document.createElement('img');
         img.src = URL.createObjectURL(asset.data);
@@ -145,6 +136,22 @@ function createAssetCard(asset) {
         icon.textContent = 'music_note';
         previewContainer.appendChild(icon);
     }
+    
+    // --- FIX: RESTORED SYSTEM TAG OVERLAY ---
+    const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag) && tag !== 'image');
+    if (systemTags.length > 0) {
+        const topOverlay = document.createElement('div');
+        topOverlay.className = 'asset-card-top-overlay';
+        systemTags.forEach(tag => {
+            const pill = document.createElement('div');
+            pill.className = 'tag-pill tag-system';
+            pill.textContent = tag;
+            topOverlay.appendChild(pill);
+        });
+        previewContainer.appendChild(topOverlay);
+    }
+
+    // Filename Overlay (Unchanged)
     const bottomOverlay = document.createElement('div');
     bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
@@ -153,6 +160,28 @@ function createAssetCard(asset) {
     bottomOverlay.appendChild(filenameEl);
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
+
+    // --- FIX: RESTORED INFO AREA FOR DISPLAYING TAGS ---
+    const infoContainer = document.createElement('div');
+    infoContainer.className = 'asset-card-inline-info';
+    
+    const userFacingTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
+    const customPillsContainer = document.createElement('div');
+    customPillsContainer.className = 'tag-pills-container';
+
+    userFacingTags.forEach(tag => {
+        const pill = document.createElement('div');
+        pill.className = 'tag-pill';
+        pill.textContent = tag;
+        // No remove button needed, as tags are managed by the Scene Explorer now
+        customPillsContainer.appendChild(pill);
+    });
+
+    infoContainer.appendChild(customPillsContainer);
+    card.appendChild(infoContainer);
+
+
+    // Delete Button (Unchanged)
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
@@ -162,8 +191,10 @@ function createAssetCard(asset) {
         handleDeleteAsset(asset.id);
     };
     card.appendChild(deleteBtn);
+
     return card;
 }
+
 
 // --- EVENT HANDLERS ---
 
@@ -201,19 +232,12 @@ async function handleDeleteActor(actorNameToDelete) {
     if (!confirm(`Are you sure you want to delete the actor "${actorNameToDelete}"?\n\nThis will delete ALL of its states and associated media assets permanently.`)) {
         return;
     }
-    // Delete the assets first
     await assetManagerService.deleteAssetsOnActorDelete(currentPersonality.id, actorNameToDelete);
-    
-    // Then remove the actor from the personality object
     currentPersonality.actors = currentPersonality.actors.filter(actor => actor.name !== actorNameToDelete);
-
-    // If the deleted actor was the active one, reset context
     if (activeContext.actor === actorNameToDelete) {
         activeContext.actor = null;
         activeContext.state = null;
     }
-
-    // Save the updated personality and refresh the entire UI
     await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
     await updateComponentUI(currentPersonality);
 }
@@ -226,22 +250,14 @@ async function handleDeleteState(actorName, stateNameToDelete) {
     if (!confirm(`Are you sure you want to delete the state "${stateNameToDelete}"?\n\nIts assets will be moved to the "default" state.`)) {
         return;
     }
-
-    // Retag assets in the database
     await assetManagerService.retagAssetsOnStateDelete(currentPersonality.id, actorName, stateNameToDelete);
-
-    // Update the personality object in memory
     const actor = currentPersonality.actors.find(a => a.name === actorName);
     if (actor) {
         actor.states = actor.states.filter(state => state.name !== stateNameToDelete);
     }
-    
-    // If the deleted state was the active one, reset context to the actor's default
     if (activeContext.actor === actorName && activeContext.state === stateNameToDelete) {
         activeContext.state = 'default';
     }
-
-    // Save the updated personality and refresh the UI
     await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
     await updateComponentUI(currentPersonality);
 }
