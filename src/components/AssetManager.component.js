@@ -60,11 +60,15 @@ function renderSceneExplorer() {
             });
         }
         const addStateBtn = document.createElement('button');
+        addStateBtn.type = 'button'; // <-- THE FIX: Prevent form submission
         addStateBtn.className = 'btn-add-state';
         addStateBtn.innerHTML = `<span class="material-symbols-outlined">add</span> Add State...`;
+        addStateBtn.addEventListener('click', () => handleAddState(actor.name)); // Give it its own logic
         statesContainer.appendChild(addStateBtn);
+
         sceneExplorerContainer.appendChild(actorRow);
         sceneExplorerContainer.appendChild(statesContainer);
+        
         actorRow.addEventListener('click', (e) => {
             if (e.target.classList.contains('row-delete-btn')) return;
             const isCollapsed = actorRow.dataset.collapsed === 'true';
@@ -143,29 +147,35 @@ function createAssetCard(asset) {
 // --- EVENT HANDLERS ---
 
 async function handleAddActor() {
-    if (!currentPersonality) {
-        alert("Please save the personality before adding actors.");
-        return;
-    }
+    if (!currentPersonality) return;
     const actorName = prompt("Enter a name for the new Actor:");
     if (!actorName || actorName.trim() === '') return;
     const sanitizedName = sanitizeNameForTag(actorName);
-    const isDuplicate = currentPersonality.actors.some(actor => actor.name === sanitizedName);
-    if (isDuplicate) {
+    if (currentPersonality.actors.some(actor => actor.name === sanitizedName)) {
         alert(`An actor named "${sanitizedName}" already exists.`);
         return;
     }
-    currentPersonality.actors.push({
-        name: sanitizedName,
-        states: [{ name: 'default' }]
-    });
-
-    // UPDATED: Use the new, safer update function
+    currentPersonality.actors.push({ name: sanitizedName, states: [{ name: 'default' }] });
     await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
-    console.log(`Added actor '${sanitizedName}' and saved personality data.`);
-    
-    // We already have the updated object in memory, so just re-render.
     await updateComponentUI(currentPersonality);
+}
+
+async function handleAddState(actorName) {
+    const stateName = prompt(`Enter a new State name for actor "${actorName}":`);
+    if (!stateName || stateName.trim() === '') return;
+
+    const sanitizedName = sanitizeNameForTag(stateName);
+    const actor = currentPersonality.actors.find(a => a.name === actorName);
+
+    if (actor) {
+        if (actor.states.some(s => s.name === sanitizedName)) {
+            alert(`State "${sanitizedName}" already exists for this actor.`);
+            return;
+        }
+        actor.states.push({ name: sanitizedName });
+        await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
+        renderSceneExplorer(); // Just re-render the explorer list
+    }
 }
 
 async function handleStateClick(actorName, stateName) {
@@ -190,7 +200,7 @@ async function handleUpload(event) {
         alert("Please select an Actor and a State in the Scene Explorer before uploading assets.");
         return;
     }
-    const tagsForUpload = [activeContext.actor, active-context.state];
+    const tagsForUpload = [activeContext.actor, activeContext.state];
     for (const file of files) {
         try {
             await assetManagerService.addAsset(file, tagsForUpload, currentPersonality.id);
