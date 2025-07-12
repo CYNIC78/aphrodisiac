@@ -1,224 +1,453 @@
-// FILE: src/services/AssetManager.service.js
+// FILE: src/services/Message.service.js
 
-import { db } from './Db.service.js';
+import { GoogleGenAI } from "@google/genai";
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import * as settingsService from "./Settings.service.js";
+import * as personalityService from "./Personality.service.js";
+// REMOVED: The static import that causes the circular dependency
+// import * as chatsService from "./Chats.service.js"; 
+import * as helpers from "../utils/helpers.js";
 
-// Define system tags that are managed automatically and hidden from the user UI.
-const SYSTEM_TAGS = ['avatar', 'sfx', 'audio'];
+const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
 
-class AssetManagerService {
-    constructor() {
-        // We can add any initial properties here if needed later
-    }
+export async function send(msg, db) {
+    // DYNAMIC IMPORT: Get the service right when we need it.
+    const chatsService = await import("./Chats.service.js");
 
-    /**
-     * Adds a new asset to the database, associated with a character.
-     * Automatically adds the correct system tag ('avatar' or 'sfx') based on file type.
-     * @param {File} file - The file to be added.
-     ** @param {string[]} tags - An array of USER-DEFINED tags for the asset (e.g., ['actorName', 'stateName']).
-     * @param {number} characterId - The ID of the personality this asset belongs to.
-     * @returns {Promise<number>} The ID of the new asset.
-     */
-    async addAsset(file, tags = [], characterId) {
-        if (typeof characterId === 'undefined' || characterId === null) {
-            console.error("AssetManagerService.addAsset: characterId is required.");
-            throw new Error("characterId is required to add an asset.");
-        }
+    const settings = settingsService.getSettings();
+    const selectedPersonality = await personalityService.getSelected();
+    if (!selectedPersonality) return;
+    if (settings.apiKey === "") return alert("Please enter an API key");
+    if (!msg) return;
 
-        const assetType = file.type.startsWith('image/') ? 'image' : 'audio';
-        const systemTag = assetType === 'image' ? 'avatar' : 'sfx';
-        
-        // THE FIX: No more Set(). Just add the system tag.
-        const allTags = [...tags, systemTag];
+    const ai = new GoogleGenAI({ apiKey: settings.apiKey });
+    const config = {
+        maxOutputTokens: parseInt(settings.maxTokens),
+        temperature: settings.temperature / 100,
+        systemPrompt: settingsService.getSystemPrompt(),
+        safetySettings: settings.safetySettings,
+        responseMimeType: "text/plain"
+    };
 
-        console.log(`Adding asset: ${file.name} for character ID ${characterId} with final tags: ${allTags.join(', ')}`);
-        
-        const asset = {
-            characterId: characterId,
-            name: file.name,
-            type: assetType,
-            tags: allTags, // Save the exact list of tags
-            data: file,
-            timestamp: new Date()
-        };
-        return await db.assets.add(asset);
-    }
-
-    /**
-     * Retrieves a single asset by its ID.
-     * @param {number} id - The ID of the asset to retrieve.
-     * @returns {Promise<object|undefined>} The asset object, or undefined if not found.
-     */
-    async getAssetById(id) {
-        return await db.assets.get(id);
-    }
-    
-    /**
-     * Updates a specific asset in the database.
-     * This function now simply saves the data it is given, without modification.
-     * @param {number} id - The ID of the asset to update.
-     * @param {object} changes - An object with the properties to change.
-     * @returns {Promise<number>}
-     */
-    async updateAsset(id, changes) {
-        // THE FIX: This function is now "dumb". It just saves what it's given.
-        // All the smart logic for building the tag array now lives in the component.
-        return await db.assets.update(id, changes);
-    }
-
-    /**
-     * Deletes an asset from the database.
-     * @param {number} id - The ID of the asset to delete.
-     * @returns {Promise<void>}
-     */
-    async deleteAsset(id) {
-        return await db.assets.delete(id);
-    }
-
-    /**
-     * Deletes all assets associated with a specific character.
-     * @param {number} characterId - The ID of the character whose assets to delete.
-     * @returns {Promise<void>}
-     */
-    async deleteAssetsByCharacterId(characterId) {
-        if (typeof characterId === 'undefined' || characterId === null) {
-            console.error("AssetManagerService.deleteAssetsByCharacterId: characterId is required.");
-            return;
-        }
-        console.log(`Deleting all assets for character ID: ${characterId}`);
-        await db.assets.where('characterId').equals(characterId).delete();
-    }
-
-    /**
-     * Retrieves all assets from the database for a specific character.
-     * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<any[]>} A promise that resolves to an array of assets.
-     */
-    async getAllAssetsForCharacter(characterId) {
-        if (typeof characterId === 'undefined' || characterId === null) {
-            console.error("AssetManagerService.getAllAssetsForCharacter: characterId is required.");
-            return [];
-        }
-        return await db.assets.where('characterId').equals(characterId).toArray();
-    }
-
-    /**
-     * Searches for assets (for a specific character) that contain ALL of the given tags.
-     * This function is used by the core system and searches ALL tags, including hidden ones.
-     * @param {string[]} tags - An array of tags to filter by (e.g., ['actorName', 'stateName']).
-     * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<any[]>} A promise that resolves to an array of matching assets.
-     */
-    async searchAssetsByTags(tags = [], characterId) {
-        if (typeof characterId === 'undefined' || characterId === null) {
-            console.error("AssetManagerService.searchAssetsByTags: characterId is required.");
-            return [];
-        }
-        if (!tags || tags.length === 0) {
-            return this.getAllAssetsForCharacter(characterId);
-        }
-        
-        const candidateAssets = await db.assets
-                                    .where('characterId').equals(characterId)
-                                    .and(asset => tags.some(tag => asset.tags.includes(tag)))
-                                    .toArray();
-
-        const matchingAssets = candidateAssets.filter(asset =>
-            tags.every(tag => asset.tags.includes(tag))
-        );
-
-        return matchingAssets;
-    }
-    
-    /**
-     * Gets a sorted, unique list of USER-FACING tags for a specific character's assets.
-     * It actively filters out the hidden system tags.
-     * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<string[]>} A promise that resolves to an array of unique, user-defined tags.
-     */
-    async getAllUniqueTagsForCharacter(characterId) {
-        if (typeof characterId === 'undefined' || characterId === null) {
-            console.error("AssetManagerService.getAllUniqueTagsForCharacter: characterId is required.");
-            return [];
-        }
-        const allAssets = await this.getAllAssetsForCharacter(characterId);
-        const uniqueTags = new Set();
-        allAssets.forEach(asset => {
-            asset.tags.forEach(tag => uniqueTags.add(tag));
+    if (!await chatsService.getCurrentChat(db)) {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
         });
-        
-        const userFacingTags = Array.from(uniqueTags).filter(tag => !SYSTEM_TAGS.includes(tag));
-        
-        const sortedTags = userFacingTags.sort((a, b) => a.localeCompare(b));
-        return sortedTags;
+        const title = response.text;
+        const id = await chatsService.addChat(title, null, db);
+        document.querySelector(`#chat${id}`).click();
     }
 
-    /**
-     * Creates an Object URL for an asset's data Blob.
-     * @param {number} assetId - The ID of the asset.
-     * @returns {Promise<string|null>} The Object URL, or null if asset not found or data is not a Blob.
-     */
-    async getAssetObjectUrl(assetId) {
-        const asset = await this.getAssetById(assetId);
-        if (asset && asset.data instanceof Blob) {
-            return URL.createObjectURL(asset.data);
-        }
-        return null;
+    await insertMessage("user", msg, null, null, db);
+
+    const currentChat = await chatsService.getCurrentChat(db);
+    currentChat.content.push({ role: "user", parts: [{ text: msg }] });
+    await db.chats.put(currentChat);
+
+    helpers.messageContainerScrollToBottom();
+
+    const masterInstruction = `
+        ${settingsService.getSystemPrompt()}
+
+        ---
+        YOUR CHARACTER INSTRUCTIONS ARE BELOW
+        ---
+
+        CHARACTER PROMPT (Your personality):
+        ${selectedPersonality.prompt}
+
+        ---
+
+        TAG PROMPT (Your technical command reference - no separators needed, just [command:value]):
+        ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
+    `.trim();
+
+    const history = [
+        { role: "user", parts: [{ text: masterInstruction }] },
+        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] }
+    ];
+
+    if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
+        history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
 
-    /**
-     * Searches for image assets that contain ALL of the given tags and returns the Object URL of the first one found.
-     * @param {string[]} tags - An array of tags to filter by.
-     * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<string|null>} The Object URL of the first matching image asset, or null if none found.
-     */
-    async getFirstImageObjectUrlByTags(tags = [], characterId) {
-        const assets = await this.searchAssetsByTags(tags, characterId);
-        const imageAssets = assets.filter(a => a.type === 'image');
-        if (imageAssets.length > 0) {
-            return this.getAssetObjectUrl(imageAssets[0].id);
-        }
-        return null;
+    history.push(...currentChat.content.slice(0, -1).map(msg => ({ role: msg.role, parts: msg.parts })));
+
+    const chat = ai.chats.create({ model: settings.model, history, config });
+
+    let messageToSendToAI = msg;
+    if (selectedPersonality.reminder) {
+        messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
 
-    /**
-     * NEW: Re-tags assets from a deleted state to the 'default' state for a given actor.
-     * @param {number} characterId - The ID of the personality.
-     * @param {string} actorName - The name of the actor whose state is being deleted.
-     * @param {string} stateNameToDelete - The name of the state being deleted.
-     */
-    async retagAssetsOnStateDelete(characterId, actorName, stateNameToDelete) {
-        const newStateName = 'default';
-        const assetsToRetag = await this.searchAssetsByTags([actorName, stateNameToDelete], characterId);
-        const updates = [];
-        for (const asset of assetsToRetag) {
-            const newTags = asset.tags.filter(tag => tag !== stateNameToDelete);
-            if (!newTags.includes(newStateName)) {
-                newTags.push(newStateName);
+    const stream = await chat.sendMessageStream({ message: messageToSendToAI });
+    const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
+
+    currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
+    await db.chats.put(currentChat);
+    settingsService.saveSettings();
+}
+
+async function handleRegenerate(clickedElement, db) {
+    // DYNAMIC IMPORT: Get the service right when we need it.
+    const chatsService = await import("./Chats.service.js");
+
+    const chat = await chatsService.getCurrentChat(db);
+    if (!chat) return;
+
+    const elementIndex = parseInt(clickedElement.dataset.messageIndex, 10);
+    let textToResend;
+    let sliceEndIndex;
+
+    if (clickedElement.classList.contains('message-model')) {
+        if (elementIndex === 0) return;
+        textToResend = chat.content[elementIndex - 1].parts[0].text;
+        sliceEndIndex = elementIndex - 1;
+    } else {
+        textToResend = chat.content[elementIndex].parts[0].text;
+        sliceEndIndex = elementIndex;
+    }
+
+    chat.content = chat.content.slice(0, sliceEndIndex);
+    await db.chats.put(chat);
+    await chatsService.loadChat(chat.id, db);
+    await send(textToResend, db);
+}
+
+
+function wrapCommandsInSpan(text) {
+    const commandRegex = /\[(.*?):(.*?)]/g;
+    return text.replace(commandRegex, `<span class="command-block">$&</span>`);
+}
+
+async function executeCommandAction(command, value, messageElement, characterId) {
+    if (characterId === null) return;
+    const { assetManagerService } = await import('./AssetManager.service.js');
+    const settings = settingsService.getSettings();
+
+    switch (command) {
+        case 'avatar':
+            try {
+                const assets = await assetManagerService.searchAssetsByTags([value, 'avatar'], characterId);
+                if (assets && assets.length > 0) {
+                    const asset = assets[0];
+                    const objectURL = URL.createObjectURL(asset.data);
+
+                    const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
+                    if (pfpWrapper) {
+                        const oldImg = pfpWrapper.querySelector('.pfp');
+                        const newImg = document.createElement('img');
+                        newImg.src = objectURL;
+                        newImg.className = 'pfp';
+                        newImg.style.opacity = '0';
+                        newImg.onerror = () => {
+                            console.error(`Failed to load avatar for command [avatar:${value}]:`, objectURL);
+                            newImg.src = './assets/default_avatar.png';
+                            newImg.style.opacity = '1';
+                            URL.revokeObjectURL(objectURL);
+                        };
+                        pfpWrapper.appendChild(newImg);
+                        requestAnimationFrame(() => {
+                            newImg.style.transition = 'opacity 0.5s ease-in-out';
+                            newImg.style.opacity = '1';
+                        });
+                        setTimeout(() => {
+                            if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
+                            URL.revokeObjectURL(objectURL);
+                        }, 500);
+                    }
+                }
+            } catch (e) {
+                console.error(`Error processing [avatar] command:`, e);
             }
-            updates.push({ key: asset.id, changes: { tags: newTags } });
-        }
-        if (updates.length > 0) {
-            await db.assets.bulkUpdate(updates);
-        }
-        console.log(`Retagged ${assetsToRetag.length} assets from state '${stateNameToDelete}' to '${newStateName}' for actor '${actorName}'.`);
-    }
+            break;
 
-    /**
-     * NEW: Deletes all assets associated with a given actor.
-     * @param {number} characterId - The ID of the personality.
-     * @param {string} actorNameToDelete - The name of the actor to delete all assets for.
-     */
-    async deleteAssetsOnActorDelete(characterId, actorNameToDelete) {
-        const assetsToDelete = await this.searchAssetsByTags([actorNameToDelete], characterId);
-        if (assetsToDelete.length > 0) {
-            const assetIdsToDelete = assetsToDelete.map(asset => asset.id);
-            await db.assets.bulkDelete(assetIdsToDelete);
-            console.log(`Deleted ${assetIdsToDelete.length} assets associated with actor '${actorNameToDelete}'.`);
-        } else {
-            console.log(`No assets found for actor '${actorNameToDelete}' to delete.`);
+        case 'sfx':
+        case 'audio':
+            if (settings.audio.enabled) {
+                try {
+                    const assets = await assetManagerService.searchAssetsByTags([value, 'audio'], characterId);
+                    if (assets && assets.length > 0) {
+                        const asset = assets[0];
+                        const objectURL = URL.createObjectURL(asset.data);
+                        const audio = new Audio(objectURL);
+                        audio.volume = settings.audio.volume;
+                        audio.play().catch(e => console.error("Audio playback failed:", e));
+                        audio.onended = () => URL.revokeObjectURL(objectURL);
+                        audio.onerror = () => {
+                            console.error(`Failed to load audio for command [${command}:${value}]:`, objectURL);
+                            URL.revokeObjectURL(objectURL);
+                        };
+                    }
+                } catch (e) {
+                    console.error(`Error processing [audio/sfx] command:`, e);
+                }
+            }
+            break;
+    }
+}
+
+async function processDynamicCommands(currentText, messageElement, characterId) {
+    if (characterId === null) return;
+    const commandRegex = /\[(.*?):(.*?)]/g;
+    let match;
+
+    if (!processedCommandsPerMessage.has(messageElement)) {
+        processedCommandsPerMessage.set(messageElement, new Set());
+    }
+    const processedTags = processedCommandsPerMessage.get(messageElement);
+
+    commandRegex.lastIndex = 0;
+    while ((match = commandRegex.exec(currentText)) !== null) {
+        const fullTagString = match[0];
+        const command = match[1].trim().toLowerCase();
+        const value = match[2].trim();
+
+        if (!processedTags.has(fullTagString)) {
+            await executeCommandAction(command, value, messageElement, characterId);
+            processedTags.add(fullTagString);
         }
     }
 }
 
-// Export a single instance of the service
-export const assetManagerService = new AssetManagerService();
+async function setupMessageEditing(messageElement, db) {
+    // DYNAMIC IMPORT: Get the service right when we need it.
+    const chatsService = await import("./Chats.service.js");
+
+    const editButton = messageElement.querySelector('.btn-edit');
+    const saveButton = messageElement.querySelector('.btn-save');
+    const deleteButton = messageElement.querySelector('.btn-delete');
+    const refreshButton = messageElement.querySelector('.btn-refresh'); 
+    const messageTextDiv = messageElement.querySelector('.message-text');
+
+    if (!messageTextDiv) return;
+
+    if (editButton && saveButton) {
+        editButton.addEventListener('click', async () => {
+            const index = parseInt(messageElement.dataset.messageIndex, 10);
+            const currentChat = await chatsService.getCurrentChat(db);
+            const originalRawText = currentChat.content[index]?.parts[0]?.text;
+
+            messageTextDiv.textContent = originalRawText || messageTextDiv.innerText;
+            messageTextDiv.setAttribute("contenteditable", "true");
+            messageTextDiv.focus();
+
+            const range = document.createRange();
+            range.selectNodeContents(messageTextDiv);
+            range.collapse(false);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            editButton.style.display = 'none';
+            saveButton.style.display = 'inline-block';
+        });
+
+        saveButton.addEventListener('click', async () => {
+            messageTextDiv.removeAttribute("contenteditable");
+            const newRawText = messageTextDiv.innerText;
+            const index = parseInt(messageElement.dataset.messageIndex, 10);
+
+            await updateMessageInDatabase(index, newRawText, db);
+
+            const chat = await chatsService.getCurrentChat(db);
+            const messageData = chat.content[index];
+            const characterId = messageData?.personalityid;
+            const sender = messageData?.role;
+
+            const settings = settingsService.getSettings();
+            await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
+
+            editButton.style.display = 'inline-block';
+            saveButton.style.display = 'none';
+        });
+    }
+
+    if (deleteButton) {
+        deleteButton.addEventListener('click', async () => {
+            if (!confirm("Are you sure you want to delete this message? This action cannot be undone.")) {
+                return;
+            }
+
+            const chatId = chatsService.getCurrentChatId();
+            const indexToDelete = parseInt(messageElement.dataset.messageIndex, 10);
+
+            const success = await chatsService.deleteMessage(chatId, indexToDelete, db);
+
+            if (success) {
+                messageElement.remove();
+                const messageContainer = document.querySelector(".message-container");
+                const allMessages = messageContainer.querySelectorAll('.message');
+                allMessages.forEach((msgEl, newIndex) => {
+                    msgEl.dataset.messageIndex = newIndex;
+                });
+            } else {
+                alert("Failed to delete the message. Please check the console for errors.");
+            }
+        });
+    }
+
+    if (refreshButton) {
+        refreshButton.addEventListener("click", async () => {
+            try {
+                await handleRegenerate(messageElement, db);
+            } catch (error) {
+                console.error(error);
+                alert("Error during regeneration.");
+            }
+        });
+    }
+}
+
+async function updateMessageInDatabase(messageIndex, newRawText, db) {
+    if (!db) return;
+    try {
+        // DYNAMIC IMPORT: Get the service right when we need it.
+        const chatsService = await import("./Chats.service.js");
+        const currentChat = await chatsService.getCurrentChat(db);
+        if (!currentChat || !currentChat.content[messageIndex]) return;
+
+        currentChat.content[messageIndex].parts[0].text = newRawText;
+        await db.chats.put(currentChat);
+    } catch (error) {
+        console.error("Error updating message in database:", error);
+    }
+}
+
+async function retypeMessage(messageElement, newRawText, characterId, typingSpeed, sender) {
+    const messageContent = messageElement.querySelector(".message-text");
+    if (!messageContent) return;
+
+    let currentDisplayedText = "";
+    messageContent.innerHTML = "";
+
+    if (processedCommandsPerMessage.has(messageElement)) {
+        processedCommandsPerMessage.get(messageElement).clear();
+    }
+
+    if (typingSpeed > 0 && sender !== "user") {
+        for (let i = 0; i < newRawText.length; i++) {
+            currentDisplayedText += newRawText[i];
+            await processDynamicCommands(currentDisplayedText, messageElement, characterId);
+            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
+            helpers.messageContainerScrollToBottom();
+            await new Promise(resolve => setTimeout(resolve, typingSpeed));
+        }
+    } else {
+        await processDynamicCommands(newRawText, messageElement, characterId);
+        messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+        helpers.messageContainerScrollToBottom();
+    }
+
+    await processDynamicCommands(newRawText, messageElement, characterId);
+    messageContent.innerHTML = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+    hljs.highlightAll();
+}
+
+export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
+    const newMessage = document.createElement("div");
+    newMessage.classList.add("message");
+    const messageContainer = document.querySelector(".message-container");
+    const messageIndex = messageContainer.children.length;
+    newMessage.dataset.messageIndex = messageIndex;
+    messageContainer.append(newMessage);
+
+    if (sender !== "user") {
+        newMessage.classList.add("message-model");
+        newMessage.innerHTML = `
+            <div class="message-header">
+                <div class="pfp-wrapper">
+                    <img class="pfp" src="" loading="lazy" />
+                </div>
+                <h3 class="message-role">${selectedPersonalityTitle}</h3>
+                <div class="message-actions">
+                    <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
+                    <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
+                    <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+                </div>
+            </div>
+            <div class="message-role-api" style="display: none;">${sender}</div>
+            <div class="message-text"></div>`;
+
+        const pfpElement = newMessage.querySelector('.pfp');
+        if (pfpElement && pfpSrc) {
+            requestAnimationFrame(() => {
+                pfpElement.src = pfpSrc;
+                pfpElement.onerror = () => {
+                    console.error("Failed to load initial personality avatar:", pfpSrc);
+                    pfpElement.src = './assets/default_avatar.png';
+                };
+            });
+        }
+        
+        const messageContent = newMessage.querySelector(".message-text");
+
+        if (!netStream) {
+            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(msg), { breaks: true });
+            if (characterId !== null) {
+                await processDynamicCommands(msg, newMessage, characterId);
+            }
+        } else {
+            let fullRawText = "";
+            let currentDisplayedText = "";
+
+            try {
+                for await (const chunk of netStream) {
+                    if (chunk && chunk.text) {
+                        fullRawText += chunk.text;
+                        if (!processedCommandsPerMessage.has(newMessage)) {
+                           processedCommandsPerMessage.set(newMessage, new Set());
+                        }
+
+                        if (typingSpeed > 0) {
+                            for (let i = 0; i < chunk.text.length; i++) {
+                                currentDisplayedText += chunk.text[i];
+                                await processDynamicCommands(currentDisplayedText, newMessage, characterId);
+                                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
+                                helpers.messageContainerScrollToBottom();
+                                await new Promise(resolve => setTimeout(resolve, typingSpeed));
+                            }
+                        } else {
+                            await processDynamicCommands(fullRawText, newMessage, characterId);
+                            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
+                            helpers.messageContainerScrollToBottom();
+                        }
+                    }
+                }
+
+                await processDynamicCommands(fullRawText, newMessage, characterId);
+                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
+                helpers.messageContainerScrollToBottom();
+                hljs.highlightAll();
+                setupMessageEditing(newMessage, db);
+                return { HTML: messageContent.innerHTML, md: fullRawText };
+            } catch (error) {
+                console.error("Stream error:", error);
+                await processDynamicCommands(fullRawText, newMessage, characterId);
+                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
+                helpers.messageContainerScrollToBottom();
+                hljs.highlightAll();
+                setupMessageEditing(newMessage, db);
+                return { HTML: messageContent.innerHTML, md: fullRawText };
+            }
+        }
+    } else { // User message
+        newMessage.innerHTML = `
+            <div class="message-header">
+                <h3 class="message-role">You:</h3>
+                <div class="message-actions">
+                    <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
+                    <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
+                    <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
+                </div>
+            </div>
+            <div class="message-role-api" style="display: none;">${sender}</div>
+            <div class="message-text">${marked.parse(msg, { breaks: true })}</div>`;
+    }
+    hljs.highlightAll();
+    setupMessageEditing(newMessage, db);
+    return newMessage;
+}

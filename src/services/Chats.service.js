@@ -1,7 +1,6 @@
 // FILE: src/services/Chats.service.js
 
-// REMOVED: No longer importing messageService at the top of the file.
-// import * as messageService from "./Message.service.js";
+import * as messageService from "./Message.service.js";
 import * as helpers from "../utils/helpers.js";
 import * as personalityService from "./Personality.service.js";
 import * as settingsService from "./Settings.service.js";
@@ -186,11 +185,6 @@ export async function loadChat(chatID, db) {
         if (!chatID) {
             return;
         }
-
-        // --- THE FIX: DYNAMIC IMPORT ---
-        // We import the messageService only when we absolutely need it.
-        const messageService = await import("./Message.service.js");
-
         messageContainer.innerHTML = "";
         const chat = await getChatById(chatID, db);
         let messageIndex = 0; // Keep track of index for dataset
