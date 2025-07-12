@@ -95,9 +95,6 @@ form {
     max-height: 100%;
 }
 
-
-
-/* === FIX 1: FORM DIMENSIONS === */
 #form-add-personality {
     display: none;
     width: 72rem;
@@ -111,7 +108,6 @@ form {
     justify-content: center;
     align-items: center;
     flex-grow: 1;
-    /* overflow: hidden; has been removed */
     padding: 1rem;
     box-sizing: border-box;
     min-height: 0; /* A flexbox fix for nested scrolling */
@@ -157,11 +153,6 @@ form {
     visibility: visible;
 }
 
-/* === FIX 2: BUTTON STRETCHING === */
-.stepper-footer * {
-    /* This rule is now removed to prevent all elements from growing */
-}
-
 .stepper-footer button {
     /* Tell buttons not to grow, only shrink if necessary */
     flex: 0 1 auto;
@@ -191,8 +182,6 @@ form {
 .stepper.final-step .stepper-footer #btn-stepper-submit {
     display: block;
 }
-
-
 
 .stepper-content {
     flex-grow: 1;
@@ -236,8 +225,6 @@ form {
     justify-content: center;
 }
 
-
-
 .backButton {
     position: absolute;
     top: 1rem;
@@ -278,7 +265,6 @@ form {
 }
 
 .message {
-
     padding: 1rem;
 }
 
@@ -430,8 +416,6 @@ form {
     }
 }
 
-
-
 .personality-prompt {
     display: none;
 }
@@ -444,14 +428,9 @@ form {
 .container {
     box-sizing: border-box;
     display: flex;
-    /* MODIFIED: Gap is now handled by the resizer element */
-    /* gap: 0.5rem; */ 
     padding: 1rem;
-
-
     width: 100dvw;
     height: 100dvh;
-
 }
 
 .sidebar {
@@ -462,7 +441,6 @@ form {
     flex-direction: column;
     gap: 0.5rem;
     padding: 1rem;
-    /* MODIFIED: Use a CSS variable for width, with a fallback */
     width: var(--sidebar-width, 25rem); 
     border-radius: 1rem;
     scrollbar-width: thin;
@@ -613,12 +591,10 @@ button {
     display: flex;
     flex-direction: column;
     padding: 2rem;
-    /* MODIFIED: Let this panel grow to fill the space */
     flex-grow: 1;
     min-width: 0; /* Important flexbox fix to allow shrinking */
 }
 
-/* --- NEW STYLES FOR RESIZABLE SIDEBAR --- */
 #sidebar-resizer {
     width: 6px;
     cursor: col-resize;
@@ -626,7 +602,6 @@ button {
     flex-shrink: 0;
     border-radius: 3px;
     transition: background-color 0.2s ease;
-    /* Prevent user from selecting text while dragging */
     user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;
@@ -643,8 +618,6 @@ button {
         background-color: #4c7cbe80;
     }
 }
-/* --- END NEW STYLES --- */
-
 
 .btn-array-personalityactions {
     position: absolute;
@@ -672,7 +645,6 @@ button {
     min-height: 3.5rem;
     text-wrap: nowrap;
     padding: 1rem;
-
     -webkit-tap-highlight-color: transparent;
     cursor: pointer;
 }
@@ -741,7 +713,6 @@ button {
 #btn-hide-overlay {
     padding: 2rem;
 }
-
 
 .label-currentchat:not(:hover) {
     opacity: 0.7;
@@ -849,8 +820,6 @@ input[name="currentChat"][value="none"] {
     margin-left: auto;
 }
 
-
-
 .generation-settings,
 .trigger-settings { 
     display: flex;
@@ -957,95 +926,6 @@ input[name="currentChat"][value="none"] {
     margin: 0;
 }
 
-#asset-manager-gallery {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 0.75rem;
-    overflow-y: auto;
-    flex-grow: 1;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    border: 1px dashed;
-}
-
-.asset-card {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    cursor: pointer;
-}
-
-
-/* --- NEW STYLES FOR ASSET CARD TAGS --- */
-.asset-card-tags-overlay {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 0.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    /* NEW: Aggressively smaller gap */
-    gap: 0.1rem; /* Very small gap */
-    justify-content: center;
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
-    box-sizing: border-box;
-    z-index: 1;
-}
-
-.asset-card-tag-pill {
-    font-size: 0.85rem; /* <-- RESTORED FONT SIZE */
-    padding: 0.05rem 0.1rem;
-    border-radius: 0.15rem;
-    cursor: pointer;
-    opacity: 0.9;
-    transition: opacity 0.2s, background-color 0.2s, color 0.2s;
-    white-space: nowrap;
-}
-
-.asset-card-tag-pill:hover {
-    opacity: 1;
-}
-
-.asset-card-tag-pill.more-pill {
-    background-color: transparent !important; /* Always transparent */
-    border: 1px dashed; /* Subtle border for "+X" pill */
-    padding: 0.15rem 0.4rem; /* Adjust padding for dashed border */
-    cursor: default;
-}
-/* --- END NEW STYLES FOR ASSET CARD TAGS --- */
-
-
-/* Existing .asset-card styles (no change here) */
-.asset-card {
-    position: relative;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    cursor: pointer;
-}
-/* --- The rest of your existing main.css file continues below --- */
-
-
-
-
-
-
-
-
-
-.asset-card img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.2s ease;
-}
-
-.asset-card:hover img {
-    transform: scale(1.05);
-}
-
 .gallery-empty-placeholder {
     grid-column: 1 / -1;
     display: flex;
@@ -1055,84 +935,89 @@ input[name="currentChat"][value="none"] {
     opacity: 0.6;
 }
 
-/*---ASSET DETAIL START---*/
-#asset-detail-view {
-    display: grid;
-    grid-template-columns: 1fr 350px;
-    gap: 1.5rem;
-    height: 100%;
-    padding: 1rem;
-    box-sizing: border-box;
-    align-items: center;
-}
+/* ================================================= */
+/* === INLINE ASSET MANAGER STYLES (v8.0) START  === */
+/* ================================================= */
 
-#asset-detail-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    align-self: center;
-    max-width: 75vh;
-    max-height: 75vh;
-}
-
-#asset-detail-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-#asset-detail-info {
+/* Adjust the gallery to be a vertical list instead of a grid */
+#asset-manager-gallery {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    overflow-y: auto;
+    flex-grow: 1;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px dashed;
+}
+
+/* The main inline card container */
+.asset-card-inline {
+    position: relative;
+    display: flex;
+    gap: 1rem;
     padding: 1rem;
     border-radius: 0.5rem;
+}
+
+/* The preview area for the image or icon */
+.asset-card-inline-preview {
+    flex-shrink: 0;
+    width: 100px;
+    height: 100px;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.asset-card-inline-preview img {
+    width: 100%;
     height: 100%;
-    box-sizing: border-box;
+    object-fit: cover;
+}
+.asset-card-inline-preview .asset-icon {
+    font-size: 48px;
 }
 
-#asset-detail-name {
-    margin: 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border-color);
-    word-break: break-all;
-}
-
-.asset-detail-body {
+/* The info area containing name, tags, and inputs */
+.asset-card-inline-info {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    overflow-y: auto;
+    gap: 0.75rem;
+    min-width: 0; /* Flexbox fix for text overflow */
 }
 
-#asset-detail-tags {
-    /* This container now stacks the sections vertically with a gap */
-    display: flex;
-    flex-direction: column;
-    gap: 1rem; /* This creates the vertical space */
+.asset-card-inline-name {
+    font-weight: 800;
+    font-size: 1.1rem;
+    margin-bottom: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.asset-detail-section h4 {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
+/* Section for System/Custom tags */
+.asset-card-inline-tag-section h5 {
+    font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 0 0 8px 0;
+    margin: 0 0 4px 0;
     font-weight: 600;
+    opacity: 0.7;
 }
 
+/* The container for pill buttons */
 .tag-pills-container {
-    /* This container handles the flex layout for the pills */
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
     min-height: 28px;
 }
 
+/* A single tag pill */
 .tag-pill {
     display: inline-flex;
     align-items: center;
@@ -1141,10 +1026,9 @@ input[name="currentChat"][value="none"] {
     border-radius: 1rem;
     font-size: 0.8rem;
     font-weight: 600;
-    background-color: var(--accent-color); /* Assuming this is the style for custom tags */
-    color: var(--text-on-accent);
 }
 
+/* The 'x' remove button on a tag pill */
 .remove-tag {
     display: flex;
     justify-content: center;
@@ -1157,47 +1041,63 @@ input[name="currentChat"][value="none"] {
     transition: background-color 0.2s;
 }
 
-/* Style for the protected, non-deletable system tag */
+/* Special styling for undeletable system tags */
 .tag-pill.tag-system {
-    cursor: not-allowed;
-    /* It will now inherit the background/color from .tag-pill */
+    cursor: default;
 }
-
-/* Hide the 'x' button inside a system tag */
 .tag-pill.tag-system .remove-tag {
     display: none;
 }
 
-.add-tag-wrapper {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
+/* Message for when a card has no custom triggers */
+.asset-card-inline-no-tags-msg {
+    opacity: 0.6;
+    font-size: 0.8rem;
+    width: 100%;
+    font-style: italic;
+    margin: 0 !important;
 }
 
-.add-tag-wrapper input {
+/* Form for adding a new tag */
+.asset-card-inline-add-tag-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto; /* Push to the bottom */
+}
+
+.asset-card-inline-input {
     flex-grow: 1;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.9rem;
+    min-width: 0;
 }
 
-.add-tag-wrapper button {
+.asset-card-inline-add-btn {
     flex-shrink: 0;
+    padding: 0.35rem 1rem;
+    font-size: 0.9rem;
 }
 
-.asset-detail-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
+/* Delete button for the whole card */
+.asset-card-inline-delete-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    opacity: 0.5;
+    transition: opacity 0.2s, background-color 0.2s;
 }
 
-.asset-detail-actions button {
-    justify-content: flex-start;
+.asset-card-inline:hover .asset-card-inline-delete-btn {
+    opacity: 1;
 }
-/*--- ASSET DETAIL END ---*/
 
-
-
+.asset-card-inline-delete-btn .material-symbols-outlined {
+    font-size: 18px;
+}
 
 .btn-danger {
     background-color: #a43131;
@@ -1207,9 +1107,9 @@ input[name="currentChat"][value="none"] {
     background-color: #8b2828;
 }
 
-
-
-
+/* =============================================== */
+/* ===  INLINE ASSET MANAGER STYLES (v8.0) END  ==== */
+/* =============================================== */
 
 @media (prefers-color-scheme: dark) {
     .tag-explorer { background-color: rgba(0,0,0,0.2); }
@@ -1218,6 +1118,11 @@ input[name="currentChat"][value="none"] {
     .tag-explorer-item.selected { background-color: #5f96c8; color: #0b2469; }
     .tag-pill { background-color: #283542; border: 1px solid rgba(255, 255, 255, 0.1); }
     .remove-tag:hover { background-color: rgba(255, 255, 255, 0.1); }
+    
+    .asset-card-inline { background-color: rgba(0,0,0,0.2); border-color: rgba(255, 255, 255, 0.1); }
+    .asset-card-inline-delete-btn { background-color: #a43131; color: #ffffff; }
+    .asset-card-inline-delete-btn:hover { background-color: #8b2828; }
+    .asset-card-inline-preview { background-color: rgba(0,0,0,0.2); }
 }
 
 @media (prefers-color-scheme: light) {
@@ -1227,6 +1132,11 @@ input[name="currentChat"][value="none"] {
     .tag-explorer-item.selected { background-color: #4c7cbe; color: #edf1f8; }
     .tag-pill { background-color: #d2e2f7; border: 1px solid rgba(0, 0, 0, 0.1); color: #011031; }
     .remove-tag:hover { background-color: rgba(0, 0, 0, 0.1); }
+
+    .asset-card-inline { background-color: rgba(0,0,0,0.05); border-color: rgba(0, 0, 0, 0.1); }
+    .asset-card-inline-delete-btn { background-color: #d9534f; color: #ffffff; }
+    .asset-card-inline-delete-btn:hover { background-color: #c9302c; }
+    .asset-card-inline-preview { background-color: rgba(0,0,0,0.05); }
 }
 
 @media (min-width: 1032px) {
@@ -1261,7 +1171,6 @@ input[name="currentChat"][value="none"] {
         display: none;
     }
 
-    /* NEW: Hide the resizer on mobile */
     #sidebar-resizer {
         display: none !important;
     }
@@ -1269,7 +1178,6 @@ input[name="currentChat"][value="none"] {
     .navbar {
         position: relative;
     }
-
 
     #btn-hide-sidebar {
         display: block;
@@ -1382,7 +1290,6 @@ input[name="currentChat"][value="none"] {
     }
 
     .label-currentchat:hover {
-
         background-color: #9dbeea3f;
     }
 
@@ -1393,7 +1300,6 @@ input[name="currentChat"][value="none"] {
     .navbar-tab:not(.navbar-tab-active):hover {
         background-color: #65656517;
     }
-
 
     #message-box {
         background-color: #dfeeff !important;
@@ -1424,15 +1330,6 @@ input[name="currentChat"][value="none"] {
         background-color: rgba(0,0,0,0.05);
         border-color: rgba(0, 0, 0, 0.1);
     }
-
-    .asset-card {
-        background-color: #e0eaf8;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .asset-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1444,7 +1341,6 @@ input[name="currentChat"][value="none"] {
         border: 1px solid #8f9eb3;
         outline: none;
     }
-
 
     body {
         background-color: #151e24;
@@ -1511,7 +1407,6 @@ input[name="currentChat"][value="none"] {
         color: #849caf;
     }
 
-
     .message-model {
         background-color: #1a2733;
     }
@@ -1570,202 +1465,6 @@ input[name="currentChat"][value="none"] {
         background-color: rgba(0,0,0,0.2);
         border-color: rgba(255, 255, 255, 0.1);
     }
-
-    .asset-card {
-        background-color: #283542;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    
-    .asset-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    }
-}
-
-#asset-detail-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    aspect-ratio: 1 / 1;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    align-self: center;
-    
-    max-width: 75vh; 
-    max-height: 75vh;
-}
-
-#asset-detail-preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    aspect-ratio: 1 / 1; 
-    border-radius: 0.5rem;
-    overflow: hidden;
-    align-self: center; 
-}
-
-#asset-detail-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain; 
-}
-
-#asset-detail-info {
-    display: flex;
-    flex-direction: column; 
-    gap: 1rem;
-    padding: 1rem;
-    border-radius: 0.5rem;
-}
-
-#asset-detail-name {
-    margin: 0;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    word-break: break-all; 
-}
-
-.asset-detail-body {
-    flex-grow: 1; 
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.asset-detail-section h4 {
-    margin: 0 0 0.5rem 0;
-    opacity: 0.7;
-}
-
-.add-tag-wrapper {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.add-tag-wrapper input {
-    flex-grow: 1;
-}
-
-.add-tag-wrapper button {
-    flex-shrink: 0;
-}
-
-.asset-detail-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-top: auto; 
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.asset-detail-actions button {
-    justify-content: flex-start; 
-}
-
-.btn-danger {
-    background-color: #a43131;
-    color: #ffffff;
-}
-.btn-danger:hover {
-    background-color: #8b2828;
-}
-
-@media (prefers-color-scheme: dark) {
-    .tag-pill {
-        background-color: #283542;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-    .remove-tag:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-    }
-}
-@media (prefers-color-scheme: light) {
-    .tag-pill {
-        background-color: #d2e2f7;
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        color: #011031;
-    }
-    .remove-tag:hover {
-        background-color: rgba(0, 0, 0, 0.1);
-    }
-}
-
-.asset-card {
-    position: relative;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background-color: #283542;
-}
-
-.asset-card-preview {
-    aspect-ratio: 1 / 1;
-    cursor: pointer;
-    transition: transform 0.2s ease;
-}
-
-.asset-card-preview:hover {
-    transform: scale(1.05);
-}
-
-.asset-card-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.asset-card-info {
-    padding: 0.75rem;
-    background-color: rgba(0,0,0,0.2);
-}
-
-.asset-card-tags {
-    display: flex;
-    flex-wrap: wrap; 
-    gap: 0.35rem;
-}
-
-.asset-card-tag {
-    font-size: 0.8rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    opacity: 0.8;
-    transition: opacity 0.2s, background-color 0.2s;
-}
-
-.asset-card-tag:hover {
-    opacity: 1;
-}
-
-@media (prefers-color-scheme: dark) {
-    .asset-card-tag {
-        background-color: rgba(0,0,0,0.3);
-    }
-    .asset-card-tag:hover {
-        background-color: #5f96c8;
-        color: #0b2469;
-    }
-}
-
-@media (prefers-color-scheme: light) {
-    .asset-card {
-       background-color: #e0eaf8;
-    }
-    .asset-card-info {
-        background-color: rgba(0,0,0,0.05);
-    }
-    .asset-card-tag {
-        background-color: rgba(0,0,0,0.1);
-        color: #011031;
-    }
-     .asset-card-tag:hover {
-        background-color: #4c7cbe;
-        color: #edf1f8;
-    }
 }
 
 .pfp,
@@ -1780,16 +1479,13 @@ input[name="currentChat"][value="none"] {
 }
 
 /* --- Command Tag Visibility Engine --- */
-
-/* 1. By default, command blocks are completely invisible in normal view. */
 .command-block {
     display: none;
 }
 
-/* 2. When a message is being edited, REVEAL the command blocks. */
 .message-text[contenteditable="true"] .command-block {
     display: inline-block;
-    font-size: 0.9em; /* A little smaller is still nice */
+    font-size: 0.9em;
     color: var(--color-accent);
     background-color: var(--color-background-secondary);
     padding: 0 4px;
@@ -1804,15 +1500,6 @@ input[name="currentChat"][value="none"] {
 }
 
 .pfp {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-    top: 0;
-    left: 0;
-    transition: opacity 0.5s ease-in-out;
-}.pfp {
     position: absolute;
     width: 100%;
     height: 100%;
