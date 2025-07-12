@@ -118,10 +118,20 @@ async function renderGallery() {
     }
 }
 
+// This is the function to replace in src/components/AssetManager.component.js
+
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
+
+    const allActorNames = currentPersonality.actors.map(a => a.name);
+    const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
     
+    // Define the asset's primary context based on its tags
+    const primaryActor = allActorNames.find(name => asset.tags.includes(name));
+    const primaryState = allStateNames.find(name => asset.tags.includes(name));
+    const contextTags = [primaryActor, primaryState].filter(Boolean); // Array of context tags found on this asset
+
     // --- Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
@@ -137,16 +147,19 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
     
-    // --- Top Overlay for System Tags ONLY ---
+    // --- Top Overlay for PROTECTED Context and System Tags ---
     const topOverlay = document.createElement('div');
     topOverlay.className = 'asset-card-top-overlay';
-    const systemTypeTag = asset.tags.find(tag => tag === 'avatar' || tag === 'sfx');
-    if(systemTypeTag) {
+    const createSystemPill = (tag) => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill tag-system';
-        pill.textContent = systemTypeTag;
-        topOverlay.appendChild(pill);
-    }
+        pill.textContent = tag;
+        return pill;
+    };
+    if (primaryActor) topOverlay.appendChild(createSystemPill(primaryActor));
+    if (primaryState) topOverlay.appendChild(createSystemPill(primaryState));
+    const typeTag = asset.tags.find(tag => tag === 'avatar' || tag === 'sfx');
+    if (typeTag) topOverlay.appendChild(createSystemPill(typeTag));
     previewContainer.appendChild(topOverlay);
 
     // Filename Overlay
@@ -159,40 +172,37 @@ function createAssetCard(asset) {
     previewContainer.appendChild(bottomOverlay);
     card.appendChild(previewContainer);
     
-    // --- Info Area for ALL User-Facing Tags (Context and Custom) ---
+    // --- Info Area for EDITABLE Custom Triggers ---
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
     
-    const allUserTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
+    // A custom trigger is ANY tag that is NOT a system tag and NOT one of this asset's context tags.
+    const customTriggers = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag) && !contextTags.includes(tag));
     
     const customPillsContainer = document.createElement('div');
     customPillsContainer.className = 'tag-pills-container';
-    allUserTags.forEach(tag => {
+    customTriggers.forEach(tag => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
         pill.textContent = tag;
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-tag';
         removeBtn.innerHTML = '×';
-        removeBtn.title = `Remove tag "${tag}"`;
-        removeBtn.onclick = () => {
-            // Pass a function to handle removal correctly if there are duplicates
-            handleRemoveTagFromAsset(asset.id, tag);
-        };
+        removeBtn.title = `Remove trigger "${tag}"`;
+        // --- THIS IS THE FIX ---
+        // It must be wrapped in () => to defer execution until the click.
+        removeBtn.onclick = () => handleRemoveTagFromAsset(asset.id, tag);
         pill.appendChild(removeBtn);
-        customPillsContainer.appendChild(pill);
     });
     infoContainer.appendChild(customPillsContainer);
     
     // Smart input for adding new tags
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
-    addTagInput.placeholder = '+ Add trigger';
+    addTagInput.placeholder = '+ Add custom trigger';
     addTagInput.className = 'asset-card-inline-input';
     const saveTag = () => {
-        if (addTagInput.value.trim() !== '') {
-            handleAddTagToAsset(asset.id, addTagInput);
-        }
+        if (addTagInput.value.trim() !== '') handleAddTagToAsset(asset.id, addTagInput);
     };
     addTagInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); saveTag(); addTagInput.blur(); }
