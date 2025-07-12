@@ -3,6 +3,7 @@ import * as personalityService from '../services/Personality.service';
 import * as stepperService from '../services/Stepper.service';
 import * as overlayService from '../services/Overlay.service';
 import { initializeAssetManagerComponent } from './AssetManager.component.js';
+import { assetManagerService } from '../services/AssetManager.service.js';
 
 let isInitialized = false;
 let currentPersonalityId = null;
@@ -74,6 +75,23 @@ export function initializeAddPersonalityForm(personalityId = null) {
             input.placeholder = 'Tone example';
             btn.before(input);
         });
+
+        // --- NEW: Populate Tag Prompt button listener ---
+        const btnPopulateTagPrompt = document.querySelector('#btn-populate-tagprompt');
+        const tagPromptTextarea = document.querySelector('#tagPrompt');
+        if (btnPopulateTagPrompt && tagPromptTextarea) {
+            btnPopulateTagPrompt.addEventListener('click', async () => {
+                if (currentPersonalityId === null) {
+                    alert("Please save the personality first (by clicking 'Submit' on the last step) to enable tag population. Once saved, you can edit it to populate the tags.");
+                    return;
+                }
+                const formattedTags = await assetManagerService.getFormattedTagsForCharacterPrompt(currentPersonalityId);
+                tagPromptTextarea.value = formattedTags;
+            });
+        }
+        // --- END NEW ---
+
+	
         isInitialized = true;
         console.log("Add Personality Form Component Initialized.");
     }

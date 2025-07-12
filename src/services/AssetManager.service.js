@@ -187,7 +187,50 @@ class AssetManagerService {
         }
         return null;
     }
+	
+
+
+    /**
+     * Gathers all user-defined tags for a character's assets, formats them for the tagPrompt,
+     * and returns them as a newline-separated string.
+     * Image asset tags are formatted as [tag], audio asset tags as [sfx:tag].
+     * @param {number} characterId - The ID of the personality.
+     * @returns {Promise<string>} A string of formatted tags suitable for the tagPrompt.
+     */
+    async getFormattedTagsForCharacterPrompt(characterId) {
+        if (typeof characterId === 'undefined' || characterId === null) {
+            console.warn("AssetManagerService.getFormattedTagsForCharacterPrompt: characterId is required.");
+            return '';
+        }
+
+        const allAssets = await this.getAllAssetsForCharacter(characterId);
+        const formattedTags = new Set(); // Use a Set to ensure uniqueness of the formatted strings
+
+        allAssets.forEach(asset => {
+            const userTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
+            userTags.forEach(userTag => {
+                if (asset.type === 'image') {
+                    formattedTags.add(`[${userTag}]`); // Implicit avatar command
+                } else if (asset.type === 'audio') {
+                    formattedTags.add(`[sfx:${userTag}]`); // Explicit sfx command
+                }
+            });
+        });
+
+        // Convert Set to Array, sort, and join with newlines
+        return Array.from(formattedTags).sort((a, b) => a.localeCompare(b)).join('\n');
+    }	
+	
+	
+	
+	
+	
 }
+
+
+
+
+
 
 // Export a single instance of the service
 export const assetManagerService = new AssetManagerService();
