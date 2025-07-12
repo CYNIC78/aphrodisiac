@@ -222,15 +222,36 @@ function createAssetCard(asset) {
 
 
 // --- EVENT HANDLERS ---
+// This is the function to replace in src/components/AssetManager.component.js
+
 async function handleAddTagToAsset(assetId, inputElement) {
     const newTag = inputElement.value.trim().toLowerCase();
     if (!newTag || !assetId) return;
+
     const asset = await assetManagerService.getAssetById(assetId);
-    if (asset && !asset.tags.includes(newTag)) {
+    if (!asset) return;
+    
+    // --- THIS IS THE FIX ---
+    // First, determine what the asset's existing custom triggers are by filtering out all other types.
+    const allActorNames = currentPersonality.actors.map(a => a.name);
+    const allStateNames = currentPersonality.actors.flatMap(a => a.states.map(s => s.name));
+    const contextTags = [...allActorNames, ...allStateNames];
+    
+    const existingCustomTriggers = asset.tags.filter(tag => 
+        !SYSTEM_TAGS.includes(tag) && 
+        !contextTags.includes(tag)
+    );
+
+    // Now, ask the CORRECT question: Does this tag already exist in the list of CUSTOM triggers?
+    if (!existingCustomTriggers.includes(newTag)) {
         const updatedTags = [...asset.tags, newTag];
         await assetManagerService.updateAsset(assetId, { tags: updatedTags });
         inputElement.value = '';
         await renderGallery();
+    } else {
+        // If it already exists as a custom trigger, do nothing, but clear the input.
+        inputElement.value = '';
+        console.log(`Custom trigger "${newTag}" already exists on this asset.`);
     }
 }
 
