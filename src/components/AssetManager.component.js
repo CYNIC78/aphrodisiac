@@ -25,40 +25,28 @@ function sanitizeNameForTag(name) {
  */
 function renderSceneExplorer() {
     if (!sceneExplorerContainer) return;
-
-    // Persist scroll position
     const scrollPosition = sceneExplorerContainer.scrollTop;
-    
     sceneExplorerContainer.innerHTML = '';
-    
     const personalityNameEl = document.querySelector('#scene-explorer-personality-name');
     if (personalityNameEl) {
         personalityNameEl.textContent = currentPersonality ? currentPersonality.name : '...';
     }
-
     if (!currentPersonality || !currentPersonality.actors || currentPersonality.actors.length === 0) {
         sceneExplorerContainer.innerHTML = '<p class="scene-explorer-placeholder">No actors defined. Click "Add Actor" to start.</p>';
         return;
     }
-    
     currentPersonality.actors.forEach(actor => {
-        // 1. Create Actor Row
         const actorRow = document.createElement('div');
         actorRow.className = 'scene-explorer-actor-row scene-explorer-row';
         actorRow.dataset.actorName = actor.name;
-        // Use a simple DOM attribute for collapsed state, defaulting to false (expanded)
-        actorRow.dataset.collapsed = actor.isCollapsed || 'false'; 
-
+        actorRow.dataset.collapsed = actor.isCollapsed || 'false';
         actorRow.innerHTML = `
             <span class="material-symbols-outlined row-icon">arrow_drop_down</span>
             <span class="row-name">${actor.name}</span>
             <button class="row-delete-btn material-symbols-outlined" title="Delete Actor">delete</button>
         `;
-        
-        // 2. Create States Container
         const statesContainer = document.createElement('div');
         statesContainer.className = 'states-container';
-        
         if (actor.states && actor.states.length > 0) {
             actor.states.forEach(state => {
                 const stateRow = document.createElement('div');
@@ -70,45 +58,36 @@ function renderSceneExplorer() {
                     <span class="row-name">${state.name}</span>
                     <button class="row-delete-btn material-symbols-outlined" title="Delete State">delete</button>
                 `;
-                // Add click listener to set context
                 stateRow.addEventListener('click', () => handleStateClick(actor.name, state.name));
-                // We will add the delete logic in a future step
                 statesContainer.appendChild(stateRow);
             });
         }
-
-        // Add "Add State" button
         const addStateBtn = document.createElement('button');
         addStateBtn.className = 'btn-add-state';
         addStateBtn.innerHTML = `<span class="material-symbols-outlined">add</span> Add State...`;
-        // We will add the 'add state' logic in a future step
         statesContainer.appendChild(addStateBtn);
-
-        // 3. Append to main container
         sceneExplorerContainer.appendChild(actorRow);
         sceneExplorerContainer.appendChild(statesContainer);
-
-        // 4. Add Event Listener to Actor Row for collapsing
         actorRow.addEventListener('click', (e) => {
-            if (e.target.classList.contains('row-delete-btn')) return; // Don't collapse if delete is clicked
+            if (e.target.classList.contains('row-delete-btn')) return;
             const isCollapsed = actorRow.dataset.collapsed === 'true';
             actorRow.dataset.collapsed = !isCollapsed;
-            actor.isCollapsed = !isCollapsed; // Persist state for re-render
+            actor.isCollapsed = !isCollapsed;
         });
     });
-
-    // Restore scroll position
     sceneExplorerContainer.scrollTop = scrollPosition;
 }
 
-
 async function renderGallery() {
     if (!galleryEl || !galleryTitleEl) return;
-    if (!currentPersonality) {
-        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Save the personality to enable the media library.</p>`;
+    
+    // FIX #1: Check for personality AND its ID. A new, unsaved personality won't have an ID.
+    if (!currentPersonality || !currentPersonality.id) {
+        galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Save the personality to manage assets.</p>`;
         galleryTitleEl.textContent = 'Asset Gallery';
         return;
     }
+
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     try {
         const filterTags = [];
@@ -130,7 +109,6 @@ async function renderGallery() {
         galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Error loading assets.</p>`;
     }
 }
-
 
 function createAssetCard(asset) {
     const card = document.createElement('div');
@@ -168,7 +146,6 @@ function createAssetCard(asset) {
     return card;
 }
 
-
 // --- EVENT HANDLERS ---
 
 async function handleAddActor() {
@@ -178,33 +155,26 @@ async function handleAddActor() {
     }
     const actorName = prompt("Enter a name for the new Actor:");
     if (!actorName || actorName.trim() === '') return;
-
     const sanitizedName = sanitizeNameForTag(actorName);
     const isDuplicate = currentPersonality.actors.some(actor => actor.name === sanitizedName);
-
     if (isDuplicate) {
         alert(`An actor named "${sanitizedName}" already exists.`);
         return;
     }
-
     currentPersonality.actors.push({
         name: sanitizedName,
         states: [{ name: 'default' }]
     });
-
-    // Save the entire personality object back to the DB
     await personalityService.edit(currentPersonality.id, currentPersonality);
     console.log(`Added actor '${sanitizedName}' and saved personality.`);
-
-    // Refresh the UI
     await updateComponentUI(currentPersonality);
 }
 
 async function handleStateClick(actorName, stateName) {
     activeContext.actor = actorName;
     activeContext.state = stateName;
-    renderSceneExplorer(); // Re-render explorer to update the 'active' class
-    await renderGallery(); // Re-render gallery with new filter
+    renderSceneExplorer();
+    await renderGallery();
 }
 
 async function handleDeleteAsset(assetId) {
@@ -237,6 +207,12 @@ async function handleUpload(event) {
 
 async function updateComponentUI(personality) {
     currentPersonality = personality;
+
+    // FIX #2: Gracefully handle old personalities from DB that don't have an actors array
+    if (currentPersonality && !Array.isArray(currentPersonality.actors)) {
+        currentPersonality.actors = [];
+    }
+
     if (currentPersonality && currentPersonality.actors?.length > 0) {
         if (!activeContext.actor || !currentPersonality.actors.find(a => a.name === activeContext.actor)) {
              activeContext.actor = currentPersonality.actors[0].name;
@@ -267,6 +243,5 @@ export function initializeAssetManagerComponent(personality) {
         isInitialized = true;
         console.log('Asset Manager Component Initialized (v12.0 - Scene Explorer).');
     }
-
     updateComponentUI(personality);
 }
