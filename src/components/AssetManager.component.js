@@ -6,8 +6,8 @@ import * as personalityService from '../services/Personality.service.js';
 
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
-let currentPersonality = null; // The full personality object, including the 'actors' array
-let activeContext = { actor: null, state: null }; // Tracks the selected Actor and State for filtering
+let currentPersonality = null; 
+let activeContext = { actor: null, state: null }; 
 
 // --- UI ELEMENT REFERENCES ---
 let sceneExplorerContainer, galleryEl, galleryTitleEl, uploadBtn, uploadInput, addActorBtn;
@@ -20,9 +20,6 @@ function sanitizeNameForTag(name) {
 
 // --- RENDERING LOGIC ---
 
-/**
- * Renders the entire Scene Explorer UI based on the current personality's 'actors' data.
- */
 function renderSceneExplorer() {
     if (!sceneExplorerContainer) return;
     const scrollPosition = sceneExplorerContainer.scrollTop;
@@ -80,14 +77,11 @@ function renderSceneExplorer() {
 
 async function renderGallery() {
     if (!galleryEl || !galleryTitleEl) return;
-    
-    // FIX #1: Check for personality AND its ID. A new, unsaved personality won't have an ID.
     if (!currentPersonality || !currentPersonality.id) {
         galleryEl.innerHTML = `<p class="gallery-empty-placeholder">Save the personality to manage assets.</p>`;
         galleryTitleEl.textContent = 'Asset Gallery';
         return;
     }
-
     galleryEl.innerHTML = '<p class="gallery-empty-placeholder">Loading...</p>';
     try {
         const filterTags = [];
@@ -165,8 +159,12 @@ async function handleAddActor() {
         name: sanitizedName,
         states: [{ name: 'default' }]
     });
-    await personalityService.edit(currentPersonality.id, currentPersonality);
-    console.log(`Added actor '${sanitizedName}' and saved personality.`);
+
+    // UPDATED: Use the new, safer update function
+    await personalityService.updatePersonalityData(currentPersonality.id, currentPersonality);
+    console.log(`Added actor '${sanitizedName}' and saved personality data.`);
+    
+    // We already have the updated object in memory, so just re-render.
     await updateComponentUI(currentPersonality);
 }
 
@@ -192,7 +190,7 @@ async function handleUpload(event) {
         alert("Please select an Actor and a State in the Scene Explorer before uploading assets.");
         return;
     }
-    const tagsForUpload = [activeContext.actor, activeContext.state];
+    const tagsForUpload = [activeContext.actor, active-context.state];
     for (const file of files) {
         try {
             await assetManagerService.addAsset(file, tagsForUpload, currentPersonality.id);
@@ -207,12 +205,9 @@ async function handleUpload(event) {
 
 async function updateComponentUI(personality) {
     currentPersonality = personality;
-
-    // FIX #2: Gracefully handle old personalities from DB that don't have an actors array
     if (currentPersonality && !Array.isArray(currentPersonality.actors)) {
         currentPersonality.actors = [];
     }
-
     if (currentPersonality && currentPersonality.actors?.length > 0) {
         if (!activeContext.actor || !currentPersonality.actors.find(a => a.name === activeContext.actor)) {
              activeContext.actor = currentPersonality.actors[0].name;
