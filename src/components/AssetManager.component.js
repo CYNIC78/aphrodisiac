@@ -212,6 +212,7 @@ function createAssetCard(asset) {
     card.appendChild(infoContainer);
 
     const deleteBtn = document.createElement('button');
+	deleteBtn.type = 'button'; // <-- THE FIX
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
     deleteBtn.innerHTML = '<span class="material-symbols-outlined">delete</span>';
     deleteBtn.title = 'Delete Asset';
