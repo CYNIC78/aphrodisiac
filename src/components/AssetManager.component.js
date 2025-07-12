@@ -114,55 +114,59 @@ function createAssetCard(asset) {
  */
 function renderTagsInDetailView(tags = []) {
     const tagsContainer = assetDetailView.querySelector('#asset-detail-tags');
-    tagsContainer.innerHTML = ''; // Clear previous content
+    tagsContainer.innerHTML = '';
 
     const systemTags = tags.filter(tag => SYSTEM_TAGS.includes(tag));
     const customTags = tags.filter(tag => !SYSTEM_TAGS.includes(tag));
 
-    // Render System Command section
-    if (systemTags.length > 0) {
-        const systemHeader = document.createElement('h4');
-        systemHeader.textContent = 'System Command';
-        tagsContainer.appendChild(systemHeader);
+    // Create and append the "System Command" section
+    const systemSection = document.createElement('div');
+    systemSection.className = 'asset-detail-section';
+    const systemHeader = document.createElement('h4');
+    systemHeader.textContent = 'System Command';
+    systemSection.appendChild(systemHeader);
+    const systemPillsContainer = document.createElement('div');
+    systemPillsContainer.className = 'tag-pills-container';
+    systemTags.forEach(tag => {
+        const pill = document.createElement('div');
+        pill.className = 'tag-pill tag-system';
+        pill.textContent = tag;
+        const removeBtn = document.createElement('span');
+        removeBtn.className = 'remove-tag';
+        pill.appendChild(removeBtn);
+        systemPillsContainer.appendChild(pill);
+    });
+    systemSection.appendChild(systemPillsContainer);
+    tagsContainer.appendChild(systemSection);
 
-        systemTags.forEach(tag => {
-            const pill = document.createElement('div');
-            pill.className = 'tag-pill tag-system'; // Apply system class
-            pill.textContent = tag;
-            
-            const removeBtn = document.createElement('span');
-            removeBtn.className = 'remove-tag'; // CSS will hide this
-            pill.appendChild(removeBtn);
-            
-            tagsContainer.appendChild(pill);
-        });
-    }
-
-    // Render Custom Triggers section
+    // Create and append the "Your Custom Triggers" section
+    const customSection = document.createElement('div');
+    customSection.className = 'asset-detail-section';
     const customHeader = document.createElement('h4');
     customHeader.textContent = 'Your Custom Triggers';
-    tagsContainer.appendChild(customHeader);
-    
+    customSection.appendChild(customHeader);
+    const customPillsContainer = document.createElement('div');
+    customPillsContainer.className = 'tag-pills-container';
     if (customTags.length > 0) {
         customTags.forEach(tag => {
             const pill = document.createElement('div');
             pill.className = 'tag-pill';
             pill.textContent = tag;
-            
             const removeBtn = document.createElement('span');
             removeBtn.className = 'remove-tag';
             removeBtn.innerHTML = '×';
             removeBtn.onclick = () => handleRemoveTagFromAsset(tag);
-
             pill.appendChild(removeBtn);
-            tagsContainer.appendChild(pill);
+            customPillsContainer.appendChild(pill);
         });
     } else {
         const noTagsMessage = document.createElement('p');
         noTagsMessage.textContent = 'No custom triggers yet. Add one below!';
         noTagsMessage.style.cssText = 'opacity: 0.6; font-size: 0.8rem; width: 100%;';
-        tagsContainer.appendChild(noTagsMessage);
+        customPillsContainer.appendChild(noTagsMessage);
     }
+    customSection.appendChild(customPillsContainer);
+    tagsContainer.appendChild(customSection);
 }
 
 
@@ -185,7 +189,6 @@ async function handleAddTagToAsset() {
     const newTag = input.value.trim().toLowerCase();
     if (!newTag || !currentAssetId) return;
 
-    // Prevent adding a system tag manually
     if (SYSTEM_TAGS.includes(newTag)) {
         alert("Cannot add a protected system tag manually.");
         return;
@@ -193,11 +196,9 @@ async function handleAddTagToAsset() {
 
     const asset = await assetManagerService.getAssetById(currentAssetId);
     if (asset && !asset.tags.includes(newTag)) {
-        // The service layer automatically preserves the system tag
         const updatedUserTags = [...asset.tags.filter(t => !SYSTEM_TAGS.includes(t)), newTag];
         await assetManagerService.updateAsset(currentAssetId, { tags: updatedUserTags });
         
-        // Refetch the asset to get the final, authoritative list of tags
         const updatedAsset = await assetManagerService.getAssetById(currentAssetId);
         renderTagsInDetailView(updatedAsset.tags);
         
@@ -208,7 +209,6 @@ async function handleAddTagToAsset() {
 }
 
 async function handleRemoveTagFromAsset(tagToRemove) {
-    // Add a guard against removing system tags, just in case.
     if (SYSTEM_TAGS.includes(tagToRemove)) {
         console.warn("Attempted to remove a protected system tag. Action blocked.");
         return;
@@ -217,7 +217,6 @@ async function handleRemoveTagFromAsset(tagToRemove) {
     if (!currentAssetId) return;
     const asset = await assetManagerService.getAssetById(currentAssetId);
     if (asset) {
-        // The service layer automatically preserves the system tag
         const updatedUserTags = asset.tags.filter(t => t !== tagToRemove && !SYSTEM_TAGS.includes(t));
         await assetManagerService.updateAsset(currentAssetId, { tags: updatedUserTags });
 
@@ -297,7 +296,6 @@ export function initializeAssetManagerComponent(characterId) {
         if (!files.length || currentCharacterId === null) return;
         for (const file of files) {
             try {
-                // The service now handles system tags automatically. Just send an empty array.
                 await assetManagerService.addAsset(file, [], currentCharacterId);
             } catch (error) { console.error('Failed to add asset:', error); }
         }
@@ -315,6 +313,6 @@ export function initializeAssetManagerComponent(characterId) {
     
     updateMainUI(characterId);
 
-    console.log('Asset Manager Component Initialized (v5 - Protected Tags).');
+    console.log('Asset Manager Component Initialized (v6 - Layout Fix).');
     isInitialized = true;
 }

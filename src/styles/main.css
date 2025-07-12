@@ -1056,9 +1056,16 @@ input[name="currentChat"][value="none"] {
 }
 
 #asset-detail-tags {
+    /* This is now just a block container for the sections */
+    display: block;
+}
+
+.tag-pills-container {
+    /* This new class handles the flex layout for the pills */
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+    min-height: 28px; /* Give it some height so layout doesn't jump */
 }
 
 .tag-pill {
