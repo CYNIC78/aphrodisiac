@@ -8,6 +8,7 @@ import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 
 const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
+let characterTagCache = new Set(); // NEW: Cache for the current personality's character tags for performance.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -34,6 +35,11 @@ export async function send(msg, db) {
         const id = await chatsService.addChat(title, null, db);
         document.querySelector(`#chat${id}`).click();
     }
+    
+    // NEW: Populate character cache for this new chat/personality
+    const { assetManagerService } = await import('./AssetManager.service.js');
+    const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(selectedPersonality.id);
+    characterTagCache = new Set(characterTags.characters);
 
     await insertMessage("user", msg, null, null, db);
 
@@ -85,7 +91,6 @@ export async function send(msg, db) {
     settingsService.saveSettings();
 }
 
-// NEW: Generalized function to handle regeneration from user or model messages
 async function handleRegenerate(clickedElement, db) {
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
@@ -95,56 +100,30 @@ async function handleRegenerate(clickedElement, db) {
     let sliceEndIndex;
 
     if (clickedElement.classList.contains('message-model')) {
-        // Clicked on AI message: resend the user message *before* it.
-        if (elementIndex === 0) return; // Cannot regenerate from the first AI message if there's no user message before it.
+        if (elementIndex === 0) return;
         textToResend = chat.content[elementIndex - 1].parts[0].text;
         sliceEndIndex = elementIndex - 1;
     } else {
-        // Clicked on User message: resend this message.
         textToResend = chat.content[elementIndex].parts[0].text;
         sliceEndIndex = elementIndex;
     }
 
-    // Truncate the chat history to the point before the message we're regenerating from.
     chat.content = chat.content.slice(0, sliceEndIndex);
     await db.chats.put(chat);
 
-    // Visually reload the chat to the truncated state, then send the message to get a new response.
     await chatsService.loadChat(chat.id, db);
     await send(textToResend, db);
 }
 
-
-// Helper function to escape special characters for use in a regular expression.
-// (Already there, but making sure it's present)
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-}
-
 function wrapCommandsInSpan(text) {
-    // The regex for finding the commands remains the same, as it correctly identifies both forms.
-    const commandRegex = /\[(\S+)\]/g;
-
-    // This replacement will capture the content inside the brackets (e.g., "happy" or "sfx:sigh").
-    // It then reconstructs the string using the HTML entities for square brackets
-    // inside our command-block span. This tells Markdown to treat it as literal text.
+    const commandRegex = /\[(.*?)\]/g;
     return text.replace(commandRegex, (fullMatch, contentInsideBrackets) => {
-        // fullMatch will be something like "[happy]" or "[sfx:sigh]"
-        // contentInsideBrackets will be "happy" or "sfx:sigh"
-
-        // Reconstruct the content with HTML entities for the brackets
         const escapedContent = `[${contentInsideBrackets}]`;
-        
-        // Wrap this escaped content in our command-block span.
         return `<span class="command-block">${escapedContent}</span>`;
     });
 }
 
-
-
-
 async function executeCommandAction(command, tagsToSearch, messageElement, characterId) {
-    // Add checks for valid input tags
     if (characterId === null || !tagsToSearch || tagsToSearch.length === 0) return;
 
     const { assetManagerService } = await import('./AssetManager.service.js');
@@ -153,18 +132,11 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
     switch (command) {
         case 'avatar':
             try {
-                // Combine the incoming tags with the 'avatar' system tag for search
-                // Use a Set to avoid duplicate tags if 'avatar' is somehow in tagsToSearch
                 const searchTags = [...new Set([...tagsToSearch, 'avatar'])]; 
                 const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
                 if (assets && assets.length > 0) {
-                    const asset = assets[0]; // Take the first matching asset
+                    const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
-
-                    // ... (rest of your existing avatar display logic here) ...
-                    // All the pfpWrapper and personalityCard image update logic
-                    // should remain exactly as it is.
-                    // The `asset` and `objectURL` are correctly defined above.
 
                     const pfpWrapper = messageElement.querySelector('.pfp-wrapper');
                     if (pfpWrapper) {
@@ -173,12 +145,6 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
                         newImg.src = objectURL;
                         newImg.className = 'pfp';
                         newImg.style.opacity = '0';
-                        newImg.onerror = () => {
-                            console.error(`Failed to load avatar for command [avatar:${tagsToSearch.join(',')}]:`, objectURL);
-                            newImg.src = './assets/default_avatar.png';
-                            newImg.style.opacity = '1';
-                            URL.revokeObjectURL(objectURL);
-                        };
                         pfpWrapper.appendChild(newImg);
                         requestAnimationFrame(() => {
                             newImg.style.transition = 'opacity 0.5s ease-in-out';
@@ -186,7 +152,6 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
                         });
                         setTimeout(() => {
                             if (oldImg && oldImg.parentElement === pfpWrapper) oldImg.remove();
-                            URL.revokeObjectURL(objectURL);
                         }, 500);
                     }
 
@@ -199,12 +164,6 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
                             newImg.src = objectURL;
                             newImg.className = 'background-img';
                             newImg.style.opacity = '0';
-                            newImg.onerror = () => {
-                                console.error(`Failed to load sidebar avatar for command [avatar:${tagsToSearch.join(',')}]:`, objectURL);
-                                newImg.src = './assets/default_avatar.png';
-                                newImg.style.opacity = '1';
-                                URL.revokeObjectURL(objectURL);
-                            };
                             cardWrapper.appendChild(newImg);
                             requestAnimationFrame(() => {
                                 newImg.style.transition = 'opacity 0.5s ease-in-out';
@@ -212,20 +171,7 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
                             });
                             setTimeout(() => {
                                 if (oldImg && oldImg.parentElement === cardWrapper) oldImg.remove();
-                                URL.revokeObjectURL(objectURL);
                             }, 500);
-                        } else {
-                            const img = personalityCard.querySelector('.background-img');
-                            if (img) {
-                                img.src = objectURL;
-                                img.onerror = () => {
-                                    console.error(`Failed to load sidebar avatar for command [avatar:${tagsToSearch.join(',')}]:`, objectURL);
-                                    img.src = './assets/default_avatar.png';
-                                };
-                                setTimeout(() => URL.revokeObjectURL(objectURL), 750);
-                            } else {
-                                URL.revokeObjectURL(objectURL);
-                            }
                         }
                     }
 
@@ -239,11 +185,10 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
         case 'audio':
             if (settings.audio.enabled) {
                 try {
-                    // Combine the incoming tags with the 'audio' system tag for search
-                    const searchTags = [...new Set([...tagsToSearch, 'audio'])]; // Added 'audio' for robustness
+                    const searchTags = [...new Set([...tagsToSearch, 'audio'])];
                     const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
                     if (assets && assets.length > 0) {
-                        const asset = assets[0]; // Take the first matching asset
+                        const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
                         const audio = new Audio(objectURL);
                         audio.volume = settings.audio.volume;
@@ -262,17 +207,9 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
     }
 }
 
-
-
-
-
 async function processDynamicCommands(currentText, messageElement, characterId) {
     if (characterId === null) return;
 
-    // This new regex is the key. It captures two groups:
-    // 1. An optional command followed by a colon (e.g., "sfx:").
-    // 2. The main value/trigger (e.g., "happy" or "sigh").
-    // This allows it to match both [sfx:sigh] and [happy].
     const commandRegex = /\[(?:(.*?):)?(.*?)\]/g;
     let match;
 
@@ -281,36 +218,38 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     }
     const processedTags = processedCommandsPerMessage.get(messageElement);
 
-    commandRegex.lastIndex = 0; // Reset regex state before each execution
+    commandRegex.lastIndex = 0;
     while ((match = commandRegex.exec(currentText)) !== null) {
         const fullTagString = match[0];
 
         if (!processedTags.has(fullTagString)) {
-            // If group 1 (the command) exists, use it. Otherwise, default to "avatar".
             const command = (match[1] || 'avatar').trim().toLowerCase();
-            const valueString = match[2].trim(); // Get the raw value string (e.g., "emily,happy")
-
-            // Split the value string by comma, trim each part, and filter out any empty strings
-            const tagsArray = valueString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+            const valueString = match[2].trim();
+            const tagsFromAI = valueString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
             
-            if (command && tagsArray.length > 0) { // Ensure we have an actual command type and at least one tag
-                await executeCommandAction(command, tagsArray, messageElement, characterId); // Pass the array of tags
+            // --- NEW: INTELLIGENT TAG MAPPING ---
+            // This is the "fancy trimming" you envisioned!
+            const mappedTags = tagsFromAI.map(tag => {
+                const prefixedTag = `char_${tag}`;
+                // Check if the prefixed version exists in our high-speed cache
+                return characterTagCache.has(prefixedTag) ? prefixedTag : tag;
+            });
+            // --- END OF NEW LOGIC ---
+            
+            if (command && mappedTags.length > 0) {
+                // We pass the intelligently mapped tags to the command executor
+                await executeCommandAction(command, mappedTags, messageElement, characterId);
                 processedTags.add(fullTagString);
             }
         }
     }
 }
 
-
-
-
-
-
 function setupMessageEditing(messageElement, db) {
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
     const deleteButton = messageElement.querySelector('.btn-delete');
-    const refreshButton = messageElement.querySelector('.btn-refresh'); // NEW
+    const refreshButton = messageElement.querySelector('.btn-refresh');
     const messageTextDiv = messageElement.querySelector('.message-text');
 
     if (!messageTextDiv) return;
@@ -380,7 +319,6 @@ function setupMessageEditing(messageElement, db) {
         });
     }
 
-    // Attach listener for the refresh button if it exists
     if (refreshButton) {
         refreshButton.addEventListener("click", async () => {
             try {
@@ -392,7 +330,6 @@ function setupMessageEditing(messageElement, db) {
         });
     }
 }
-
 
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
     if (!db) return;
