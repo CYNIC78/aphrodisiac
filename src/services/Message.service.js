@@ -10,17 +10,15 @@ import * as helpers from "../utils/helpers.js";
 const processedCommandsPerMessage = new Map();
 let characterTagCache = new Set();
 
-// --- FIXED --- Regex is now more robust and doesn't require the command to be at the absolute end.
-async function extractAndProcessJournalCommand(rawText, personalityId, db) {
-    // This regex finds the last occurrence of the journal command in the text.
+async function extractAndProcessJournalCommand(rawText, personalityId) { // Removed db parameter
     const journalRegex = /\[journal_overwrite:([\s\S]*)\](?![\s\S]*\[journal_overwrite:)/;
     const match = rawText.match(journalRegex);
 
-    if (match && personalityId && db) {
+    if (match && personalityId) {
         const newJournalContent = match[1].trim();
+        // --- THIS IS THE FIX. I removed the 'db' I incorrectly added before. ---
         await personalityService.updateJournal(personalityId, newJournalContent);
         
-        // Return the text with the command block removed.
         const cleanedText = rawText.replace(journalRegex, '').trim();
         return { cleanedText };
     }
@@ -479,9 +477,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
 
-                        // --- THIS IS THE FIX FOR THE TYPING EFFECT ---
                         if (typingSpeed > 0) {
-                            // This logic was broken. This is the correct, character-by-character implementation.
                             for (let i = 0; i < chunk.text.length; i++) {
                                 currentDisplayedText += chunk.text[i];
                                 await processDynamicCommands(currentDisplayedText, newMessage, characterId);
@@ -490,7 +486,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            // Non-typing-effect stream update
                             currentDisplayedText += chunk.text;
                             await processDynamicCommands(currentDisplayedText, newMessage, characterId);
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
@@ -499,7 +494,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     }
                 }
 
-                const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId, db);
+                const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId);
                 
                 await processDynamicCommands(cleanedText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(cleanedText), { breaks: true });
@@ -510,7 +505,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
             } catch (error) {
                 console.error("Stream error:", error);
-                const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId, db);
+                const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId);
                 await processDynamicCommands(cleanedText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(cleanedText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
