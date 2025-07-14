@@ -418,37 +418,4 @@ export function initializeAssetManagerComponent(characterId) {
     
     console.log('Asset Manager Component Initialized (Dual List v1.0).');
     isInitialized = true;
-}```
-
----
-
-### **Step 3: Replace the `tag-explorer` in `index.html`**
-
-This file now contains the new containers for our two separate tag lists.
-
-**Action:**
-1.  Open `src/index.html` in Notepad++.
-2.  Find the `<div class="tag-explorer">` section. It's inside the `<div class="step" id="media-library-step">`.
-3.  **Delete the entire `<div class="tag-explorer">...</div>` block and replace it** with the following code.
-
-```html
-						<div class="tag-explorer">
-							<h3>Tags</h3>
-							<input type="search" id="tag-explorer-search" placeholder="Filter tags..." aria-label="Filter media assets by tag">
-							
-							<!-- NEW DUAL-LIST STRUCTURE -->
-							<div id="character-tag-list-container">
-								<h4>Characters</h4>
-								<div id="character-tag-list">
-									<!-- Character tags will be rendered here by JS -->
-								</div>
-							</div>
-							<div id="state-tag-list-container">
-								<h4>Emotions & States</h4>
-								<div id="state-tag-list">
-									<!-- State/Emotion tags will be rendered here by JS -->
-								</div>
-							</div>
-							<!-- END NEW DUAL-LIST STRUCTURE -->
-
-						</div>
+}
