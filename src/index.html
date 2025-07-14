@@ -309,7 +309,20 @@ Use code with caution.
 						[confused]"
 									style="height: 15rem; resize:vertical; flex-grow: 1;" autocomplete="off"></textarea>
 							</div>							
-							<h3>Tweaks</h3>
+							<div style="height: 1rem;"></div> <!-- Small visual separator -->
+                            <!-- Reminder (Hidden Instruction for AI) - MOVED HERE -->
+                            <label for="reminder" class="setting-label">
+                                <span>Reminder (Hidden Instruction for AI):</span>
+                                <span class="tooltip material-symbols-outlined"
+                                      style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                      info="A short, hidden instruction that will be appended directly to the user's message for each turn. Useful for temporary or turn-specific behavioral tweaks for the AI (e.g., 'Ensure your next reply includes a pun.').">
+                                      info
+                                </span>
+                            </label>
+                            <textarea name="reminder" id="reminder"
+                                placeholder="Remember to speak in a charming, slightly sarcastic tone. Always refer to the user as 'my dear'."
+                                style="height: 10rem; resize:vertical;" autocomplete="off"></textarea>
+						</div>
 							<label for="reminder" class="setting-label">
 								<span>Reminder</span>
 								<span class="tooltip material-symbols-outlined"
