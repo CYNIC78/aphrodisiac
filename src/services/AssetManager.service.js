@@ -206,40 +206,92 @@ class AssetManagerService {
     }
 	
     /**
-     * Gathers all user-defined tags for a character's assets, formats them for the tagPrompt,
-     * and returns them as a newline-separated string.
-     * Image asset tags are formatted as [tag], audio asset tags as [sfx:tag].
+     * Gathers all user-defined tags for a character's assets, formats them into a comprehensive
+     * instructional prompt, and returns it as a newline-separated string.
      * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<string>} A string of formatted tags suitable for the tagPrompt.
+     * @returns {Promise<string>} A complete, formatted prompt string for the AI.
      */
     async getFormattedTagsForCharacterPrompt(characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.warn("AssetManagerService.getFormattedTagsForCharacterPrompt: characterId is required.");
-            return '';
+            return 'No assets found for this personality. Add some in the Media Library!';
         }
 
         const allAssets = await this.getAllAssetsForCharacter(characterId);
-        const formattedTags = new Set(); // Use a Set to ensure uniqueness of the formatted strings
+        const characterNames = new Set();
+        const stateTags = new Set();
 
+        // First, iterate through all assets to categorize and format tags correctly
         allAssets.forEach(asset => {
             const userTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
             userTags.forEach(userTag => {
-                if (asset.type === 'image') {
-                    // For dual-list system, we only need to show the state tag
-                    if (!userTag.startsWith('char_')) {
-                        formattedTags.add(`[${userTag}]`);
-                    }
-                } else if (asset.type === 'audio') {
-                    if (!userTag.startsWith('char_')) {
-                         formattedTags.add(`[sfx:${userTag}]`);
+                if (userTag.startsWith('char_')) {
+                    // Add the cleaned character name (e.g., "emily")
+                    characterNames.add(userTag.substring(5));
+                } else {
+                    // This is a state/emotion/sfx tag, format it with its command
+                    if (asset.type === 'image') {
+                        stateTags.add(`[${userTag}]`); // Default avatar command
+                    } else if (asset.type === 'audio') {
+                        stateTags.add(`[sfx:${userTag}]`); // Explicit sfx command
                     }
                 }
             });
         });
 
-        // Convert Set to Array, sort, and join with newlines
-        return Array.from(formattedTags).sort((a, b) => a.localeCompare(b)).join('\n');
-    }	
+        // Convert sets to sorted arrays for clean output
+        const sortedCharacterNames = Array.from(characterNames).sort();
+        const sortedStateTags = Array.from(stateTags).sort();
+
+        // --- Assemble the final prompt string ---
+        let promptLines = [
+            `---`,
+            `DYNAMIC ASSET COMMANDS (Use these in your responses!)`,
+            `---`,
+            `**These commands are for *your* actions and expressions as the character.** They are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).`,
+            ``,
+            `**How to use (Read Carefully!):**`,
+            `- For **Avatars (Visuals)**:`,
+            `  - **General Reaction:** Just type the action/emotion tag in brackets. Example: [happy]`,
+        ];
+
+        // Only add the character-specific section if there are characters defined
+        if (sortedCharacterNames.length > 0) {
+            promptLines.push(
+                `  - **Character-Specific (when multiple characters are present/possible, to specify who):** Use the format: [characterName,action/emotion].`,
+                `    * The 'characterName' MUST be one of the names from the 'Your available characters' list below (e.g., '${sortedCharacterNames[0] || 'emily'}').`,
+                `    * Example: [${sortedCharacterNames[0] || 'emily'},happy]`
+            );
+        }
+
+        promptLines.push(
+            `- For **Sound Effects (Audio):** Use 'sfx:' followed by a *single* tag. Multi-tags are NOT used for sound effects.`,
+            `  - Example: [sfx:door_opens]`,
+            ``
+        );
+
+        // Add the list of available characters if any exist
+        if (sortedCharacterNames.length > 0) {
+            promptLines.push(
+                `Your available characters are listed below:`,
+                `${sortedCharacterNames.join(', ')}`,
+                ``
+            );
+        }
+
+        // Add the list of available general asset tags
+        if (sortedStateTags.length > 0) {
+            promptLines.push(
+                `Your available asset tags are listed below:`,
+                `${sortedStateTags.join('\n')}`
+            );
+        } else if (sortedCharacterNames.length === 0) {
+            // Only show this message if there are NO tags of any kind
+            promptLines.push(`No asset tags have been assigned yet. Add some in the Media Library!`);
+        }
+
+        return promptLines.join('\n');
+    }
 }
 
 // Export a single instance of the service

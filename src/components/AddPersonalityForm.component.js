@@ -1,3 +1,5 @@
+// FILE: src/components/AddPersonalityForm.component.js
+
 import { Personality } from "../models/Personality";
 import * as personalityService from '../services/Personality.service';
 import * as stepperService from '../services/Stepper.service';
@@ -19,15 +21,12 @@ export function initializeAddPersonalityForm(personalityId = null) {
             return;
         }
 
-        // CRITICAL FIX HERE: Use addEventListener for submit to ensure 'e' (event object) is always passed
-        form.addEventListener('submit', async (e) => { // <-- CRITICAL FIX: Changed from form.submit = ...
-            e.preventDefault(); // Prevent default form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-            // Turn all the form data into a personality object
             const personality = new Personality();
             const data = new FormData(form);
             
-            // Collect form data into personality object
             for (const [key, value] of data.entries()) {
                 if (key.includes("tone-example")) {
                     if (value) {
@@ -38,7 +37,6 @@ export function initializeAddPersonalityForm(personalityId = null) {
                 if (key === 'id') {
                     continue;
                 }
-                // Handle checkboxes
                 if (key === 'internetEnabled' || key === 'roleplayEnabled') {
                     personality[key] = data.has(key);
                 } else {
@@ -46,26 +44,22 @@ export function initializeAddPersonalityForm(personalityId = null) {
                 }
             }
 
-            // Handle both edit and add cases
             const idFromForm = data.get('id');
             let finalPersonalityId = null;
 
-            if (idFromForm) { // This is an edit
+            if (idFromForm) {
                 finalPersonalityId = parseInt(idFromForm);
                 await personalityService.edit(finalPersonalityId, personality);
                 console.log(`Edited personality with ID: ${finalPersonalityId}`);
-            } else { // This is a new personality being added
+            } else {
                 finalPersonalityId = await personalityService.add(personality);
                 console.log(`Added new personality with ID: ${finalPersonalityId}`);
             }
-            // After adding/editing, update currentPersonalityId to ensure context is maintained
             currentPersonalityId = finalPersonalityId;
             
             overlayService.closeOverlay();
-            // After closing, the UI will re-render personalities, which will trigger avatar loads.
-        }); // <-- CRITICAL FIX: End of addEventListener
+        });
 
-        // This code is for setting up the `add tone example` button
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             const input = document.createElement('input');
@@ -76,7 +70,7 @@ export function initializeAddPersonalityForm(personalityId = null) {
             btn.before(input);
         });
 
-        // --- NEW: Populate Tag Prompt button listener ---
+        // --- UPGRADED: Populate Tag Prompt button listener ---
         const btnPopulateTagPrompt = document.querySelector('#btn-populate-tagprompt');
         const tagPromptTextarea = document.querySelector('#tagPrompt');
         if (btnPopulateTagPrompt && tagPromptTextarea) {
@@ -86,34 +80,16 @@ export function initializeAddPersonalityForm(personalityId = null) {
                     return;
                 }
 
-                // Define the instructional header for the AI
-                const aiInstructionHeader = `---
----
-DYNAMIC ASSET COMMANDS (Use these in your responses!)
----
-**These commands are for *your* actions and expressions as the character.** They are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
-
-**How to use (Read Carefully!):**
-- For **Avatars (Visuals)**:
-    - **General Reaction:** Just type the action/emotion tag in brackets. Example: [happy]
-    - **Character-Specific (when multiple characters are present/possible, to specify who):** Use the format: [characterName,action/emotion].
-      *   The 'characterName' MUST be one of the tags from the 'Your available asset tags' list below (e.g., 'emily', 'john').
-      *   Example: [emily,happy]
-- For **Sound Effects (Audio)**: Use 'sfx:' followed by a *single* tag. Multi-tags are NOT used for sound effects.
-    - Example: [sfx:door_opens]
-
-Your available asset tags are listed below:
-`; // Note: Trailing newline is important for formatting
-
-                const formattedTags = await assetManagerService.getFormattedTagsForCharacterPrompt(currentPersonalityId);
+                // The service now generates the entire beautiful prompt for us.
+                // Our only job is to get it and set it.
+                const fullPromptText = await assetManagerService.getFormattedTagsForCharacterPrompt(currentPersonalityId);
                 
-                // Concatenate the instruction header with the formatted tags
-                tagPromptTextarea.value = aiInstructionHeader + formattedTags;
+                tagPromptTextarea.value = fullPromptText;
+                alert('Tag Prompt populated successfully!');
             });
         }
-        // --- END NEW ---
+        // --- END UPGRADED ---
 
-	
         isInitialized = true;
         console.log("Add Personality Form Component Initialized.");
     }
