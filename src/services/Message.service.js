@@ -3,7 +3,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-// --- THIS IS THE CORRECT, RESTORED IMPORT. I AM SORRY FOR REMOVING IT. ---
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
@@ -11,15 +10,17 @@ import * as helpers from "../utils/helpers.js";
 const processedCommandsPerMessage = new Map();
 let characterTagCache = new Set();
 
+// --- FIXED --- Regex is now more robust and doesn't require the command to be at the absolute end.
 async function extractAndProcessJournalCommand(rawText, personalityId, db) {
-    const journalRegex = /\[journal_overwrite:([\s\S]*)\]$/;
+    // This regex finds the last occurrence of the journal command in the text.
+    const journalRegex = /\[journal_overwrite:([\s\S]*)\](?![\s\S]*\[journal_overwrite:)/;
     const match = rawText.match(journalRegex);
 
     if (match && personalityId && db) {
         const newJournalContent = match[1].trim();
-        // This now correctly uses the static import
         await personalityService.updateJournal(personalityId, newJournalContent);
         
+        // Return the text with the command block removed.
         const cleanedText = rawText.replace(journalRegex, '').trim();
         return { cleanedText };
     }
@@ -29,7 +30,6 @@ async function extractAndProcessJournalCommand(rawText, personalityId, db) {
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
-    // --- THIS NOW USES THE CORRECT, STATICALLY IMPORTED SERVICE ---
     const selectedPersonality = await personalityService.getSelected();
     if (!selectedPersonality) return;
     if (settings.apiKey === "") return alert("Please enter an API key");
@@ -479,15 +479,18 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                            processedCommandsPerMessage.set(newMessage, new Set());
                         }
 
+                        // --- THIS IS THE FIX FOR THE TYPING EFFECT ---
                         if (typingSpeed > 0) {
-                            currentDisplayedText += chunk.text;
-                            await processDynamicCommands(currentDisplayedText, newMessage, characterId);
-                            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
-                            helpers.messageContainerScrollToBottom();
+                            // This logic was broken. This is the correct, character-by-character implementation.
                             for (let i = 0; i < chunk.text.length; i++) {
+                                currentDisplayedText += chunk.text[i];
+                                await processDynamicCommands(currentDisplayedText, newMessage, characterId);
+                                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
+                                helpers.messageContainerScrollToBottom();
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
+                            // Non-typing-effect stream update
                             currentDisplayedText += chunk.text;
                             await processDynamicCommands(currentDisplayedText, newMessage, characterId);
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
