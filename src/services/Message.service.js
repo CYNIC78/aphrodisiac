@@ -8,7 +8,7 @@ import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 
 const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
-let characterTagCache = new Set(); // NEW: Cache for the current personality's character tags for performance.
+let characterTagCache = new Set(); // Cache for the current personality's character tags for performance.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -207,10 +207,6 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
     }
 }
 
-
-
-
-
 async function processDynamicCommands(currentText, messageElement, characterId) {
     if (characterId === null) return;
 
@@ -231,17 +227,12 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
             const valueString = match[2].trim();
             const tagsFromAI = valueString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
             
-            // --- NEW: INTELLIGENT TAG MAPPING ---
-            // This is the "fancy trimming" you envisioned!
             const mappedTags = tagsFromAI.map(tag => {
                 const prefixedTag = `char_${tag}`;
-                // Check if the prefixed version exists in our high-speed cache
                 return characterTagCache.has(prefixedTag) ? prefixedTag : tag;
             });
-            // --- END OF NEW LOGIC ---
             
             if (command && mappedTags.length > 0) {
-                // We pass the intelligently mapped tags to the command executor
                 await executeCommandAction(command, mappedTags, messageElement, characterId);
                 processedTags.add(fullTagString);
             }
@@ -254,10 +245,12 @@ function setupMessageEditing(messageElement, db) {
     const saveButton = messageElement.querySelector('.btn-save');
     const deleteButton = messageElement.querySelector('.btn-delete');
     const refreshButton = messageElement.querySelector('.btn-refresh');
+    const replayButton = messageElement.querySelector('.btn-replay'); // New button
     const messageTextDiv = messageElement.querySelector('.message-text');
 
     if (!messageTextDiv) return;
 
+    // Edit and Save Logic
     if (editButton && saveButton) {
         editButton.addEventListener('click', async () => {
             const index = parseInt(messageElement.dataset.messageIndex, 10);
@@ -279,6 +272,7 @@ function setupMessageEditing(messageElement, db) {
             saveButton.style.display = 'inline-block';
         });
 
+        // MODIFIED: Save button now just saves and updates visuals, no replay.
         saveButton.addEventListener('click', async () => {
             messageTextDiv.removeAttribute("contenteditable");
             const newRawText = messageTextDiv.innerText;
@@ -286,26 +280,40 @@ function setupMessageEditing(messageElement, db) {
 
             await updateMessageInDatabase(index, newRawText, db);
 
+            // Just update the display with the new rendered markdown.
+            const newHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
+            messageTextDiv.innerHTML = newHtml;
+            hljs.highlightAll(); // Re-apply syntax highlighting
+
+            editButton.style.display = 'inline-block';
+            saveButton.style.display = 'none';
+        });
+    }
+    
+    // NEW: Replay Button Logic
+    if (replayButton) {
+        replayButton.addEventListener('click', async () => {
+            const index = parseInt(messageElement.dataset.messageIndex, 10);
             const chat = await chatsService.getCurrentChat(db);
             const messageData = chat.content[index];
+
+            if (!messageData) {
+                console.error("Could not find message data to replay for index:", index);
+                return;
+            }
+
+            const rawTextToReplay = messageData.parts[0].text;
             const characterId = messageData?.personalityid;
             const sender = messageData?.role;
 
-            // --- FIX ---
-            // Repopulate the character tag cache before re-typing the message.
-            // This ensures the intelligent `char_` prefixing works during the "replay".
             if (characterId) {
                 const { assetManagerService } = await import('./AssetManager.service.js');
                 const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(characterId);
                 characterTagCache = new Set(characterTags.characters);
             }
-            // --- END FIX ---
 
             const settings = settingsService.getSettings();
-            await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
-
-            editButton.style.display = 'inline-block';
-            saveButton.style.display = 'none';
+            await retypeMessage(messageElement, rawTextToReplay, characterId, settings.typingSpeed, sender);
         });
     }
 
@@ -407,6 +415,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-replay btn-textual material-symbols-outlined">replay</button>
                     <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
                     <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>
@@ -483,6 +492,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    <button class="btn-replay btn-textual material-symbols-outlined">replay</button>
                     <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
                     <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>
