@@ -1220,7 +1220,49 @@ button {
 }
 
 .asset-card-inline.selected-asset {
-    border: 2px solid var(--accent-color); /* Highlight color */
+    border: 4px solid var(--accent-color); /* Highlight color */
     box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.5); /* Glowing effect */
-    transform: scale(1.02); /* Slightly enlarge */
+    transform: scale(1.05); /* Slightly enlarge */
+}
+
+
+
+/* src/styles/main.css */
+
+/* --- DUAL TAG LIST STYLES --- */
+.tag-explorer h4 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-color-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.25rem;
+}
+
+#character-tag-list-container {
+    border-bottom: 2px solid var(--border-color-heavy);
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+#character-tag-list, #state-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Make character tags stand out more */
+.tag-explorer-item.tag-character {
+    background-color: var(--accent-color-dark);
+    color: var(--text-color-bright);
+    font-weight: bold;
+    border: 1px solid var(--accent-color);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    padding: 0.4rem 0.8rem; /* Make them a bit bigger */
+}
+
+.tag-explorer-item.tag-character:hover {
+    background-color: var(--accent-color);
+    transform: scale(1.02);
 }
