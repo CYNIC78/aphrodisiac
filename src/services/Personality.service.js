@@ -421,3 +421,13 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
         imgElement.src = personality.image; // Ensure image is set to fallback on error
     }
 }
+
+
+
+// In: src/services/Personality.service.js
+
+// Add this new exported function anywhere in the file.
+export async function get(id) {
+    const db = dbService.getDb();
+    return await db.personalities.get(id);
+}
