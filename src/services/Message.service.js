@@ -7,24 +7,8 @@ import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 
-const processedCommandsPerMessage = new Map();
-let characterTagCache = new Set();
-
-async function extractAndProcessJournalCommand(rawText, personalityId) { // Removed db parameter
-    const journalRegex = /\[journal_overwrite:([\s\S]*)\](?![\s\S]*\[journal_overwrite:)/;
-    const match = rawText.match(journalRegex);
-
-    if (match && personalityId) {
-        const newJournalContent = match[1].trim();
-        // --- THIS IS THE FIX. I removed the 'db' I incorrectly added before. ---
-        await personalityService.updateJournal(personalityId, newJournalContent);
-        
-        const cleanedText = rawText.replace(journalRegex, '').trim();
-        return { cleanedText };
-    }
-    return { cleanedText: rawText };
-}
-
+const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
+let characterTagCache = new Set(); // Cache for the current personality's character tags for performance.
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
@@ -52,6 +36,7 @@ export async function send(msg, db) {
         document.querySelector(`#chat${id}`).click();
     }
     
+    // Populate character cache for this new chat/personality
     const { assetManagerService } = await import('./AssetManager.service.js');
     const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(selectedPersonality.id);
     characterTagCache = new Set(characterTags.characters);
@@ -76,25 +61,13 @@ export async function send(msg, db) {
 
         ---
 
-        TECHNICAL INSTRUCTIONS (How to use your tools. These instructions are hidden from the user):
-    
-        TAG PROMPT (Reference for media commands. Use [command:value] format):
+        TAG PROMPT (Your technical command reference - no separators needed, just [command:value]):
         ${selectedPersonality.tagPrompt || 'No specific command tags have been provided for this character.'}
-
-        JOURNAL PROMPT (Reference for your private journal. Use [journal_overwrite: your new notes here] command at the very end of your message to update your notes. The command will be hidden.):
-        ${selectedPersonality.journalPrompt || 'No specific journal instructions provided.'}
-
-        ---
-
-        CURRENT JOURNAL CONTENT (Your private notes. This is hidden from the user.):
-        <current_journal_content>
-        ${selectedPersonality.journal || 'Your journal is currently empty.'}
-        </current_journal_content>
     `.trim();
 
     const history = [
         { role: "user", parts: [{ text: masterInstruction }] },
-        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags and journal as instructed." }] }
+        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags as instructed." }] }
     ];
 
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
@@ -248,11 +221,9 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     commandRegex.lastIndex = 0;
     while ((match = commandRegex.exec(currentText)) !== null) {
         const fullTagString = match[0];
-        const command = (match[1] || 'avatar').trim().toLowerCase();
-        
-        if (command === 'journal_overwrite') continue;
 
         if (!processedTags.has(fullTagString)) {
+            const command = (match[1] || 'avatar').trim().toLowerCase();
             const valueString = match[2].trim();
             const tagsFromAI = valueString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
             
@@ -274,11 +245,12 @@ function setupMessageEditing(messageElement, db) {
     const saveButton = messageElement.querySelector('.btn-save');
     const deleteButton = messageElement.querySelector('.btn-delete');
     const refreshButton = messageElement.querySelector('.btn-refresh');
-    const replayButton = messageElement.querySelector('.btn-replay');
+    const replayButton = messageElement.querySelector('.btn-replay'); // New button
     const messageTextDiv = messageElement.querySelector('.message-text');
 
     if (!messageTextDiv) return;
 
+    // Edit and Save Logic
     if (editButton && saveButton) {
         editButton.addEventListener('click', async () => {
             const index = parseInt(messageElement.dataset.messageIndex, 10);
@@ -300,6 +272,7 @@ function setupMessageEditing(messageElement, db) {
             saveButton.style.display = 'inline-block';
         });
 
+        // MODIFIED: Save button now just saves and updates visuals, no replay.
         saveButton.addEventListener('click', async () => {
             messageTextDiv.removeAttribute("contenteditable");
             const newRawText = messageTextDiv.innerText;
@@ -307,15 +280,17 @@ function setupMessageEditing(messageElement, db) {
 
             await updateMessageInDatabase(index, newRawText, db);
 
+            // Just update the display with the new rendered markdown.
             const newHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
             messageTextDiv.innerHTML = newHtml;
-            hljs.highlightAll();
+            hljs.highlightAll(); // Re-apply syntax highlighting
 
             editButton.style.display = 'inline-block';
             saveButton.style.display = 'none';
         });
     }
     
+    // NEW: Replay Button Logic
     if (replayButton) {
         replayButton.addEventListener('click', async () => {
             const index = parseInt(messageElement.dataset.messageIndex, 10);
@@ -453,6 +428,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             requestAnimationFrame(() => {
                 pfpElement.src = pfpSrc;
                 pfpElement.onerror = () => {
+                    console.error("Failed to load initial personality avatar:", pfpSrc);
                     pfpElement.src = './assets/default_avatar.png';
                 };
             });
@@ -486,41 +462,37 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            currentDisplayedText += chunk.text;
-                            await processDynamicCommands(currentDisplayedText, newMessage, characterId);
-                            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
+                            await processDynamicCommands(fullRawText, newMessage, characterId);
+                            messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                             helpers.messageContainerScrollToBottom();
                         }
                     }
                 }
 
-                const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId);
-                
-                await processDynamicCommands(cleanedText, newMessage, characterId);
-                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(cleanedText), { breaks: true });
+                await processDynamicCommands(fullRawText, newMessage, characterId);
+                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
                 hljs.highlightAll();
                 setupMessageEditing(newMessage, db);
-                return { HTML: messageContent.innerHTML, md: cleanedText };
-
+                return { HTML: messageContent.innerHTML, md: fullRawText };
             } catch (error) {
                 console.error("Stream error:", error);
-                const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId);
-                await processDynamicCommands(cleanedText, newMessage, characterId);
-                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(cleanedText), { breaks: true });
+                await processDynamicCommands(fullRawText, newMessage, characterId);
+                messageContent.innerHTML = marked.parse(wrapCommandsInSpan(fullRawText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
                 hljs.highlightAll();
                 setupMessageEditing(newMessage, db);
-                return { HTML: messageContent.innerHTML, md: cleanedText };
+                return { HTML: messageContent.innerHTML, md: fullRawText };
             }
         }
-    } else {
+    } else { // User message
         newMessage.innerHTML = `
             <div class="message-header">
                 <h3 class="message-role">You:</h3>
                 <div class="message-actions">
-                    <button class="btn-edit btn-textual material-symbols-outlined">edit</button>                    
+                    <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
+                    
                     <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
                     <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>

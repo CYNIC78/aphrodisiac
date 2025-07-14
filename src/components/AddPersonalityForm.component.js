@@ -1,9 +1,9 @@
 // FILE: src/components/AddPersonalityForm.component.js
 
-import { Personality } from "../models/Personality.js";
-import * as personalityService from '../services/Personality.service.js';
-import * as stepperService from '../services/Stepper.service.js';
-import * as overlayService from '../services/Overlay.service.js';
+import { Personality } from "../models/Personality";
+import * as personalityService from '../services/Personality.service';
+import * as stepperService from '../services/Stepper.service';
+import * as overlayService from '../services/Overlay.service';
 import { initializeAssetManagerComponent } from './AssetManager.component.js';
 import { assetManagerService } from '../services/AssetManager.service.js';
 
@@ -11,6 +11,7 @@ let isInitialized = false;
 let currentPersonalityId = null;
 
 export function initializeAddPersonalityForm(personalityId = null) {
+    // Only initialize event listeners once
     if (!isInitialized) {
         const form = document.querySelector("#form-add-personality");
         const btn = document.querySelector('#btn-add-tone-example');
@@ -36,8 +37,6 @@ export function initializeAddPersonalityForm(personalityId = null) {
                 if (key === 'id') {
                     continue;
                 }
-                // This logic is from your original file and is correct.
-                // It correctly handles checkboxes, unlike my previous buggy version.
                 if (key === 'internetEnabled' || key === 'roleplayEnabled') {
                     personality[key] = data.has(key);
                 } else {
@@ -49,9 +48,8 @@ export function initializeAddPersonalityForm(personalityId = null) {
             let finalPersonalityId = null;
 
             if (idFromForm) {
-                finalPersonalityId = parseInt(idFromForm, 10);
-                personality.id = finalPersonalityId;
-                await personalityService.update(personality);
+                finalPersonalityId = parseInt(idFromForm);
+                await personalityService.edit(finalPersonalityId, personality);
                 console.log(`Edited personality with ID: ${finalPersonalityId}`);
             } else {
                 finalPersonalityId = await personalityService.add(personality);
@@ -59,7 +57,6 @@ export function initializeAddPersonalityForm(personalityId = null) {
             }
             currentPersonalityId = finalPersonalityId;
             
-            // --- THIS IS THE FIX. I REMOVED MY STUPID .default ERROR ---
             overlayService.closeOverlay();
         });
 
@@ -73,6 +70,7 @@ export function initializeAddPersonalityForm(personalityId = null) {
             btn.before(input);
         });
 
+        // --- UPGRADED: Populate Tag Prompt button listener ---
         const btnPopulateTagPrompt = document.querySelector('#btn-populate-tagprompt');
         const tagPromptTextarea = document.querySelector('#tagPrompt');
         if (btnPopulateTagPrompt && tagPromptTextarea) {
@@ -81,19 +79,28 @@ export function initializeAddPersonalityForm(personalityId = null) {
                     alert("Please save the personality first (by clicking 'Submit' on the last step) to enable tag population. Once saved, you can edit it to populate the tags.");
                     return;
                 }
+
+                // The service now generates the entire beautiful prompt for us.
+                // Our only job is to get it and set it.
                 const fullPromptText = await assetManagerService.getFormattedTagsForCharacterPrompt(currentPersonalityId);
+                
                 tagPromptTextarea.value = fullPromptText;
                 alert('Tag Prompt populated successfully!');
             });
         }
+        // --- END UPGRADED ---
 
         isInitialized = true;
         console.log("Add Personality Form Component Initialized.");
     }
 
+    // Set the current personality ID whenever the form is (re)initialized/opened
     currentPersonalityId = personalityId;
+    
+    // Pass the current personality ID to the Asset Manager component for context
     initializeAssetManagerComponent(currentPersonalityId);
     
+    // If it's a new personality form, make sure the ID field is clear
     const idInput = document.querySelector("#form-add-personality input[name='id']");
     if (idInput) {
         idInput.value = personalityId !== null ? personalityId.toString() : '';

@@ -859,6 +859,10 @@ button {
     opacity: 0.6;
 }
 
+/* ================================================= */
+/* === ASSET MANAGER GRID STYLES (v11.0 - Framed) === */
+/* ================================================= */
+
 #asset-manager-gallery {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -905,6 +909,7 @@ button {
     font-size: 48px;
 }
 
+/* NEW: Top overlay for system tags */
 .asset-card-top-overlay {
     position: absolute;
     top: 0;
@@ -918,6 +923,7 @@ button {
     z-index: 1;
 }
 
+/* NEW: Bottom overlay for the filename */
 .asset-card-bottom-overlay {
     position: absolute;
     bottom: 0;
@@ -1025,6 +1031,10 @@ button {
     background-color: #8b2828;
 }
 
+/* ================================================= */
+/* === ASSET MANAGER GRID STYLES (v11.0 - Framed) === */
+/* ================================================= */
+
 @media (prefers-color-scheme: dark) {
     .tag-explorer { background-color: rgba(0,0,0,0.2); }
     #asset-manager-gallery { border-color: rgba(255, 255, 255, 0.1); }
@@ -1035,6 +1045,7 @@ button {
     .asset-card-inline-delete-btn { background-color: #a43131; color: #ffffff; }
     .asset-card-inline-delete-btn:hover { background-color: #8b2828; }
     .asset-card-inline-preview { background-color: rgba(0,0,0,0.2); }
+    /* Custom triggers in dark mode */
     .tag-pill:not(.tag-system) { background-color: #5f96c8; color: #0b2469; }
     .remove-tag:hover { background-color: rgba(0,0,0,0.5); }
     .asset-card-inline-input { border-color: rgba(255,255,255,0.2); }
@@ -1051,6 +1062,7 @@ button {
     .asset-card-inline-delete-btn:hover { background-color: #c9302c; }
     .asset-card-inline-preview { background-color: rgba(0,0,0,0.05); }
     .tag-pill.tag-system { background-color: rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.2); color: rgba(255,255,255,0.9); text-shadow: 1px 1px 1px rgba(0,0,0,0.5); }
+    /* Custom triggers in light mode */
     .tag-pill:not(.tag-system) { background-color: #4c7cbe; color: #edf1f8; }
     .remove-tag:hover { background-color: rgba(0,0,0,0.1); }
     .asset-card-inline-input { border-color: rgba(0,0,0,0.2); }
@@ -1152,6 +1164,7 @@ button {
     transition: none; 
 }
 
+/* --- Command Tag Visibility Engine --- */
 .command-block {
     display: none;
 }
@@ -1194,10 +1207,11 @@ button {
 }
 
 
+/* --- ASSET MANAGER SELECTION --- */
 .asset-card-inline {
-    cursor: pointer;
+    cursor: pointer; /* Indicate clickable */
     transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, border 0.15s ease-out;
-    border: 2px solid transparent; 
+    border: 2px solid transparent; /* Default transparent border */
 }
 
 .asset-card-inline:hover {
@@ -1206,11 +1220,16 @@ button {
 }
 
 .asset-card-inline.selected-asset {
-    border: 4px solid var(--accent-color); 
-    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.5); 
-    transform: scale(1.05);
+    border: 4px solid var(--accent-color); /* Highlight color */
+    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.5); /* Glowing effect */
+    transform: scale(1.05); /* Slightly enlarge */
 }
 
+
+
+/* src/styles/main.css */
+
+/* --- DUAL TAG LIST STYLES --- */
 .tag-explorer h4 {
     margin-top: 1rem;
     margin-bottom: 0.5rem;
@@ -1233,13 +1252,14 @@ button {
     gap: 0.5rem;
 }
 
+/* Make character tags stand out more */
 .tag-explorer-item.tag-character {
     background-color: var(--accent-color-dark);
     color: var(--text-color-bright);
     font-weight: bold;
     border: 1px solid var(--accent-color);
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    padding: 0.4rem 0.8rem; 
+    padding: 0.4rem 0.8rem; /* Make them a bit bigger */
 }
 
 .tag-explorer-item.tag-character:hover {
@@ -1247,50 +1267,21 @@ button {
     transform: scale(1.02);
 }
 
+/* --- ASSET MANAGER HEADER ALIGNMENT --- */
 .gallery-header {
     display: flex;
-    justify-content: space-between; 
+    justify-content: space-between; /* Pushes title to the left and buttons to the right */
     align-items: center;
-    gap: 1rem;
+    gap: 1rem; /* Space between title and button group */
 }
 
 .header-button-group {
     display: flex;
     align-items: center;
-    gap: 1.5rem; 
+    gap: 1.5rem; /* Creates space between the bulk actions and the upload button */
 }
 
 .gallery-actions {
     display: flex;
-    gap: 0.5rem; 
-}
-
-.form-divider {
-    border: none;
-    height: 1px;
-    margin: 2rem 0 1.5rem 0; 
-}
-
-@media (prefers-color-scheme: light) {
-    .form-divider {
-        background-color: #54545428; 
-    }
-}
-
-@media (prefers-color-scheme: dark) {
-    .form-divider {
-        background-color: #b6b6b62f; 
-    }
-}
-
-/* --- THIS IS THE FIX --- */
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem; /* Standard gap between label and input */
-}
-
-.form-group textarea {
-    width: 100%;
-    box-sizing: border-box; /* Ensures padding doesn't break the layout */
+    gap: 0.5rem; /* Space between the individual bulk action buttons */
 }
