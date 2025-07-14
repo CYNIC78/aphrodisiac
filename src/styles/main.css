@@ -1266,3 +1266,22 @@ button {
     background-color: var(--accent-color);
     transform: scale(1.02);
 }
+
+/* --- ASSET MANAGER HEADER ALIGNMENT --- */
+.gallery-header {
+    display: flex;
+    justify-content: space-between; /* Pushes title to the left and buttons to the right */
+    align-items: center;
+    gap: 1rem; /* Space between title and button group */
+}
+
+.header-button-group {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem; /* Creates space between the bulk actions and the upload button */
+}
+
+.gallery-actions {
+    display: flex;
+    gap: 0.5rem; /* Space between the individual bulk action buttons */
+}

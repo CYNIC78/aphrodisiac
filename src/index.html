@@ -372,31 +372,40 @@ To show an avatar you tagged 'confused':
 
 								</div>
 								<div class="gallery-main">
+
+
 									<div class="gallery-header">
 										<h3 id="gallery-title">All Assets</h3>
-										<div class="gallery-actions"> <!-- NEW: Container for action buttons -->
-											<button type="button" class="btn-with-icon" id="btn-select-all-assets">
-												<span class="material-symbols-outlined">select_all</span>
-												Select All
-											</button>
-											<button type="button" class="btn-with-icon" id="btn-deselect-all-assets">
-												<span class="material-symbols-outlined">deselect</span>
-												Deselect All
-											</button>
-											<button type="button" class="btn-with-icon" id="btn-add-tag-selected" disabled>
-												<span class="material-symbols-outlined">label</span>
-												Add Tag to Selected
-											</button>
-											<button type="button" class="btn-with-icon btn-danger" id="btn-delete-selected-assets" disabled>
-												<span class="material-symbols-outlined">delete</span>
-												Delete Selected
+										<!-- NEW: Wrapper for all buttons -->
+										<div class="header-button-group">
+											<div class="gallery-actions">
+												<button type="button" class="btn-with-icon" id="btn-select-all-assets">
+													<span class="material-symbols-outlined">select_all</span>
+													Select All
+												</button>
+												<button type="button" class="btn-with-icon" id="btn-deselect-all-assets">
+													<span class="material-symbols-outlined">deselect</span>
+													Deselect All
+												</button>
+												<button type="button" class="btn-with-icon" id="btn-add-tag-selected" disabled>
+													<span class="material-symbols-outlined">label</span>
+													Add Tag to Selected
+												</button>
+												<button type="button" class="btn-with-icon btn-danger" id="btn-delete-selected-assets" disabled>
+													<span class="material-symbols-outlined">delete</span>
+													Delete Selected
+												</button>
+											</div>
+											<button type="button" class="btn-with-icon" id="btn-upload-asset">
+												<span class="material-symbols-outlined">upload_file</span>
+												Upload
 											</button>
 										</div>
-										<button type="button" class="btn-with-icon" id="btn-upload-asset">
-											<span class="material-symbols-outlined">upload_file</span>
-											Upload
-										</button>
 									</div>
+
+
+
+
 									<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
 									<div id="asset-manager-gallery">
 										<!-- Asset cards will be injected here by JS -->
