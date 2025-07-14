@@ -1282,3 +1282,15 @@ button {
         background-color: #b6b6b62f; 
     }
 }
+
+/* --- THIS IS THE FIX --- */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Standard gap between label and input */
+}
+
+.form-group textarea {
+    width: 100%;
+    box-sizing: border-box; /* Ensures padding doesn't break the layout */
+}
