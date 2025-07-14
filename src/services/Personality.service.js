@@ -336,6 +336,7 @@ export async function update(personality) {
     }
 }
 
+// Replace the entire function with this correct version
 export function generateCard(personality) {
     const card = document.createElement("label");
     card.classList.add("card-personality");
@@ -385,18 +386,28 @@ export function generateCard(personality) {
                 remove(personality.id).then(() => card.remove());
             }
         }));
-        // CORRECTED CALL
-        card.querySelector(".btn-edit-card").addEventListener("click", (e) => handleButtonClick(e, () => overlayService.showEditPersonalityForm(personality)));
-        // CORRECTED CALL
+        
+        card.querySelector(".btn-edit-card").addEventListener("click", (e) => handleButtonClick(e, () => {
+            // This now correctly calls the service without ".default"
+            overlayService.showEditPersonalityForm(personality)
+        }));
+        
+        // --- THIS IS THE CORRECTED LOGIC FOR THE MEDIA LIBRARY BUTTON ---
         card.querySelector(".btn-media-library-card").addEventListener("click", (e) => handleButtonClick(e, () => {
+            // 1. Open the form overlay
             overlayService.showEditPersonalityForm(personality);
+            
+            // 2. Wait for the DOM to update
             setTimeout(() => {
-                const stepper = document.querySelector('.stepper-container[data-stepper-id="personality-form-stepper"]');
+                // 3. Get the stepper's state object using the service
+                const stepper = stepperService.get('stepper-add-personality');
                 if (stepper) {
-                   const stepButtons = stepper.querySelectorAll('[data-step-target]');
-                   if(stepButtons.length > 3) stepButtons[3].click();
+                   // 4. Set the step to 3 (the 4th step)
+                   stepper.step = 3;
+                   // 5. Tell the service to update the UI
+                   stepperService.update(stepper);
                 }
-            }, 50);
+            }, 50); // 50ms is enough time for the overlay to render
         }));
     }
     

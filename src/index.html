@@ -170,9 +170,6 @@
                         </div>
                     </div>
 
-                    <!-- ========================== -->
-                    <!-- == NEW TRIGGER SETTINGS == -->
-                    <!-- ========================== -->
                     <h3>Trigger System</h3>
                     <div class="trigger-settings">
                         <div class="trigger-symbols-wrapper">
@@ -208,9 +205,6 @@
                             </div>
                         </div>
                     </div>
-                    <!-- ========================== -->
-                    <!-- == END TRIGGER SETTINGS == -->
-                    <!-- ========================== -->
                 </div>
             </div>
 
@@ -220,7 +214,6 @@
             </div>
         </div>
         
-        <!-- NEW: This is the draggable handle for the sidebar -->
         <div id="sidebar-resizer"></div>
 
         <div id="mainContent">
@@ -259,22 +252,18 @@
 								<span>Personality</span>
 								<span class="tooltip material-symbols-outlined"
 									style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-									info="This is personality's core identity, role, and overarching behavioral directives. You can also include instructions here for the AI to manage its private, hidden 'AI Journal' using the [journal:set:YOUR_NOTES] command. This allows the AI to track game state, hidden character traits, and plot points that are not visible to you.">
+									info="This is personality's core identity, role, and overarching behavioral directives.">
 										info
 								</span>
 							</label>	
 							<textarea type="text" name="prompt" id="prompt"
 								placeholder="You are to act as main character from the Mario video game series..."
 								style="height: 25rem; resize:vertical" autocomplete="off"></textarea>
-
-
 						</div>
 						<div class="step">
 							<!-- AI Directives Step -->
 							<h3>AI Directives</h3>
-							<!-- REVISED: The label itself is now a flex container -->
 							<label for="tagPrompt" class="setting-label" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 0.5rem;">
-								<!-- Left side: Tag Prompt text and tooltip (wrapped in a span for grouping) -->
 								<span style="display: flex; align-items: center; gap: 0.5rem;">
 									<span>Tag Prompt</span>
 									<span class="material-symbols-outlined tooltip" 
@@ -283,36 +272,15 @@
 											info
 									</span> 
 								</span>
-								<!-- Right side: Populate button -->
 								<button type="button" id="btn-populate-tagprompt" class="btn-with-icon tooltip"
 										info="Click to automatically list all custom tags assigned to your assets in the Tag Prompt">
 									<span class="material-symbols-outlined">auto_fix</span>
 									Populate
 								</button>
 							</label>
-							<!-- The textarea's wrapper div no longer contains the button -->
 							<div style="display: flex; align-items: flex-end; gap: 0.5rem; width: 100%;">
 								<textarea name="tagPrompt" id="tagPrompt"
-									placeholder="Teach the AI how to use your assets.
-
-• AVATARS ARE THE DEFAULT. Just write the trigger in brackets.
-• For other media (like sounds), specify the command.
-
-EXAMPLES:
-To change to an avatar you tagged 'smiling':
-[smiling]
-
-To change to an avatar of Emily that is 'happy':
-[emily,happy]
-
-To change to an avatar of John that is 'surprised':
-[john,happy]
-
-To play a sound you tagged 'door_opens':
-[sfx:door_opens]
-
-To show an avatar you tagged 'confused':
-[confused]"
+									placeholder="Teach the AI how to use your assets..."
 									style="height: 25rem; resize:vertical; flex-grow: 1;" autocomplete="off"></textarea>
 							</div>							
 							<h3></h3>
@@ -320,20 +288,16 @@ To show an avatar you tagged 'confused':
 								<span>Reminder</span>
 								<span class="tooltip material-symbols-outlined"
 									  style="font-size: 0.885rem; opacity: 0.6; cursor:default"
-									  info="A short, hidden instruction that will be appended directly to the user's message for each turn. Useful for temporary or turn-specific behavioral tweaks for the AI (e.g., 'Ensure your next reply includes a pun.').">
+									  info="A short, hidden instruction that will be appended directly to the user's message for each turn. Useful for temporary or turn-specific behavioral tweaks for the AI.">
 									  info
 								</span>
 							</label>
 							<textarea name="reminder" id="reminder"
-								placeholder="Remember to speak in a charming, slightly sarcastic tone. Always refer to the user as 'my dear'."
+								placeholder="Remember to speak in a charming, slightly sarcastic tone."
 								style="height: 10rem; resize:vertical;" autocomplete="off"></textarea>
 						</div>
-
-
-
-
 						<div class="step">
-							<!-- Tone Examples Step -->
+							<!-- Tone Examples & Journal Step -->
 							<div>
 								<h3 style="display:inline">Tone Examples</h3>
 								<span style="opacity: 60%; font-size: 90%; font-style: italic;">Optional</span>
@@ -342,41 +306,56 @@ To show an avatar you tagged 'confused':
 								placeholder="I'm a plumber, not a doctor. Lets-a go!" aria-label="Tone Example 1">
 							<button type="button" id="btn-add-tone-example"
 								class="material-symbols-outlined">add_circle</button>
+
+                            <!-- HERE ARE THE NEW JOURNAL FIELDS, CORRECTLY PLACED -->
+                            <div class="form-group" style="margin-top: 2rem;">
+                                <label for="journalPrompt" class="setting-label">
+                                    <span>Journal Prompt</span>
+                                    <span class="tooltip material-symbols-outlined"
+                                          style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                          info="Instructions for the AI on how to manage its own internal journal. Tell it what to remember and how to update its notes using the [journal_overwrite:...] command.">
+                                          info
+                                    </span>
+                                </label>
+                                <textarea name="journalPrompt" id="journalPrompt"
+                                    placeholder="e.g., You must keep a private journal of key facts about the story. Update it using the [journal_overwrite:...] command after every message where the user provides new information."
+                                    style="height: 10rem; resize:vertical;" autocomplete="off"></textarea>
+                            </div>
+                            
+                            <div class="form-group" style="margin-top: 1rem;">
+                                <label for="journal" class="setting-label">
+                                    <span>AI Journal (Editable)</span>
+                                    <span class="tooltip material-symbols-outlined"
+                                          style="font-size: 0.885rem; opacity: 0.6; cursor:default"
+                                          info="This is the AI's private memory. The AI updates this itself during conversation. You can view, edit, or clear its contents here to manually adjust its memory.">
+                                          info
+                                    </span>
+                                </label>
+                                <textarea name="journal" id="journal"
+                                    placeholder="The AI's private notes will appear here..."
+                                    style="height: 15rem; resize:vertical;" autocomplete="off"></textarea>
+                            </div>
 						</div>
 						
-						<!-- ================================== -->
-						<!-- ==  REBUILT MEDIA LIBRARY STEP  == -->
-						<!-- ================================== -->
-
-
 						<div class="step" id="media-library-step">
+							<!-- Media Library Step -->
 							<div class="media-library-layout">
 								<div class="tag-explorer">
 									<h3>Tags</h3>
 									<input type="search" id="tag-explorer-search" placeholder="Filter tags..." aria-label="Filter media assets by tag">
 									
-									<!-- NEW DUAL-LIST STRUCTURE -->
 									<div id="character-tag-list-container">
 										<h4>Characters</h4>
-										<div id="character-tag-list">
-											<!-- Character tags will be rendered here by JS -->
-										</div>
+										<div id="character-tag-list"></div>
 									</div>
 									<div id="state-tag-list-container">
 										<h4>Emotions & States</h4>
-										<div id="state-tag-list">
-											<!-- State/Emotion tags will be rendered here by JS -->
-										</div>
+										<div id="state-tag-list"></div>
 									</div>
-									<!-- END NEW DUAL-LIST STRUCTURE -->
-
 								</div>
 								<div class="gallery-main">
-
-
 									<div class="gallery-header">
 										<h3 id="gallery-title">All Assets</h3>
-										<!-- NEW: Wrapper for all buttons -->
 										<div class="header-button-group">
 											<div class="gallery-actions">
 												<button type="button" class="btn-with-icon" id="btn-select-all-assets">
@@ -402,19 +381,11 @@ To show an avatar you tagged 'confused':
 											</button>
 										</div>
 									</div>
-
-
-
-
 									<input type="file" id="asset-upload-input" multiple accept="image/*,audio/*" style="display: none;">
-									<div id="asset-manager-gallery">
-										<!-- Asset cards will be injected here by JS -->
-									</div>
+									<div id="asset-manager-gallery"></div>
 								</div>
 							</div>
 						</div>
-
-
 					</div>
 					<div class="stepper-footer">
 						<button id="btn-stepper-previous" type="button">Previous</button>
@@ -425,7 +396,6 @@ To show an avatar you tagged 'confused':
 				</div>
 			</form>
 
-			<!-- The What's New View remains unchanged -->
 			<div id="whats-new">
 				<h1 id="header-version">What's New in </h1>
 				<ul id="changelog">

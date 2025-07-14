@@ -11,7 +11,6 @@ let isInitialized = false;
 let currentPersonalityId = null;
 
 export function initializeAddPersonalityForm(personalityId = null) {
-    // Only initialize event listeners once
     if (!isInitialized) {
         const form = document.querySelector("#form-add-personality");
         const btn = document.querySelector('#btn-add-tone-example');
@@ -24,7 +23,6 @@ export function initializeAddPersonalityForm(personalityId = null) {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Your FormData implementation is excellent and already picks up the new fields.
             const personality = new Personality();
             const data = new FormData(form);
             
@@ -36,32 +34,33 @@ export function initializeAddPersonalityForm(personalityId = null) {
                     continue;
                 }
                 if (key === 'id') {
-                    // We handle the ID separately below.
                     continue;
                 }
-                // This part handles our new textareas `journal` and `journalPrompt` automatically.
-                personality[key] = value;
+                // This logic is from your original file and is correct.
+                // It correctly handles checkboxes, unlike my previous buggy version.
+                if (key === 'internetEnabled' || key === 'roleplayEnabled') {
+                    personality[key] = data.has(key);
+                } else {
+                    personality[key] = value;
+                }
             }
 
             const idFromForm = data.get('id');
             let finalPersonalityId = null;
 
-            // --- MODIFIED BLOCK ---
-            // This now correctly calls the `update` function in the service.
             if (idFromForm) {
                 finalPersonalityId = parseInt(idFromForm, 10);
-                personality.id = finalPersonalityId; // Set the ID on the personality object
-                await personalityService.update(personality); // Call update with the complete object
+                personality.id = finalPersonalityId;
+                await personalityService.update(personality);
                 console.log(`Edited personality with ID: ${finalPersonalityId}`);
             } else {
                 finalPersonalityId = await personalityService.add(personality);
                 console.log(`Added new personality with ID: ${finalPersonalityId}`);
             }
-            // --- END MODIFIED BLOCK ---
-
             currentPersonalityId = finalPersonalityId;
             
-            overlayService.default.closeOverlay();
+            // --- THIS IS THE FIX. I REMOVED MY STUPID .default ERROR ---
+            overlayService.closeOverlay();
         });
 
         btn.addEventListener('click', (e) => {
