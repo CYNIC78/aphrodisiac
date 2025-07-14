@@ -4,6 +4,8 @@ import * as messageService from "./Message.service.js";
 import * as helpers from "../utils/helpers.js";
 import * as personalityService from "./Personality.service.js";
 import * as settingsService from "./Settings.service.js";
+// --- NEW --- Import the asset manager service to fetch avatars
+import { assetManagerService } from "./AssetManager.service.js";
 
 const messageContainer = document.querySelector(".message-container");
 const chatHistorySection = document.querySelector("#chatHistorySection");
@@ -62,8 +64,6 @@ export async function initialize(db) {
         if (radioButton) {
             radioButton.click(); // This will trigger the change listener, load the chat, and save its ID
         } else {
-            // This case implies the chat entry was not inserted, which shouldn't happen if foundChat was true.
-            // As a fallback, ensure a new chat is started and settings updated.
             console.warn(`Radio button for chat ID ${chatToLoadId} not found. Starting a new chat.`);
             newChat();
         }
@@ -115,7 +115,6 @@ function insertChatEntry(chat, db) {
 
 
     chatRadioButton.addEventListener("change", async () => {
-        // NEW: Save the active chat ID to settings
         settingsService.setActiveChatId(chat.id);
         await loadChat(chat.id, db);
         if (window.innerWidth < 1032) {
@@ -137,10 +136,9 @@ export async function addChat(title, firstMessage = null, db) {
     insertChatEntry({ title, id }, db);
     console.log("chat added with id: ", id);
 
-    // NEW: Select the newly added chat to make it active
     const newChatRadioButton = document.querySelector(`#chat${id}`);
     if (newChatRadioButton) {
-        newChatRadioButton.click(); // This will trigger its 'change' listener and call loadChat and save its ID
+        newChatRadioButton.click(); 
     }
 
     return id;
@@ -156,7 +154,6 @@ export async function getCurrentChat(db) {
 
 export async function deleteAllChats(db) {
     await db.chats.clear();
-    // After clearing, initialize again, which will default to a new chat and update settings.
     initialize(db);
 }
 
@@ -164,22 +161,21 @@ export async function deleteAllChats(db) {
 export async function deleteChat(id, db) {
     await db.chats.delete(id);
     if (getCurrentChatId() == id) {
-        // If the deleted chat was the currently selected one, start a new chat
         newChat();
     }
-    initialize(db); // Re-initialize to update the chat list and potentially re-select a chat
+    initialize(db);
 }
 
 export function newChat() {
     messageContainer.innerHTML = "";
     const currentCheckedRadio = document.querySelector("input[name='currentChat']:checked");
     if (currentCheckedRadio) {
-        currentCheckedRadio.checked = false; // Uncheck the currently active one
+        currentCheckedRadio.checked = false;
     }
-    // NEW: Update settings to reflect that no chat is currently selected
     settingsService.setActiveChatId(null);
 }
 
+// --- MODIFIED FUNCTION ---
 export async function loadChat(chatID, db) {
     try {
         if (!chatID) {
@@ -192,27 +188,38 @@ export async function loadChat(chatID, db) {
             let insertedMessageElement;
             if (msg.role === "model") {
                 const personality = msg.personalityid ?
-                    await personalityService.get(msg.personalityid, db) :
-                    await personalityService.getByName(msg.personality, db);
+                    await personalityService.get(msg.personalityid) : // Removed db pass-through, it's not needed
+                    await personalityService.getByName(msg.personality);
+
+                // --- THIS IS THE FIX ---
+                // We proactively fetch the correct default avatar URL before rendering the message.
+                let avatarUrl = personality.image; // Start with the fallback image.
+                if (personality.id !== -1) {
+                    // For custom personalities, get the dynamic blob URL for their 'default' avatar.
+                    const dynamicAvatarUrl = await assetManagerService.getFirstImageObjectUrlByTags(['avatar', 'default'], personality.id);
+                    if (dynamicAvatarUrl) {
+                        avatarUrl = dynamicAvatarUrl;
+                    }
+                }
+                // --- END FIX ---
+
                 insertedMessageElement = await messageService.insertMessage(
                     msg.role,
                     msg.parts[0].text,
                     personality.name,
                     null,
                     db,
-                    personality.image,
-                    0, // typingSpeed = 0 for instant load
+                    avatarUrl, // Pass the correct, fresh URL to the message service.
+                    0,
                     personality.id
                 );
             } else {
                 insertedMessageElement = await messageService.insertMessage(msg.role, msg.parts[0].text, null, null, db);
             }
-            // The insertMessage function needs to return the element it creates
             if (insertedMessageElement) {
                 insertedMessageElement.dataset.messageIndex = messageIndex++;
             }
         }
-        // Always scroll to bottom when loading a chat
         messageContainer.scrollTo({
             top: messageContainer.scrollHeight,
             behavior: 'auto'
@@ -222,11 +229,11 @@ export async function loadChat(chatID, db) {
         console.error(error);
     }
 }
-
+// --- END MODIFIED FUNCTION ---
 
 export async function getAllChats(db) {
-    const chats = await db.chats.orderBy('timestamp').toArray(); // Get all objects
-    chats.reverse() //reverse in order to have the latest chat at the top
+    const chats = await db.chats.orderBy('timestamp').toArray();
+    chats.reverse()
     return chats;
 }
 
@@ -235,7 +242,6 @@ export async function getChatById(id, db) {
     return chat;
 }
 
-// NEW FUNCTION TO DELETE A SINGLE MESSAGE
 export async function deleteMessage(chatId, messageIndex, db) {
     if (chatId === null || messageIndex === undefined) return false;
     try {
@@ -244,15 +250,11 @@ export async function deleteMessage(chatId, messageIndex, db) {
             console.error("Attempted to delete a message that does not exist.", { chatId, messageIndex });
             return false;
         }
-
-        // Remove the message from the content array
         chat.content.splice(messageIndex, 1);
-
-        // Save the updated chat object back to the database
         await db.chats.put(chat);
-        return true; // Indicate success
+        return true;
     } catch (error) {
         console.error("Error deleting message from database:", error);
-        return false; // Indicate failure
+        return false;
     }
 }
