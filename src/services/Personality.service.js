@@ -347,7 +347,7 @@ export function generateCard(personality) {
 
     card.innerHTML = `
             <div class="background-img-wrapper">
-                <img class="background-img" src="${personality.image || './assets/placeholder.png'}" data-personality-id="${personality.id}">
+                <img class="background-img" src="${personality.image || '/media/default/images/Aphrodite.png'}" data-personality-id="${personality.id}">
             </div>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
