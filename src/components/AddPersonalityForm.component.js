@@ -88,13 +88,19 @@ export function initializeAddPersonalityForm(personalityId = null) {
 
                 // Define the instructional header for the AI
                 const aiInstructionHeader = `---
+---
 DYNAMIC ASSET COMMANDS (Use these in your responses!)
 ---
-**These commands are for *your* actions, emotions, and expressions as the character.** They are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
+**These commands are for *your* actions and expressions as the character.** They are directly linked to your character's media assets. Use them in your responses to trigger visuals (avatars) and sounds (sfx).
 
-**How to use:**
-- For **Avatars**: Just type the tag name(s) in brackets. For multiple tags (e.g., character and state), separate them with a comma. Example: [happy] or [emily,happy]
-- For **Sound Effects**: Use 'sfx:' followed by the tag name(s) in brackets, separated by commas. Example: [sfx:door_opens] or [sfx:footsteps,loud]
+**How to use (Read Carefully!):**
+- For **Avatars (Visuals)**:
+    - **General Reaction:** Just type the action/emotion tag in brackets. Example: [happy]
+    - **Character-Specific (when multiple characters are present/possible, to specify who):** Use the format: [characterName,action/emotion].
+      *   The 'characterName' MUST be one of the tags from the 'Your available asset tags' list below (e.g., 'emily', 'john').
+      *   Example: [emily,happy]
+- For **Sound Effects (Audio)**: Use 'sfx:' followed by a *single* tag. Multi-tags are NOT used for sound effects.
+    - Example: [sfx:door_opens]
 
 Your available asset tags are listed below:
 `; // Note: Trailing newline is important for formatting

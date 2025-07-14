@@ -295,18 +295,24 @@
 								<textarea name="tagPrompt" id="tagPrompt"
 									placeholder="Teach the AI how to use your assets.
 
-						• AVATARS ARE THE DEFAULT. Just write the trigger in brackets.
-						• For other media (like sounds), specify the command.
+• AVATARS ARE THE DEFAULT. Just write the trigger in brackets.
+• For other media (like sounds), specify the command.
 
-						EXAMPLES FOR THE AI:
-						To change to an avatar you tagged 'smiling':
-						[smiling]
+EXAMPLES:
+To change to an avatar you tagged 'smiling':
+[smiling]
 
-						To play a sound you tagged 'door_opens':
-						[sfx:door_opens]
+To change to an avatar of Emily that is 'happy':
+[emily,happy]
 
-						To show an avatar you tagged 'confused':
-						[confused]"
+To change to an avatar of John that is 'surprised':
+[john,happy]
+
+To play a sound you tagged 'door_opens':
+[sfx:door_opens]
+
+To show an avatar you tagged 'confused':
+[confused]"
 									style="height: 25rem; resize:vertical; flex-grow: 1;" autocomplete="off"></textarea>
 							</div>							
 							<h3></h3>
@@ -341,6 +347,8 @@
 						<!-- ================================== -->
 						<!-- ==  REBUILT MEDIA LIBRARY STEP  == -->
 						<!-- ================================== -->
+
+
 						<div class="step" id="media-library-step">
 							<div class="media-library-layout">
 								<div class="tag-explorer">
@@ -353,6 +361,24 @@
 								<div class="gallery-main">
 									<div class="gallery-header">
 										<h3 id="gallery-title">All Assets</h3>
+										<div class="gallery-actions"> <!-- NEW: Container for action buttons -->
+											<button type="button" class="btn-with-icon" id="btn-select-all-assets">
+												<span class="material-symbols-outlined">select_all</span>
+												Select All
+											</button>
+											<button type="button" class="btn-with-icon" id="btn-deselect-all-assets">
+												<span class="material-symbols-outlined">deselect</span>
+												Deselect All
+											</button>
+											<button type="button" class="btn-with-icon" id="btn-add-tag-selected" disabled>
+												<span class="material-symbols-outlined">label</span>
+												Add Tag to Selected
+											</button>
+											<button type="button" class="btn-with-icon btn-danger" id="btn-delete-selected-assets" disabled>
+												<span class="material-symbols-outlined">delete</span>
+												Delete Selected
+											</button>
+										</div>
 										<button type="button" class="btn-with-icon" id="btn-upload-asset">
 											<span class="material-symbols-outlined">upload_file</span>
 											Upload
@@ -365,6 +391,8 @@
 								</div>
 							</div>
 						</div>
+
+
 					</div>
 					<div class="stepper-footer">
 						<button id="btn-stepper-previous" type="button">Previous</button>

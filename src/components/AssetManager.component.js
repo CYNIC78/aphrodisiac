@@ -11,7 +11,7 @@ let isInitialized = false;
 let activeTags = []; // Holds the currently selected tags for filtering
 let allDbTags = [];  // A cache of all unique tags from the database
 let currentCharacterId = null; // To hold the ID of the currently active personality
-
+let selectedAssetIds = new Set(); // NEW: To track selected asset IDs
 // --- UI ELEMENT REFERENCES ---
 let mediaLibraryStep; 
 
@@ -85,6 +85,10 @@ async function renderGallery() {
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
+    card.dataset.assetId = asset.id; // NEW: Store asset ID on the DOM element
+    if (selectedAssetIds.has(asset.id)) { // NEW: Apply selected class if already selected
+        card.classList.add('selected-asset');
+    }
 
     // --- PART 1: The Preview Area ---
     const previewContainer = document.createElement('div');
@@ -187,11 +191,42 @@ function createAssetCard(asset) {
     };
     card.appendChild(deleteBtn);
 
+    card.addEventListener('click', () => {
+        toggleAssetSelection(asset.id);
+    });
+
     return card;
 }
 
 
 // --- EVENT HANDLERS (Unchanged) ---
+
+// NEW: Update state of bulk action buttons (to be implemented in HTML)
+function updateBulkActionButtonState() {
+    const hasSelection = selectedAssetIds.size > 0;
+    const addTagBtn = document.querySelector('#btn-add-tag-selected');
+    const deleteBtn = document.querySelector('#btn-delete-selected-assets');
+
+    if (addTagBtn) addTagBtn.disabled = !hasSelection;
+    if (deleteBtn) deleteBtn.disabled = !hasSelection;
+}
+
+
+function toggleAssetSelection(assetId) {
+    const card = mediaLibraryStep.querySelector(`.asset-card-inline[data-asset-id="${assetId}"]`);
+    if (!card) return;
+
+    if (selectedAssetIds.has(assetId)) {
+        selectedAssetIds.delete(assetId);
+        card.classList.remove('selected-asset');
+    } else {
+        selectedAssetIds.add(assetId);
+        card.classList.add('selected-asset');
+    }
+    updateBulkActionButtonState(); // NEW: Update state of bulk action buttons
+}
+
+
 
 function handleTagClick(tag) {
     const tagIndex = activeTags.indexOf(tag);
@@ -268,6 +303,7 @@ async function updateMainUI(characterId) {
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
         updateMainUI(characterId);
+        updateBulkActionButtonState();
         return;
     }
 
@@ -276,6 +312,32 @@ export function initializeAssetManagerComponent(characterId) {
 
     document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
     document.querySelector('#btn-upload-asset').addEventListener('click', () => document.querySelector('#asset-upload-input').click());
+    
+    // NEW: Event listeners for Select All/Deselect All buttons
+    const selectAllBtn = document.querySelector('#btn-select-all-assets');
+    const deselectAllBtn = document.querySelector('#btn-deselect-all-assets');
+    
+    if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', async () => {
+            const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId);
+            selectedAssetIds.clear();
+            allAssets.forEach(asset => selectedAssetIds.add(asset.id));
+            renderGallery(); // Re-render to apply 'selected-asset' class
+            updateBulkActionButtonState();
+        });
+    }
+
+    if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', () => {
+            selectedAssetIds.clear();
+            renderGallery(); // Re-render to remove 'selected-asset' class
+            updateBulkActionButtonState();
+        });
+    }
+
+
+
+
     
     document.querySelector('#asset-upload-input').addEventListener('change', async (event) => {
         const files = event.target.files;
@@ -290,7 +352,7 @@ export function initializeAssetManagerComponent(characterId) {
     });
     
     updateMainUI(characterId);
-
+	updateBulkActionButtonState();
     console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
     isInitialized = true;
 }

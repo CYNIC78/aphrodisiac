@@ -1205,3 +1205,22 @@ button {
 .pfp.fading-in.fade-active {
     opacity: 1;
 }
+
+
+/* --- ASSET MANAGER SELECTION --- */
+.asset-card-inline {
+    cursor: pointer; /* Indicate clickable */
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, border 0.15s ease-out;
+    border: 2px solid transparent; /* Default transparent border */
+}
+
+.asset-card-inline:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.asset-card-inline.selected-asset {
+    border: 2px solid var(--accent-color); /* Highlight color */
+    box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.5); /* Glowing effect */
+    transform: scale(1.02); /* Slightly enlarge */
+}
