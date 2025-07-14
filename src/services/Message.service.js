@@ -36,7 +36,7 @@ export async function send(msg, db) {
         document.querySelector(`#chat${id}`).click();
     }
     
-    // NEW: Populate character cache for this new chat/personality
+    // Populate character cache for this new chat/personality
     const { assetManagerService } = await import('./AssetManager.service.js');
     const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(selectedPersonality.id);
     characterTagCache = new Set(characterTags.characters);
@@ -290,6 +290,16 @@ function setupMessageEditing(messageElement, db) {
             const messageData = chat.content[index];
             const characterId = messageData?.personalityid;
             const sender = messageData?.role;
+
+            // --- FIX ---
+            // Repopulate the character tag cache before re-typing the message.
+            // This ensures the intelligent `char_` prefixing works during the "replay".
+            if (characterId) {
+                const { assetManagerService } = await import('./AssetManager.service.js');
+                const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(characterId);
+                characterTagCache = new Set(characterTags.characters);
+            }
+            // --- END FIX ---
 
             const settings = settingsService.getSettings();
             await retypeMessage(messageElement, newRawText, characterId, settings.typingSpeed, sender);
