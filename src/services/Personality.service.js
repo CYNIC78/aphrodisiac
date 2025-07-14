@@ -422,12 +422,3 @@ async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     }
 }
 
-
-
-// In: src/services/Personality.service.js
-
-// Add this new exported function anywhere in the file.
-export async function get(id) {
-    const db = dbService.getDb();
-    return await db.personalities.get(id);
-}
