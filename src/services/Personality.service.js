@@ -347,7 +347,7 @@ export function generateCard(personality) {
 
     card.innerHTML = `
             <div class="background-img-wrapper">
-                <img class="background-img" src="${personality.image || '/media/default/images/Aphrodite.png'}" data-personality-id="${personality.id}">
+                <img class="background-img" src="${personality.image || './assets/placeholder.png'}" data-personality-id="${personality.id}">
             </div>
             <input  type="radio" name="personality" value="${personality.name}">
             <div class="btn-array-personalityactions">
@@ -385,11 +385,12 @@ export function generateCard(personality) {
                 remove(personality.id).then(() => card.remove());
             }
         }));
-        card.querySelector(".btn-edit-card").addEventListener("click", (e) => handleButtonClick(e, () => overlayService.default.showEditPersonalityForm(personality)));
+        // CORRECTED CALL
+        card.querySelector(".btn-edit-card").addEventListener("click", (e) => handleButtonClick(e, () => overlayService.showEditPersonalityForm(personality)));
+        // CORRECTED CALL
         card.querySelector(".btn-media-library-card").addEventListener("click", (e) => handleButtonClick(e, () => {
-            overlayService.default.showEditPersonalityForm(personality);
+            overlayService.showEditPersonalityForm(personality);
             setTimeout(() => {
-                // Navigate to the asset manager step
                 const stepper = document.querySelector('.stepper-container[data-stepper-id="personality-form-stepper"]');
                 if (stepper) {
                    const stepButtons = stepper.querySelectorAll('[data-step-target]');
@@ -401,6 +402,8 @@ export function generateCard(personality) {
     
     return card;
 }
+
+
 
 async function loadAndApplyPersonalityAvatar(cardElement, personality) {
     const imgElement = cardElement.querySelector('.background-img');
