@@ -279,6 +279,85 @@ async function handleRemoveTagFromAsset(assetId, tagToRemove) {
     }
 }
 
+
+async function handleAddTagToSelectedAssets() {
+    if (selectedAssetIds.size === 0) return;
+
+    const newTag = prompt("Enter tag to add to selected assets:");
+    if (!newTag || newTag.trim() === '') return;
+
+    const tagToAdd = newTag.trim().toLowerCase();
+
+    if (SYSTEM_TAGS.includes(tagToAdd)) {
+        alert(`Cannot add a protected system tag ("${tagToAdd}") manually.`);
+        return;
+    }
+
+    const assetsToUpdate = Array.from(selectedAssetIds);
+    let updatedCount = 0;
+
+    for (const assetId of assetsToUpdate) {
+        try {
+            const asset = await assetManagerService.getAssetById(assetId);
+            if (asset && !asset.tags.includes(tagToAdd)) {
+                // Filter out existing user tags, add the new one, and then re-add system tags
+                const currentUserTags = asset.tags.filter(t => !SYSTEM_TAGS.includes(t));
+                const updatedTags = [...currentUserTags, tagToAdd];
+                
+                await assetManagerService.updateAsset(assetId, { tags: updatedTags });
+                updatedCount++;
+            }
+        } catch (error) {
+            console.error(`Failed to add tag to asset ${assetId}:`, error);
+        }
+    }
+
+    if (updatedCount > 0) {
+        selectedAssetIds.clear(); // Clear selection after bulk action
+        await updateMainUI(currentCharacterId); // Refresh UI
+        alert(`Successfully added tag "${tagToAdd}" to ${updatedCount} asset(s).`);
+    } else {
+        alert("No selected assets were updated (tag may already exist or an error occurred).");
+    }
+}
+
+/**
+ * Deletes all currently selected assets.
+ */
+async function handleDeleteSelectedAssets() {
+    if (selectedAssetIds.size === 0) return;
+
+    if (!confirm(`Are you sure you want to permanently delete ${selectedAssetIds.size} selected asset(s)? This cannot be undone.`)) {
+        return;
+    }
+
+    const assetsToDelete = Array.from(selectedAssetIds);
+    let deletedCount = 0;
+
+    for (const assetId of assetsToDelete) {
+        try {
+            await assetManagerService.deleteAsset(assetId);
+            deletedCount++;
+        } catch (error) {
+            console.error(`Failed to delete asset ${assetId}:`, error);
+        }
+    }
+
+    if (deletedCount > 0) {
+        selectedAssetIds.clear(); // Clear selection after bulk action
+        await updateMainUI(currentCharacterId); // Refresh UI
+        alert(`Successfully deleted ${deletedCount} asset(s).`);
+    } else {
+        alert("No selected assets were deleted.");
+    }
+}
+
+
+
+
+
+
+
 async function handleDeleteAsset(assetId) {
     if (!assetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
@@ -334,6 +413,41 @@ export function initializeAssetManagerComponent(characterId) {
             updateBulkActionButtonState();
         });
     }
+
+
+
+export function initializeAssetManagerComponent(characterId) {
+    // ... (existing initialization code) ...
+
+    const selectAllBtn = document.querySelector('#btn-select-all-assets');
+    const deselectAllBtn = document.querySelector('#btn-deselect-all-assets');
+    const addTagSelectedBtn = document.querySelector('#btn-add-tag-selected'); // NEW
+    const deleteSelectedBtn = document.querySelector('#btn-delete-selected-assets'); // NEW
+    
+    if (selectAllBtn) {
+        // ... (existing selectAllBtn listener) ...
+    }
+
+    if (deselectAllBtn) {
+        // ... (existing deselectAllBtn listener) ...
+    }
+
+    // NEW: Event listener for "Add Tag to Selected" button
+    if (addTagSelectedBtn) {
+        addTagSelectedBtn.addEventListener('click', handleAddTagToSelectedAssets);
+    }
+
+    // NEW: Event listener for "Delete Selected" button
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', handleDeleteSelectedAssets);
+    }
+
+    updateMainUI(characterId);
+    updateBulkActionButtonState(); // Ensure initial state is correct
+    
+    console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
+    isInitialized = true;
+}
 
 
 
