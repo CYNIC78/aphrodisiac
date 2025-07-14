@@ -3,7 +3,7 @@
 import { db } from './Db.service.js';
 
 // Define system tags that are managed automatically and hidden from the user UI.
-const SYSTEM_TAGS = ['avatar', 'sfx', 'audio'];
+const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
 
 class AssetManagerService {
     constructor() {
@@ -28,7 +28,7 @@ class AssetManagerService {
         const systemTag = assetType === 'image' ? 'avatar' : 'sfx';
         
         // Combine user tags with the automatically determined system tag.
-        const allTags = [...new Set([...tags, systemTag])]; // Use a Set to prevent duplicates.
+        const allTags = [...new Set([...tags, systemTag, assetType])]; // Use a Set to prevent duplicates.
 
         console.log(`Adding asset: ${file.name} for character ID ${characterId} with final tags: ${allTags.join(', ')}`);
         
@@ -66,7 +66,7 @@ class AssetManagerService {
             if (assetToUpdate) {
                 const systemTag = assetToUpdate.type === 'image' ? 'avatar' : 'sfx';
                 // Combine the new user tags with the existing system tag.
-                changes.tags = [...new Set([...changes.tags, systemTag])];
+                changes.tags = [...new Set([...changes.tags, systemTag, assetToUpdate.type])];
             }
         }
         return await db.assets.update(id, changes);
@@ -137,27 +137,44 @@ class AssetManagerService {
     }
     
     /**
-     * Gets a sorted, unique list of USER-FACING tags for a specific character's assets.
-     * It actively filters out the hidden system tags.
+     * Gets a sorted, unique list of user-facing tags for a specific character's assets,
+     * categorized into 'characters' and 'states'.
      * @param {number} characterId - The ID of the personality.
-     * @returns {Promise<string[]>} A promise that resolves to an array of unique, user-defined tags.
+     * @returns {Promise<{characters: string[], states: string[]}>} A promise that resolves to an object with categorized tags.
      */
     async getAllUniqueTagsForCharacter(characterId) {
         if (typeof characterId === 'undefined' || characterId === null) {
             console.error("AssetManagerService.getAllUniqueTagsForCharacter: characterId is required.");
-            return [];
+            return { characters: [], states: [] };
         }
         const allAssets = await this.getAllAssetsForCharacter(characterId);
         const uniqueTags = new Set();
         allAssets.forEach(asset => {
             asset.tags.forEach(tag => uniqueTags.add(tag));
         });
-        
-        // Filter out the system-managed tags before returning to the UI.
+
+        // Filter out the system-managed tags first.
         const userFacingTags = Array.from(uniqueTags).filter(tag => !SYSTEM_TAGS.includes(tag));
-        
-        const sortedTags = userFacingTags.sort((a, b) => a.localeCompare(b));
-        return sortedTags;
+
+        // NEW: Categorize into character tags and state tags.
+        const categorizedTags = {
+            characters: [],
+            states: []
+        };
+
+        userFacingTags.forEach(tag => {
+            if (tag.startsWith('char_')) {
+                categorizedTags.characters.push(tag);
+            } else {
+                categorizedTags.states.push(tag);
+            }
+        });
+
+        // Sort each category alphabetically.
+        categorizedTags.characters.sort((a, b) => a.localeCompare(b));
+        categorizedTags.states.sort((a, b) => a.localeCompare(b));
+
+        return categorizedTags;
     }
 
     /**
@@ -188,8 +205,6 @@ class AssetManagerService {
         return null;
     }
 	
-
-
     /**
      * Gathers all user-defined tags for a character's assets, formats them for the tagPrompt,
      * and returns them as a newline-separated string.
@@ -210,9 +225,14 @@ class AssetManagerService {
             const userTags = asset.tags.filter(tag => !SYSTEM_TAGS.includes(tag));
             userTags.forEach(userTag => {
                 if (asset.type === 'image') {
-                    formattedTags.add(`[${userTag}]`); // Implicit avatar command
+                    // For dual-list system, we only need to show the state tag
+                    if (!userTag.startsWith('char_')) {
+                        formattedTags.add(`[${userTag}]`);
+                    }
                 } else if (asset.type === 'audio') {
-                    formattedTags.add(`[sfx:${userTag}]`); // Explicit sfx command
+                    if (!userTag.startsWith('char_')) {
+                         formattedTags.add(`[sfx:${userTag}]`);
+                    }
                 }
             });
         });
@@ -220,17 +240,7 @@ class AssetManagerService {
         // Convert Set to Array, sort, and join with newlines
         return Array.from(formattedTags).sort((a, b) => a.localeCompare(b)).join('\n');
     }	
-	
-	
-	
-	
-	
 }
-
-
-
-
-
 
 // Export a single instance of the service
 export const assetManagerService = new AssetManagerService();

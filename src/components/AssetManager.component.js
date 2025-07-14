@@ -9,34 +9,57 @@ const SYSTEM_TAGS = ['avatar', 'sfx', 'audio', 'image'];
 // --- STATE MANAGEMENT ---
 let isInitialized = false;
 let activeTags = []; // Holds the currently selected tags for filtering
-let allDbTags = [];  // A cache of all unique tags from the database
+let allDbTags = { characters: [], states: [] };  // A cache of all unique tags from the database
 let currentCharacterId = null; // To hold the ID of the currently active personality
-let selectedAssetIds = new Set(); // NEW: To track selected asset IDs
+let selectedAssetIds = new Set(); // To track selected asset IDs
 
 // --- UI ELEMENT REFERENCES ---
 let mediaLibraryStep; 
 
 // --- RENDERING LOGIC ---
 
+function createTagButton(tag, clickHandler) {
+    const item = document.createElement('button');
+    item.className = 'tag-explorer-item';
+    // Show 'kahlan' instead of 'char_kahlan' in the UI for cleanliness
+    item.textContent = tag.startsWith('char_') ? tag.substring(5) : tag; 
+    item.title = `Filter by ${tag}`;
+    item.onclick = () => clickHandler(tag);
+    
+    if (activeTags.includes(tag)) {
+        item.classList.add('selected');
+    }
+
+    // Add special class for styling, even though they are in a separate list
+    if (tag.startsWith('char_')) {
+        item.classList.add('tag-character');
+    }
+    
+    return item;
+}
+
 function renderTagExplorer(filterTerm = '') {
-    const listEl = document.querySelector('#tag-explorer-list');
-    if (!listEl) return;
+    const charListEl = document.querySelector('#character-tag-list');
+    const stateListEl = document.querySelector('#state-tag-list');
+    if (!charListEl || !stateListEl) return;
+
+    charListEl.innerHTML = '';
+    stateListEl.innerHTML = '';
 
     const lowerCaseFilter = filterTerm.toLowerCase();
-    const tagsToRender = allDbTags.filter(tag => tag.toLowerCase().includes(lowerCaseFilter));
-    
-    listEl.innerHTML = '';
-    tagsToRender.forEach(tag => {
-        const item = document.createElement('button');
-        item.className = 'tag-explorer-item';
-        item.textContent = tag;
-        item.onclick = () => handleTagClick(tag);
-        
-        if (activeTags.includes(tag)) {
-            item.classList.add('selected');
-        }
-        
-        listEl.appendChild(item);
+
+    // Filter and render character tags
+    const charsToRender = allDbTags.characters.filter(tag => tag.substring(5).toLowerCase().includes(lowerCaseFilter));
+    charsToRender.forEach(tag => {
+        const button = createTagButton(tag, handleTagClick);
+        charListEl.appendChild(button);
+    });
+
+    // Filter and render state tags
+    const statesToRender = allDbTags.states.filter(tag => tag.toLowerCase().includes(lowerCaseFilter));
+    statesToRender.forEach(tag => {
+        const button = createTagButton(tag, handleTagClick);
+        stateListEl.appendChild(button);
     });
 }
 
@@ -63,7 +86,7 @@ async function renderGallery() {
 
         galleryEl.innerHTML = '';
         if (assetsToRender.length === 0) {
-            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found for this personality.</p>`;
+            galleryEl.innerHTML = `<p class="gallery-empty-placeholder">No assets found with the selected tags.</p>`;
             return;
         }
 
@@ -78,20 +101,14 @@ async function renderGallery() {
     }
 }
 
-/**
- * Creates the "Framed Overlay" asset card.
- * @param {object} asset - The asset object from the database.
- * @returns {HTMLElement} The fully interactive card element.
- */
 function createAssetCard(asset) {
     const card = document.createElement('div');
     card.className = 'asset-card-inline';
-    card.dataset.assetId = asset.id; // NEW: Store asset ID on the DOM element
-    if (selectedAssetIds.has(asset.id)) { // NEW: Apply selected class if already selected
+    card.dataset.assetId = asset.id;
+    if (selectedAssetIds.has(asset.id)) {
         card.classList.add('selected-asset');
     }
 
-    // --- PART 1: The Preview Area ---
     const previewContainer = document.createElement('div');
     previewContainer.className = 'asset-card-inline-preview';
 
@@ -107,11 +124,10 @@ function createAssetCard(asset) {
         previewContainer.appendChild(icon);
     }
 
-    // --- NEW: TOP OVERLAY for System Tags (Your brilliant idea!) ---
     const systemTags = asset.tags.filter(tag => SYSTEM_TAGS.includes(tag));
     if (systemTags.length > 0) {
         const topOverlay = document.createElement('div');
-        topOverlay.className = 'asset-card-top-overlay'; // New specific class
+        topOverlay.className = 'asset-card-top-overlay';
         systemTags.forEach(tag => {
             const pill = document.createElement('div');
             pill.className = 'tag-pill tag-system';
@@ -121,9 +137,8 @@ function createAssetCard(asset) {
         previewContainer.appendChild(topOverlay);
     }
     
-    // --- NEW: BOTTOM OVERLAY for Filename ---
     const bottomOverlay = document.createElement('div');
-    bottomOverlay.className = 'asset-card-bottom-overlay'; // New specific class
+    bottomOverlay.className = 'asset-card-bottom-overlay';
     const filenameEl = document.createElement('div');
     filenameEl.className = 'asset-card-filename';
     filenameEl.textContent = asset.name;
@@ -132,7 +147,6 @@ function createAssetCard(asset) {
 
     card.appendChild(previewContainer);
 
-    // --- PART 2: The Info Area (Custom Triggers Only) ---
     const infoContainer = document.createElement('div');
     infoContainer.className = 'asset-card-inline-info';
 
@@ -143,7 +157,12 @@ function createAssetCard(asset) {
     customTags.forEach(tag => {
         const pill = document.createElement('div');
         pill.className = 'tag-pill';
-        pill.textContent = tag;
+        pill.textContent = tag.startsWith('char_') ? tag.substring(5) : tag;
+        
+        if (tag.startsWith('char_')) {
+            pill.classList.add('tag-character');
+        }
+
         const removeBtn = document.createElement('span');
         removeBtn.className = 'remove-tag';
         removeBtn.innerHTML = '×';
@@ -158,10 +177,9 @@ function createAssetCard(asset) {
 
     infoContainer.appendChild(customPillsContainer);
 
-    // Smart input
     const addTagInput = document.createElement('input');
     addTagInput.type = 'text';
-    addTagInput.placeholder = '+ Add trigger';
+    addTagInput.placeholder = '+ Add tag';
     addTagInput.className = 'asset-card-inline-input';
     addTagInput.onclick = (e) => e.stopPropagation();
     const saveTag = () => {
@@ -180,7 +198,6 @@ function createAssetCard(asset) {
     infoContainer.appendChild(addTagInput);
     card.appendChild(infoContainer);
 
-    // --- PART 3: The Delete Button ---
     const deleteBtn = document.createElement('button');
 	deleteBtn.type = 'button';
     deleteBtn.className = 'asset-card-inline-delete-btn btn-danger';
@@ -202,7 +219,6 @@ function createAssetCard(asset) {
 
 // --- EVENT HANDLERS ---
 
-// NEW: Update state of bulk action buttons (to be implemented in HTML)
 function updateBulkActionButtonState() {
     const hasSelection = selectedAssetIds.size > 0;
     const addTagBtn = document.querySelector('#btn-add-tag-selected');
@@ -211,7 +227,6 @@ function updateBulkActionButtonState() {
     if (addTagBtn) addTagBtn.disabled = !hasSelection;
     if (deleteBtn) deleteBtn.disabled = !hasSelection;
 }
-
 
 function toggleAssetSelection(assetId) {
     const card = mediaLibraryStep.querySelector(`.asset-card-inline[data-asset-id="${assetId}"]`);
@@ -224,7 +239,7 @@ function toggleAssetSelection(assetId) {
         selectedAssetIds.add(assetId);
         card.classList.add('selected-asset');
     }
-    updateBulkActionButtonState(); // NEW: Update state of bulk action buttons
+    updateBulkActionButtonState();
 }
 
 function handleTagClick(tag) {
@@ -240,7 +255,7 @@ function handleTagClick(tag) {
 }
 
 async function handleAddTagToAsset(assetId, inputElement) {
-    const newTag = inputElement.value.trim().toLowerCase();
+    let newTag = inputElement.value.trim().toLowerCase();
     if (!newTag || !assetId) return;
 
     if (SYSTEM_TAGS.includes(newTag)) {
@@ -255,8 +270,6 @@ async function handleAddTagToAsset(assetId, inputElement) {
         
         inputElement.value = '';
         await updateMainUI(currentCharacterId);
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-        renderTagExplorer();
     }
 }
 
@@ -269,85 +282,58 @@ async function handleRemoveTagFromAsset(assetId, tagToRemove) {
 
     const asset = await assetManagerService.getAssetById(assetId);
     if (asset) {
-        const updatedUserTags = asset.tags.filter(t => t !== tagToRemove && !SYSTEM_TAGS.includes(t));
-        await assetManagerService.updateAsset(assetId, { tags: updatedUserTags });
+        const userTags = asset.tags.filter(t => !SYSTEM_TAGS.includes(t));
+        const finalTags = userTags.filter(t => t !== tagToRemove);
+        await assetManagerService.updateAsset(assetId, { tags: finalTags });
 
         await updateMainUI(currentCharacterId);
-        allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
-        renderTagExplorer();
     }
 }
 
 async function handleAddTagToSelectedAssets() {
     if (selectedAssetIds.size === 0) return;
 
-    const newTag = prompt("Enter tag to add to selected assets:");
-    if (!newTag || newTag.trim() === '') return;
+    const newTagRaw = prompt("Enter tag to add to selected assets (prefix with 'char:' for a character tag, e.g., 'char:emily'):");
+    if (!newTagRaw || newTagRaw.trim() === '') return;
 
-    const tagToAdd = newTag.trim().toLowerCase();
+    let newTag = newTagRaw.trim().toLowerCase();
 
-    if (SYSTEM_TAGS.includes(tagToAdd)) {
-        alert(`Cannot add a protected system tag ("${tagToAdd}") manually.`);
+    // Standardize to char_ prefix if char: is used
+    if (newTag.startsWith('char:')) {
+        newTag = 'char_' + newTag.substring(5);
+    }
+    
+    if (SYSTEM_TAGS.includes(newTag)) {
+        alert(`Cannot add a protected system tag ("${newTag}") manually.`);
         return;
     }
 
     const assetsToUpdate = Array.from(selectedAssetIds);
-    let updatedCount = 0;
-
     for (const assetId of assetsToUpdate) {
-        try {
-            const asset = await assetManagerService.getAssetById(assetId);
-            if (asset && !asset.tags.includes(tagToAdd)) {
-                // Filter out existing user tags, add the new one, and then re-add system tags
-                const currentUserTags = asset.tags.filter(t => !SYSTEM_TAGS.includes(t));
-                const updatedTags = [...currentUserTags, tagToAdd];
-                
-                await assetManagerService.updateAsset(assetId, { tags: updatedTags });
-                updatedCount++;
-            }
-        } catch (error) {
-            console.error(`Failed to add tag to asset ${assetId}:`, error);
+        const asset = await assetManagerService.getAssetById(assetId);
+        if (asset && !asset.tags.includes(newTag)) {
+            const userTags = asset.tags.filter(t => !SYSTEM_TAGS.includes(t));
+            await assetManagerService.updateAsset(assetId, { tags: [...userTags, newTag] });
         }
     }
 
-    if (updatedCount > 0) {
-        selectedAssetIds.clear(); // Clear selection after bulk action
-        await updateMainUI(currentCharacterId); // Refresh UI
-        alert(`Successfully added tag "${tagToAdd}" to ${updatedCount} asset(s).`);
-    } else {
-        alert("No selected assets were updated (tag may already exist or an error occurred).");
-    }
+    selectedAssetIds.clear();
+    await updateMainUI(currentCharacterId);
+    alert(`Finished bulk-adding tag "${newTag}".`);
 }
 
-/**
- * Deletes all currently selected assets.
- */
 async function handleDeleteSelectedAssets() {
     if (selectedAssetIds.size === 0) return;
-
-    if (!confirm(`Are you sure you want to permanently delete ${selectedAssetIds.size} selected asset(s)? This cannot be undone.`)) {
-        return;
-    }
+    if (!confirm(`Are you sure you want to permanently delete ${selectedAssetIds.size} selected asset(s)? This cannot be undone.`)) return;
 
     const assetsToDelete = Array.from(selectedAssetIds);
-    let deletedCount = 0;
-
     for (const assetId of assetsToDelete) {
-        try {
-            await assetManagerService.deleteAsset(assetId);
-            deletedCount++;
-        } catch (error) {
-            console.error(`Failed to delete asset ${assetId}:`, error);
-        }
+        await assetManagerService.deleteAsset(assetId);
     }
 
-    if (deletedCount > 0) {
-        selectedAssetIds.clear(); // Clear selection after bulk action
-        await updateMainUI(currentCharacterId); // Refresh UI
-        alert(`Successfully deleted ${deletedCount} asset(s).`);
-    } else {
-        alert("No selected assets were deleted.");
-    }
+    selectedAssetIds.clear();
+    await updateMainUI(currentCharacterId);
+    alert(`Successfully deleted ${assetsToDelete.length} asset(s).`);
 }
 
 async function handleDeleteAsset(assetId) {
@@ -360,23 +346,22 @@ async function handleDeleteAsset(assetId) {
 
 async function updateMainUI(characterId) {
     currentCharacterId = characterId;
-    activeTags = [];
-    selectedAssetIds.clear(); // Clear selection on UI update/refresh
+    activeTags = []; 
+    selectedAssetIds.clear();
     if (currentCharacterId === null) {
-        allDbTags = [];
+        allDbTags = { characters: [], states: [] };
     } else {
         allDbTags = await assetManagerService.getAllUniqueTagsForCharacter(currentCharacterId);
     }
     renderTagExplorer(document.querySelector('#tag-explorer-search')?.value || '');
     renderGallery();
-    updateBulkActionButtonState(); // Ensure button states are updated after UI refresh
+    updateBulkActionButtonState();
 }
 
 // --- INITIALIZATION ---
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
-        updateMainUI(characterId); // Refresh UI and state if already initialized
-        updateBulkActionButtonState(); // Ensure button states are correct
+        updateMainUI(characterId);
         return;
     }
 
@@ -386,7 +371,6 @@ export function initializeAssetManagerComponent(characterId) {
     document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
     document.querySelector('#btn-upload-asset').addEventListener('click', () => document.querySelector('#asset-upload-input').click());
     
-    // Event listeners for Select All/Deselect All buttons
     const selectAllBtn = document.querySelector('#btn-select-all-assets');
     const deselectAllBtn = document.querySelector('#btn-deselect-all-assets');
     const addTagSelectedBtn = document.querySelector('#btn-add-tag-selected'); 
@@ -395,9 +379,9 @@ export function initializeAssetManagerComponent(characterId) {
     if (selectAllBtn) {
         selectAllBtn.addEventListener('click', async () => {
             const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId);
-            selectedAssetIds.clear(); // Clear existing selection before re-selecting all
+            selectedAssetIds.clear();
             allAssets.forEach(asset => selectedAssetIds.add(asset.id));
-            renderGallery(); // Re-render to apply 'selected-asset' class
+            renderGallery();
             updateBulkActionButtonState();
         });
     }
@@ -405,17 +389,15 @@ export function initializeAssetManagerComponent(characterId) {
     if (deselectAllBtn) {
         deselectAllBtn.addEventListener('click', () => {
             selectedAssetIds.clear();
-            renderGallery(); // Re-render to remove 'selected-asset' class
+            renderGallery();
             updateBulkActionButtonState();
         });
     }
 
-    // Event listener for "Add Tag to Selected" button
     if (addTagSelectedBtn) {
         addTagSelectedBtn.addEventListener('click', handleAddTagToSelectedAssets);
     }
 
-    // Event listener for "Delete Selected" button
     if (deleteSelectedBtn) {
         deleteSelectedBtn.addEventListener('click', handleDeleteSelectedAssets);
     }
@@ -432,11 +414,41 @@ export function initializeAssetManagerComponent(characterId) {
         await updateMainUI(currentCharacterId);
     });
     
-    updateMainUI(characterId); // Initial UI render and state setup
-    // Note: The call to updateBulkActionButtonState() here is now within updateMainUI()
-    // It was also called here previously. Having it in updateMainUI() means it's called
-    // consistently after any major UI data refresh.
+    updateMainUI(characterId);
     
-    console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
+    console.log('Asset Manager Component Initialized (Dual List v1.0).');
     isInitialized = true;
-}
+}```
+
+---
+
+### **Step 3: Replace the `tag-explorer` in `index.html`**
+
+This file now contains the new containers for our two separate tag lists.
+
+**Action:**
+1.  Open `src/index.html` in Notepad++.
+2.  Find the `<div class="tag-explorer">` section. It's inside the `<div class="step" id="media-library-step">`.
+3.  **Delete the entire `<div class="tag-explorer">...</div>` block and replace it** with the following code.
+
+```html
+						<div class="tag-explorer">
+							<h3>Tags</h3>
+							<input type="search" id="tag-explorer-search" placeholder="Filter tags..." aria-label="Filter media assets by tag">
+							
+							<!-- NEW DUAL-LIST STRUCTURE -->
+							<div id="character-tag-list-container">
+								<h4>Characters</h4>
+								<div id="character-tag-list">
+									<!-- Character tags will be rendered here by JS -->
+								</div>
+							</div>
+							<div id="state-tag-list-container">
+								<h4>Emotions & States</h4>
+								<div id="state-tag-list">
+									<!-- State/Emotion tags will be rendered here by JS -->
+								</div>
+							</div>
+							<!-- END NEW DUAL-LIST STRUCTURE -->
+
+						</div>
