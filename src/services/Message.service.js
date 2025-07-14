@@ -3,46 +3,34 @@
 import { GoogleGenAI } from "@google/genai";
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import * as settingsService from "./Settings.service.js";
-// We no longer need a static personalityService import, we'll import it dynamically to avoid circular dependencies.
+// --- THIS IS THE CORRECT, RESTORED IMPORT. I AM SORRY FOR REMOVING IT. ---
+import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
 
-const processedCommandsPerMessage = new Map(); // Map<messageElement, Set<fullTagString>>
-let characterTagCache = new Set(); // Cache for the current personality's character tags for performance.
+const processedCommandsPerMessage = new Map();
+let characterTagCache = new Set();
 
-// --- NEW ---
-// This new helper function isolates the journal processing logic.
-// It finds the command, triggers a DB update, and returns the cleaned text.
 async function extractAndProcessJournalCommand(rawText, personalityId, db) {
-    // Regex to find the journal_overwrite command at the very end of the string.
-    // [\s\S]* captures any character including newlines. The '$' anchors it to the end.
     const journalRegex = /\[journal_overwrite:([\s\S]*)\]$/;
     const match = rawText.match(journalRegex);
 
     if (match && personalityId && db) {
         const newJournalContent = match[1].trim();
-        // Dynamically import PersonalityService to avoid circular dependency issues.
-        const { PersonalityService } = await import('./Personality.service.js');
+        // This now correctly uses the static import
+        await personalityService.updateJournal(personalityId, newJournalContent);
         
-        // This function doesn't exist yet, we will create it in the next step.
-        // For now, we are setting up the call to it.
-        await PersonalityService.updateJournal(personalityId, newJournalContent, db);
-        
-        // Return the text with the command block removed.
         const cleanedText = rawText.replace(journalRegex, '').trim();
         return { cleanedText };
     }
-
-    // If no command is found, return the original text untouched.
     return { cleanedText: rawText };
 }
 
 
 export async function send(msg, db) {
-    // --- MODIFIED --- Dynamically import personalityService at the start of the function.
-    const { PersonalityService } = await import('./Personality.service.js');
     const settings = settingsService.getSettings();
-    const selectedPersonality = await PersonalityService.getSelected();
+    // --- THIS NOW USES THE CORRECT, STATICALLY IMPORTED SERVICE ---
+    const selectedPersonality = await personalityService.getSelected();
     if (!selectedPersonality) return;
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
@@ -78,7 +66,6 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
 
-    // --- MODIFIED --- The master instruction now includes the journal prompt and current journal content.
     const masterInstruction = `
         ${settingsService.getSystemPrompt()}
 
@@ -109,7 +96,7 @@ export async function send(msg, db) {
 
     const history = [
         { role: "user", parts: [{ text: masterInstruction }] },
-        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags and journal as instructed." }] } // Modified response for clarity
+        { role: "model", parts: [{ text: "Understood. I will now act as the specified character and use my command tags and journal as instructed." }] }
     ];
 
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
@@ -121,21 +108,19 @@ export async function send(msg, db) {
     const chat = ai.chats.create({ model: settings.model, history, config });
 
     let messageToSendToAI = msg;
-    if (selectedPersonality.reminder) { // This legacy field is left untouched
+    if (selectedPersonality.reminder) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
 
     const stream = await chat.sendMessageStream({ message: messageToSendToAI });
     const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
 
-    // This now saves the CLEANED text (without the journal command) to the database.
     currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
     await db.chats.put(currentChat);
     settingsService.saveSettings();
 }
 
 async function handleRegenerate(clickedElement, db) {
-    // ... This function remains unchanged.
     const chat = await chatsService.getCurrentChat(db);
     if (!chat) return;
 
@@ -160,7 +145,6 @@ async function handleRegenerate(clickedElement, db) {
 }
 
 function wrapCommandsInSpan(text) {
-    // ... This function remains unchanged.
     const commandRegex = /\[(.*?)\]/g;
     return text.replace(commandRegex, (fullMatch, contentInsideBrackets) => {
         const escapedContent = `[${contentInsideBrackets}]`;
@@ -169,7 +153,6 @@ function wrapCommandsInSpan(text) {
 }
 
 async function executeCommandAction(command, tagsToSearch, messageElement, characterId) {
-    // ... This function remains unchanged.
     if (characterId === null || !tagsToSearch || tagsToSearch.length === 0) return;
 
     const { assetManagerService } = await import('./AssetManager.service.js');
@@ -254,7 +237,6 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
 }
 
 async function processDynamicCommands(currentText, messageElement, characterId) {
-    // ... This function remains unchanged.
     if (characterId === null) return;
 
     const commandRegex = /\[(?:(.*?):)?(.*?)\]/g;
@@ -269,8 +251,7 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
     while ((match = commandRegex.exec(currentText)) !== null) {
         const fullTagString = match[0];
         const command = (match[1] || 'avatar').trim().toLowerCase();
-
-        // --- MODIFIED --- We explicitly ignore the journal command here, as it's handled separately.
+        
         if (command === 'journal_overwrite') continue;
 
         if (!processedTags.has(fullTagString)) {
@@ -291,12 +272,11 @@ async function processDynamicCommands(currentText, messageElement, characterId) 
 }
 
 function setupMessageEditing(messageElement, db) {
-    // ... This function remains unchanged.
     const editButton = messageElement.querySelector('.btn-edit');
     const saveButton = messageElement.querySelector('.btn-save');
     const deleteButton = messageElement.querySelector('.btn-delete');
     const refreshButton = messageElement.querySelector('.btn-refresh');
-    const replayButton = messageElement.querySelector('.btn-replay'); 
+    const replayButton = messageElement.querySelector('.btn-replay');
     const messageTextDiv = messageElement.querySelector('.message-text');
 
     if (!messageTextDiv) return;
@@ -331,7 +311,7 @@ function setupMessageEditing(messageElement, db) {
 
             const newHtml = marked.parse(wrapCommandsInSpan(newRawText), { breaks: true });
             messageTextDiv.innerHTML = newHtml;
-            hljs.highlightAll(); 
+            hljs.highlightAll();
 
             editButton.style.display = 'inline-block';
             saveButton.style.display = 'none';
@@ -401,7 +381,6 @@ function setupMessageEditing(messageElement, db) {
 }
 
 async function updateMessageInDatabase(messageIndex, newRawText, db) {
-    // ... This function remains unchanged.
     if (!db) return;
     try {
         const currentChat = await chatsService.getCurrentChat(db);
@@ -415,7 +394,6 @@ async function updateMessageInDatabase(messageIndex, newRawText, db) {
 }
 
 async function retypeMessage(messageElement, newRawText, characterId, typingSpeed, sender) {
-    // ... This function remains unchanged.
     const messageContent = messageElement.querySelector(".message-text");
     if (!messageContent) return;
 
@@ -447,7 +425,6 @@ async function retypeMessage(messageElement, newRawText, characterId, typingSpee
 
 export async function insertMessage(sender, msg, selectedPersonalityTitle = null, netStream = null, db = null, pfpSrc = null, typingSpeed = 0, characterId = null) {
     const newMessage = document.createElement("div");
-    // ... (rest of the initial element creation is unchanged)
     newMessage.classList.add("message");
     const messageContainer = document.querySelector(".message-container");
     const messageIndex = messageContainer.children.length;
@@ -478,7 +455,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             requestAnimationFrame(() => {
                 pfpElement.src = pfpSrc;
                 pfpElement.onerror = () => {
-                    console.error("Failed to load initial personality avatar:", pfpSrc);
                     pfpElement.src = './assets/default_avatar.png';
                 };
             });
@@ -487,14 +463,11 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
         const messageContent = newMessage.querySelector(".message-text");
 
         if (!netStream) {
-            // This path is for non-streamed messages, like loading history.
-            // It just renders the text, which should already be clean.
             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(msg), { breaks: true });
             if (characterId !== null) {
                 await processDynamicCommands(msg, newMessage, characterId);
             }
         } else {
-            // This is the main streaming logic path
             let fullRawText = "";
             let currentDisplayedText = "";
 
@@ -507,18 +480,14 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                         }
 
                         if (typingSpeed > 0) {
-                            // We stream visually, but wait for the end to process journal commands.
                             currentDisplayedText += chunk.text;
-                            // Only process dynamic commands mid-stream
                             await processDynamicCommands(currentDisplayedText, newMessage, characterId);
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
                             helpers.messageContainerScrollToBottom();
-                            // To make typing smooth, we process chunks character-by-character
                             for (let i = 0; i < chunk.text.length; i++) {
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            // Non-typing-effect stream update
                             currentDisplayedText += chunk.text;
                             await processDynamicCommands(currentDisplayedText, newMessage, characterId);
                             messageContent.innerHTML = marked.parse(wrapCommandsInSpan(currentDisplayedText), { breaks: true });
@@ -527,24 +496,18 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     }
                 }
 
-                // --- MODIFIED --- This is the critical point. Stream has ended.
-                // We process the full text for the journal command BEFORE rendering the final result.
                 const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId, db);
                 
-                // Now render the final, cleaned text.
                 await processDynamicCommands(cleanedText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(cleanedText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
                 hljs.highlightAll();
                 setupMessageEditing(newMessage, db);
-                return { HTML: messageContent.innerHTML, md: cleanedText }; // Return the cleaned text
+                return { HTML: messageContent.innerHTML, md: cleanedText };
 
             } catch (error) {
-                // --- MODIFIED --- Also apply the cleaning logic in the error case.
                 console.error("Stream error:", error);
-                
                 const { cleanedText } = await extractAndProcessJournalCommand(fullRawText, characterId, db);
-
                 await processDynamicCommands(cleanedText, newMessage, characterId);
                 messageContent.innerHTML = marked.parse(wrapCommandsInSpan(cleanedText), { breaks: true });
                 helpers.messageContainerScrollToBottom();
@@ -553,8 +516,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 return { HTML: messageContent.innerHTML, md: cleanedText };
             }
         }
-    } else { // User message
-        // ... This block remains unchanged.
+    } else {
         newMessage.innerHTML = `
             <div class="message-header">
                 <h3 class="message-role">You:</h3>
