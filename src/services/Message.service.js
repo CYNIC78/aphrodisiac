@@ -492,7 +492,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
-                    <button class="btn-replay btn-textual material-symbols-outlined">play_arrow</button>
+                    
                     <button class="btn-delete btn-textual material-symbols-outlined">delete</button>
                     <button class="btn-refresh btn-textual material-symbols-outlined">refresh</button>
                 </div>
