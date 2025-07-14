@@ -1285,3 +1285,26 @@ button {
     display: flex;
     gap: 0.5rem; /* Space between the individual bulk action buttons */
 }
+
+
+
+
+/* ADD THESE NEW RULES AT THE END OF main.css */
+
+.form-divider {
+    border: none;
+    height: 1px;
+    margin: 2rem 0 1.5rem 0; /* Adds space above and below the line */
+}
+
+@media (prefers-color-scheme: light) {
+    .form-divider {
+        background-color: #54545428; /* A subtle line color for light mode */
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .form-divider {
+        background-color: #b6b6b62f; /* A subtle line color for dark mode */
+    }
+}
