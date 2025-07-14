@@ -12,6 +12,7 @@ let activeTags = []; // Holds the currently selected tags for filtering
 let allDbTags = [];  // A cache of all unique tags from the database
 let currentCharacterId = null; // To hold the ID of the currently active personality
 let selectedAssetIds = new Set(); // NEW: To track selected asset IDs
+
 // --- UI ELEMENT REFERENCES ---
 let mediaLibraryStep; 
 
@@ -199,7 +200,7 @@ function createAssetCard(asset) {
 }
 
 
-// --- EVENT HANDLERS (Unchanged) ---
+// --- EVENT HANDLERS ---
 
 // NEW: Update state of bulk action buttons (to be implemented in HTML)
 function updateBulkActionButtonState() {
@@ -225,8 +226,6 @@ function toggleAssetSelection(assetId) {
     }
     updateBulkActionButtonState(); // NEW: Update state of bulk action buttons
 }
-
-
 
 function handleTagClick(tag) {
     const tagIndex = activeTags.indexOf(tag);
@@ -278,7 +277,6 @@ async function handleRemoveTagFromAsset(assetId, tagToRemove) {
         renderTagExplorer();
     }
 }
-
 
 async function handleAddTagToSelectedAssets() {
     if (selectedAssetIds.size === 0) return;
@@ -352,12 +350,6 @@ async function handleDeleteSelectedAssets() {
     }
 }
 
-
-
-
-
-
-
 async function handleDeleteAsset(assetId) {
     if (!assetId) return;
     if (confirm(`Are you sure you want to permanently delete this asset?`)) {
@@ -368,7 +360,8 @@ async function handleDeleteAsset(assetId) {
 
 async function updateMainUI(characterId) {
     currentCharacterId = characterId;
-    activeTags = []; 
+    activeTags = [];
+    selectedAssetIds.clear(); // Clear selection on UI update/refresh
     if (currentCharacterId === null) {
         allDbTags = [];
     } else {
@@ -376,13 +369,14 @@ async function updateMainUI(characterId) {
     }
     renderTagExplorer(document.querySelector('#tag-explorer-search')?.value || '');
     renderGallery();
+    updateBulkActionButtonState(); // Ensure button states are updated after UI refresh
 }
 
-// --- INITIALIZATION (Unchanged) ---
+// --- INITIALIZATION ---
 export function initializeAssetManagerComponent(characterId) {
     if (isInitialized) {
-        updateMainUI(characterId);
-        updateBulkActionButtonState();
+        updateMainUI(characterId); // Refresh UI and state if already initialized
+        updateBulkActionButtonState(); // Ensure button states are correct
         return;
     }
 
@@ -392,14 +386,16 @@ export function initializeAssetManagerComponent(characterId) {
     document.querySelector('#tag-explorer-search').addEventListener('input', (e) => renderTagExplorer(e.target.value));
     document.querySelector('#btn-upload-asset').addEventListener('click', () => document.querySelector('#asset-upload-input').click());
     
-    // NEW: Event listeners for Select All/Deselect All buttons
+    // Event listeners for Select All/Deselect All buttons
     const selectAllBtn = document.querySelector('#btn-select-all-assets');
     const deselectAllBtn = document.querySelector('#btn-deselect-all-assets');
+    const addTagSelectedBtn = document.querySelector('#btn-add-tag-selected'); 
+    const deleteSelectedBtn = document.querySelector('#btn-delete-selected-assets'); 
     
     if (selectAllBtn) {
         selectAllBtn.addEventListener('click', async () => {
             const allAssets = await assetManagerService.getAllAssetsForCharacter(currentCharacterId);
-            selectedAssetIds.clear();
+            selectedAssetIds.clear(); // Clear existing selection before re-selecting all
             allAssets.forEach(asset => selectedAssetIds.add(asset.id));
             renderGallery(); // Re-render to apply 'selected-asset' class
             updateBulkActionButtonState();
@@ -414,44 +410,15 @@ export function initializeAssetManagerComponent(characterId) {
         });
     }
 
-
-
-export function initializeAssetManagerComponent(characterId) {
-    // ... (existing initialization code) ...
-
-    const selectAllBtn = document.querySelector('#btn-select-all-assets');
-    const deselectAllBtn = document.querySelector('#btn-deselect-all-assets');
-    const addTagSelectedBtn = document.querySelector('#btn-add-tag-selected'); // NEW
-    const deleteSelectedBtn = document.querySelector('#btn-delete-selected-assets'); // NEW
-    
-    if (selectAllBtn) {
-        // ... (existing selectAllBtn listener) ...
-    }
-
-    if (deselectAllBtn) {
-        // ... (existing deselectAllBtn listener) ...
-    }
-
-    // NEW: Event listener for "Add Tag to Selected" button
+    // Event listener for "Add Tag to Selected" button
     if (addTagSelectedBtn) {
         addTagSelectedBtn.addEventListener('click', handleAddTagToSelectedAssets);
     }
 
-    // NEW: Event listener for "Delete Selected" button
+    // Event listener for "Delete Selected" button
     if (deleteSelectedBtn) {
         deleteSelectedBtn.addEventListener('click', handleDeleteSelectedAssets);
     }
-
-    updateMainUI(characterId);
-    updateBulkActionButtonState(); // Ensure initial state is correct
-    
-    console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
-    isInitialized = true;
-}
-
-
-
-
     
     document.querySelector('#asset-upload-input').addEventListener('change', async (event) => {
         const files = event.target.files;
@@ -465,8 +432,11 @@ export function initializeAssetManagerComponent(characterId) {
         await updateMainUI(currentCharacterId);
     });
     
-    updateMainUI(characterId);
-	updateBulkActionButtonState();
+    updateMainUI(characterId); // Initial UI render and state setup
+    // Note: The call to updateBulkActionButtonState() here is now within updateMainUI()
+    // It was also called here previously. Having it in updateMainUI() means it's called
+    // consistently after any major UI data refresh.
+    
     console.log('Asset Manager Component Initialized (v11.0 - Framed Overlay).');
     isInitialized = true;
 }
