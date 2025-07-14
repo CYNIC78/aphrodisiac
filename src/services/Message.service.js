@@ -132,26 +132,8 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
     switch (command) {
         case 'avatar':
             try {
-                // --- MODIFICATION START ---
-                // First, attempt to find the asset with the specific tags requested.
-                let assets = await assetManagerService.searchAssetsByTags(tagsToSearch, characterId);
-
-                // If the specific search fails AND it was a multi-tag command (e.g., [emily,happy])...
-                if ((!assets || assets.length === 0) && tagsToSearch.length > 1) {
-                    // ...find the character tag from the original request...
-                    const characterTag = tagsToSearch.find(t => t.startsWith('char_'));
-                    
-                    if (characterTag) {
-                        console.log(`Asset for [${tagsToSearch.join(',')}] not found. Falling back to default for ${characterTag}.`);
-                        
-                        // ...and now search for that character's 'default' asset instead.
-                        const fallbackTags = [characterTag, 'default'];
-                        assets = await assetManagerService.searchAssetsByTags(fallbackTags, characterId);
-                    }
-                }
-                // --- MODIFICATION END ---
-
-                // This block now executes if EITHER the specific OR the fallback search was successful.
+                const searchTags = [...new Set([...tagsToSearch, 'avatar'])]; 
+                const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
                 if (assets && assets.length > 0) {
                     const asset = assets[0];
                     const objectURL = URL.createObjectURL(asset.data);
@@ -192,6 +174,7 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
                             }, 500);
                         }
                     }
+
                 }
             } catch (e) {
                 console.error(`Error processing [avatar] command:`, e);
@@ -200,10 +183,10 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
 
         case 'sfx':
         case 'audio':
-            // This logic remains unchanged as fallback is not needed for audio.
             if (settings.audio.enabled) {
                 try {
-                    const assets = await assetManagerService.searchAssetsByTags(tagsToSearch, characterId);
+                    const searchTags = [...new Set([...tagsToSearch, 'audio'])];
+                    const assets = await assetManagerService.searchAssetsByTags(searchTags, characterId);
                     if (assets && assets.length > 0) {
                         const asset = assets[0];
                         const objectURL = URL.createObjectURL(asset.data);
@@ -212,7 +195,7 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
                         audio.play().catch(e => console.error("Audio playback failed:", e));
                         audio.onended = () => URL.revokeObjectURL(objectURL);
                         audio.onerror = () => {
-                            console.error(`Failed to load audio for command [${command}:${tagsToSearch.join(',')}]]:`, objectURL);
+                            console.error(`Failed to load audio for command [${command}:${tagsToSearch.join(',')}]:`, objectURL);
                             URL.revokeObjectURL(objectURL);
                         };
                     }
@@ -223,6 +206,7 @@ async function executeCommandAction(command, tagsToSearch, messageElement, chara
             break;
     }
 }
+
 
 
 
