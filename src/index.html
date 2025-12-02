@@ -97,10 +97,14 @@
                                     info
                                 </span> </label>
                             <select id="selectedModel" class="input-field">
-                                <option value="gemini-exp-1206">Gemini Exp 1206 (Best for RP)</option>
-                                <option value="gemini-2.0-flash-exp">Gemini Flash 2.0-exp</option>
-                                <option value="gemini-2.0-flash" selected="true">Gemini 2.0 Flash</option>
-                                <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro-exp-02-05</option>
+                                <option value="gemini-2.0-flash">Flash 2.0</option>
+                                <!-- Вот эта штука спасет твой чат 👇 -->
+                                <option value="gemini-flash-latest" selected="true">Flash (Latest)</option>
+                                
+                                <!-- Можешь оставить эти для понтов, но если не заработают - переключай на Flash -->
+                                <option value="gemini-2.5-flash-image-preview">Flash Image (Nano Banana)</option>
+                                <option value="gemini-2.5-pro">2.5 Pro (Legacy)</option>
+                                <option value="gemini-3-pro-preview">3 Pro (Recommended)</option>
                             </select>
                         </div>
                         <div>
