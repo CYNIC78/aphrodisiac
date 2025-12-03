@@ -11,7 +11,6 @@ export async function send(msg, db) {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
     
-    // Проверка, чтобы не крашилось, если персонаж не выбран
     if (!selectedPersonality) {
         alert("No personality selected!");
         return;
@@ -28,54 +27,44 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
 
-    // --- FIX 1: Генерация заголовка ---
-    // Если чат новый, генерируем заголовок.
+    // --- ИЗМЕНЕНИЕ: Убрали лишний запрос к ИИ ---
+    // Генерируем заголовок локально, чтобы не ловить ошибку 429
     if (!await chatsService.getCurrentChat(db)) {
         try {
-            // ИСПОЛЬЗУЕМ settings.model вместо хардкода 'gemini-1.5-flash'.
-            // Если работает основной чат, сработает и генерация заголовка.
-            const response = await ai.models.generateContent({
-                model: settings.model, 
-                contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
-            });
-            const title = response.text;
-            const id = await chatsService.addChat(title, null, db);
+            // Просто берем первые 30 символов сообщения как заголовок
+            const simpleTitle = msg.length > 30 ? msg.substring(0, 30) + "..." : msg;
             
-            // Безопасный клик, проверка на существование элемента
+            const id = await chatsService.addChat(simpleTitle, null, db);
+            
             const chatLink = document.querySelector(`#chat${id}`);
             if (chatLink) chatLink.click();
         } catch (e) {
-            console.warn("Title generation failed, using default name.", e);
-            // Если API упало, просто создаем чат с дефолтным именем, чтобы не блочить юзера
+            console.warn("Chat creation failed", e);
             const id = await chatsService.addChat("New Chat", null, db);
             const chatLink = document.querySelector(`#chat${id}`);
             if (chatLink) chatLink.click();
         }
     }
     
-    // --- FIX 2: Asset Manager Crash ---
-    // Проверяем, есть ли ID у персонажа перед поиском тегов.
-    // Если база пустая после очистки, ID может не быть.
+    // Загрузка тегов (безопасная)
     if (selectedPersonality.id) {
         try {
             const { assetManagerService } = await import('./AssetManager.service.js');
             const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(selectedPersonality.id);
-            // Передаем теги в визуал сервис
             if (characterTags && characterTags.characters) {
                 visualService.setCharacterTagCache(characterTags.characters);
             }
         } catch (e) {
-            console.warn("Failed to load character tags (ignoring):", e);
+            // Игнорируем ошибки ассетов, чтобы не блочить чат
+            visualService.setCharacterTagCache([]);
         }
     } else {
-        // Если ID нет, просто чистим кэш тегов
         visualService.setCharacterTagCache([]);
     }
 
     await insertMessage("user", msg, null, null, db);
 
     const currentChat = await chatsService.getCurrentChat(db);
-    // Доп. проверка на случай если создание чата совсем упало
     if (!currentChat) {
         console.error("Critical: Chat could not be created or retrieved.");
         return;
@@ -98,7 +87,7 @@ export async function send(msg, db) {
         ${selectedPersonality.prompt}
     `.trim();
 
-    // Ограничение истории (чтобы Pro модель не ругалась на квоты)
+    // Ограничиваем историю 20 сообщениями
     const MAX_HISTORY = 20; 
     const recentMessages = currentChat.content.slice(0, -1).slice(-MAX_HISTORY);
 
@@ -113,7 +102,6 @@ export async function send(msg, db) {
 
     history.push(...recentMessages.map(msg => ({ role: msg.role, parts: msg.parts })));
 
-    // Создаем чат
     const chat = ai.chats.create({ model: settings.model, history, config });
 
     let messageToSendToAI = msg;
@@ -132,7 +120,7 @@ export async function send(msg, db) {
             db, 
             selectedPersonality.image, 
             settings.typingSpeed, 
-            selectedPersonality.id // Может быть null, но insertMessage это переварит
+            selectedPersonality.id 
         );
 
         currentChat.content.push({ 
@@ -145,11 +133,16 @@ export async function send(msg, db) {
         settingsService.saveSettings();
     } catch (error) {
         console.error("Gemini API Error:", error);
-        // Выводим ошибку в алерт, чтобы ты сразу понял в чем дело
-        alert(`API Error: ${error.message || error}`);
         
-        // Удаляем сообщение юзера из базы, чтобы можно было повторить попытку без дублей
-        // (Опционально, но удобно для UX при ошибках)
+        // Более понятное сообщение об ошибке для пользователя
+        let errorMessage = error.message || error;
+        if (errorMessage.includes("429")) {
+            errorMessage = "Too many requests (Quota exceeded). Please wait a moment.";
+        }
+        
+        alert(`API Error: ${errorMessage}`);
+        
+        // Удаляем сообщение пользователя, раз ответ не пришел
         currentChat.content.pop(); 
         await db.chats.put(currentChat);
         const lastMsg = document.querySelector('.message-container .message:last-child');
@@ -243,7 +236,7 @@ function setupMessageEditing(messageElement, db) {
                     const { assetManagerService } = await import('./AssetManager.service.js');
                     const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(characterId);
                     visualService.setCharacterTagCache(characterTags.characters);
-                } catch(e) { console.error(e); }
+                } catch(e) {}
             }
 
             const settings = settingsService.getSettings();
@@ -323,8 +316,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
         const pfpElement = newMessage.querySelector('.pfp');
         if (pfpElement) {
-            // Если src есть, ставим его, иначе дефолтный. 
-            // Если персонаж удален и картинки нет (null), тоже ставим дефолт.
             pfpElement.src = pfpSrc || './assets/default_avatar.png';
             pfpElement.onerror = () => { pfpElement.src = './assets/default_avatar.png'; };
         }
