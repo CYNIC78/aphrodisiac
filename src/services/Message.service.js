@@ -5,12 +5,17 @@ import * as settingsService from "./Settings.service.js";
 import * as personalityService from "./Personality.service.js";
 import * as chatsService from "./Chats.service.js";
 import * as helpers from "../utils/helpers.js";
-import * as visualService from "./Visual.service.js"; // Импортируем новый сервис
+import * as visualService from "./Visual.service.js"; 
 
 export async function send(msg, db) {
     const settings = settingsService.getSettings();
     const selectedPersonality = await personalityService.getSelected();
-    if (!selectedPersonality) return;
+    
+    // Проверка, чтобы не крашилось, если персонаж не выбран
+    if (!selectedPersonality) {
+        alert("No personality selected!");
+        return;
+    }
     if (settings.apiKey === "") return alert("Please enter an API key");
     if (!msg) return;
 
@@ -23,37 +28,64 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
 
-    // Генерация заголовка чата (если новый)
+    // --- FIX 1: Генерация заголовка ---
+    // Если чат новый, генерируем заголовок.
     if (!await chatsService.getCurrentChat(db)) {
         try {
+            // ИСПОЛЬЗУЕМ settings.model вместо хардкода 'gemini-1.5-flash'.
+            // Если работает основной чат, сработает и генерация заголовка.
             const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash', // Используем 1.5 Flash для скорости
+                model: settings.model, 
                 contents: "You are to act as a generator for chat titles. The user will send a query - you must generate a title for the chat based on it. Only reply with the short title, nothing else. The user's message is: " + msg,
             });
             const title = response.text;
             const id = await chatsService.addChat(title, null, db);
-            document.querySelector(`#chat${id}`).click();
+            
+            // Безопасный клик, проверка на существование элемента
+            const chatLink = document.querySelector(`#chat${id}`);
+            if (chatLink) chatLink.click();
         } catch (e) {
-            console.error("Title generation failed, using default", e);
+            console.warn("Title generation failed, using default name.", e);
+            // Если API упало, просто создаем чат с дефолтным именем, чтобы не блочить юзера
             const id = await chatsService.addChat("New Chat", null, db);
-            document.querySelector(`#chat${id}`).click();
+            const chatLink = document.querySelector(`#chat${id}`);
+            if (chatLink) chatLink.click();
         }
     }
     
-    // 1. Инициализируем кэш тегов в Visual Service
-    const { assetManagerService } = await import('./AssetManager.service.js');
-    const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(selectedPersonality.id);
-    visualService.setCharacterTagCache(characterTags.characters);
+    // --- FIX 2: Asset Manager Crash ---
+    // Проверяем, есть ли ID у персонажа перед поиском тегов.
+    // Если база пустая после очистки, ID может не быть.
+    if (selectedPersonality.id) {
+        try {
+            const { assetManagerService } = await import('./AssetManager.service.js');
+            const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(selectedPersonality.id);
+            // Передаем теги в визуал сервис
+            if (characterTags && characterTags.characters) {
+                visualService.setCharacterTagCache(characterTags.characters);
+            }
+        } catch (e) {
+            console.warn("Failed to load character tags (ignoring):", e);
+        }
+    } else {
+        // Если ID нет, просто чистим кэш тегов
+        visualService.setCharacterTagCache([]);
+    }
 
     await insertMessage("user", msg, null, null, db);
 
     const currentChat = await chatsService.getCurrentChat(db);
+    // Доп. проверка на случай если создание чата совсем упало
+    if (!currentChat) {
+        console.error("Critical: Chat could not be created or retrieved.");
+        return;
+    }
+
     currentChat.content.push({ role: "user", parts: [{ text: msg }] });
     await db.chats.put(currentChat);
 
     helpers.messageContainerScrollToBottom();
 
-    // 2. Улучшенная структура промпта (Правила -> Лор -> Персонаж)
     const masterInstruction = `
         ${settingsService.getSystemPrompt()}
 
@@ -66,22 +98,19 @@ export async function send(msg, db) {
         ${selectedPersonality.prompt}
     `.trim();
 
-    // 3. Формируем историю с ОГРАНИЧЕНИЕМ (Fix Quota Limit)
-    // Берем только последние 20 сообщений, чтобы не перегружать контекст
+    // Ограничение истории (чтобы Pro модель не ругалась на квоты)
     const MAX_HISTORY = 20; 
     const recentMessages = currentChat.content.slice(0, -1).slice(-MAX_HISTORY);
 
     const history = [
         { role: "user", parts: [{ text: masterInstruction }] },
-        { role: "model", parts: [{ text: "Understood. I am ready." }] }
+        { role: "model", parts: [{ text: "Understood." }] }
     ];
 
-    // Добавляем примеры тона
     if (selectedPersonality.toneExamples && selectedPersonality.toneExamples.length > 0 && selectedPersonality.toneExamples[0]) {
         history.push(...selectedPersonality.toneExamples.map(tone => ({ role: "model", parts: [{ text: tone }] })));
     }
 
-    // Добавляем историю чата
     history.push(...recentMessages.map(msg => ({ role: msg.role, parts: msg.parts })));
 
     // Создаем чат
@@ -94,15 +123,37 @@ export async function send(msg, db) {
 
     try {
         const stream = await chat.sendMessageStream({ message: messageToSendToAI });
-        // Передаем поток в insertMessage, который теперь использует visualService
-        const reply = await insertMessage("model", "", selectedPersonality.name, stream, db, selectedPersonality.image, settings.typingSpeed, selectedPersonality.id);
+        
+        const reply = await insertMessage(
+            "model", 
+            "", 
+            selectedPersonality.name, 
+            stream, 
+            db, 
+            selectedPersonality.image, 
+            settings.typingSpeed, 
+            selectedPersonality.id // Может быть null, но insertMessage это переварит
+        );
 
-        currentChat.content.push({ role: "model", personality: selectedPersonality.name, personalityid: selectedPersonality.id, parts: [{ text: reply.md }] });
+        currentChat.content.push({ 
+            role: "model", 
+            personality: selectedPersonality.name, 
+            personalityid: selectedPersonality.id, 
+            parts: [{ text: reply.md }] 
+        });
         await db.chats.put(currentChat);
         settingsService.saveSettings();
     } catch (error) {
         console.error("Gemini API Error:", error);
-        alert("Error sending message to AI. Check console or Quota.");
+        // Выводим ошибку в алерт, чтобы ты сразу понял в чем дело
+        alert(`API Error: ${error.message || error}`);
+        
+        // Удаляем сообщение юзера из базы, чтобы можно было повторить попытку без дублей
+        // (Опционально, но удобно для UX при ошибках)
+        currentChat.content.pop(); 
+        await db.chats.put(currentChat);
+        const lastMsg = document.querySelector('.message-container .message:last-child');
+        if (lastMsg && !lastMsg.classList.contains('message-model')) lastMsg.remove();
     }
 }
 
@@ -116,11 +167,9 @@ async function handleRegenerate(clickedElement, db) {
 
     if (clickedElement.classList.contains('message-model')) {
         if (elementIndex === 0) return;
-        // Регенерируем ответ на предыдущее сообщение юзера
         textToResend = chat.content[elementIndex - 1].parts[0].text;
         sliceEndIndex = elementIndex - 1;
     } else {
-        // Регенерируем ответ на ЭТО сообщение юзера
         textToResend = chat.content[elementIndex].parts[0].text;
         sliceEndIndex = elementIndex;
     }
@@ -152,7 +201,6 @@ function setupMessageEditing(messageElement, db) {
             messageTextDiv.setAttribute("contenteditable", "true");
             messageTextDiv.focus();
             
-            // Ставим курсор в конец
             const range = document.createRange();
             range.selectNodeContents(messageTextDiv);
             range.collapse(false);
@@ -171,7 +219,6 @@ function setupMessageEditing(messageElement, db) {
 
             await updateMessageInDatabase(index, newRawText, db);
 
-            // Используем VisualService для рендера
             messageTextDiv.innerHTML = visualService.renderTextContent(newRawText);
             hljs.highlightAll();
 
@@ -190,17 +237,16 @@ function setupMessageEditing(messageElement, db) {
 
             const rawTextToReplay = messageData.parts[0].text;
             const characterId = messageData?.personalityid;
-            const sender = messageData?.role;
 
             if (characterId) {
-                const { assetManagerService } = await import('./AssetManager.service.js');
-                const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(characterId);
-                visualService.setCharacterTagCache(characterTags.characters);
+                try {
+                    const { assetManagerService } = await import('./AssetManager.service.js');
+                    const characterTags = await assetManagerService.getAllUniqueTagsForCharacter(characterId);
+                    visualService.setCharacterTagCache(characterTags.characters);
+                } catch(e) { console.error(e); }
             }
 
             const settings = settingsService.getSettings();
-            
-            // Делегируем проигрывание в VisualService
             await visualService.typeWriterEffect(messageElement, rawTextToReplay, characterId, settings.typingSpeed);
         });
     }
@@ -215,7 +261,6 @@ function setupMessageEditing(messageElement, db) {
 
             if (success) {
                 messageElement.remove();
-                // Переиндексация DOM элементов
                 const messageContainer = document.querySelector(".message-container");
                 const allMessages = messageContainer.querySelectorAll('.message');
                 allMessages.forEach((msgEl, newIndex) => {
@@ -264,7 +309,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 <div class="pfp-wrapper">
                     <img class="pfp" src="" loading="lazy" />
                 </div>
-                <h3 class="message-role">${selectedPersonalityTitle}</h3>
+                <h3 class="message-role">${selectedPersonalityTitle || 'AI'}</h3>
                 <div class="message-actions">
                     <button class="btn-edit btn-textual material-symbols-outlined">edit</button>
                     <button class="btn-save btn-textual material-symbols-outlined" style="display: none;">save</button>
@@ -277,27 +322,23 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             <div class="message-text"></div>`;
 
         const pfpElement = newMessage.querySelector('.pfp');
-        if (pfpElement && pfpSrc) {
-            requestAnimationFrame(() => {
-                pfpElement.src = pfpSrc;
-                pfpElement.onerror = () => { pfpElement.src = './assets/default_avatar.png'; };
-            });
+        if (pfpElement) {
+            // Если src есть, ставим его, иначе дефолтный. 
+            // Если персонаж удален и картинки нет (null), тоже ставим дефолт.
+            pfpElement.src = pfpSrc || './assets/default_avatar.png';
+            pfpElement.onerror = () => { pfpElement.src = './assets/default_avatar.png'; };
         }
         
         const messageContent = newMessage.querySelector(".message-text");
 
-        // Обработка СТРИМА или готового текста
         if (!netStream) {
             messageContent.innerHTML = visualService.renderTextContent(msg);
             if (characterId !== null) {
                 await visualService.processDynamicCommands(msg, newMessage, characterId);
             }
         } else {
-            // Обработка потока
             let fullRawText = "";
             let currentDisplayedText = "";
-            
-            // Чистим кэш команд перед началом приема сообщения
             visualService.clearProcessedCommands(newMessage);
 
             try {
@@ -306,7 +347,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                         fullRawText += chunk.text;
                         
                         if (typingSpeed > 0) {
-                            // Тайпинг эффект
                             for (let i = 0; i < chunk.text.length; i++) {
                                 currentDisplayedText += chunk.text[i];
                                 await visualService.processDynamicCommands(currentDisplayedText, newMessage, characterId);
@@ -315,7 +355,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                                 await new Promise(resolve => setTimeout(resolve, typingSpeed));
                             }
                         } else {
-                            // Мгновенный вывод (но все равно чанками)
                             await visualService.processDynamicCommands(fullRawText, newMessage, characterId);
                             messageContent.innerHTML = visualService.renderTextContent(fullRawText);
                             helpers.messageContainerScrollToBottom();
@@ -323,7 +362,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                     }
                 }
                 
-                // Финализация после стрима
                 await visualService.processDynamicCommands(fullRawText, newMessage, characterId);
                 messageContent.innerHTML = visualService.renderTextContent(fullRawText);
                 hljs.highlightAll();
@@ -332,7 +370,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
 
             } catch (error) {
                 console.error("Stream error:", error);
-                // Пытаемся сохранить то, что успели получить
                 messageContent.innerHTML = visualService.renderTextContent(fullRawText);
                 hljs.highlightAll();
                 setupMessageEditing(newMessage, db);
@@ -340,7 +377,6 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             }
         }
     } else { 
-        // User message
         newMessage.innerHTML = `
             <div class="message-header">
                 <h3 class="message-role">You:</h3>
