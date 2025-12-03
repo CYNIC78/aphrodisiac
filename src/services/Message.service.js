@@ -27,15 +27,11 @@ export async function send(msg, db) {
         responseMimeType: "text/plain"
     };
 
-    // --- ИЗМЕНЕНИЕ: Убрали лишний запрос к ИИ ---
-    // Генерируем заголовок локально, чтобы не ловить ошибку 429
+    // 1. Генерация заголовка (Локальная, без лишних запросов к API)
     if (!await chatsService.getCurrentChat(db)) {
         try {
-            // Просто берем первые 30 символов сообщения как заголовок
             const simpleTitle = msg.length > 30 ? msg.substring(0, 30) + "..." : msg;
-            
             const id = await chatsService.addChat(simpleTitle, null, db);
-            
             const chatLink = document.querySelector(`#chat${id}`);
             if (chatLink) chatLink.click();
         } catch (e) {
@@ -46,7 +42,7 @@ export async function send(msg, db) {
         }
     }
     
-    // Загрузка тегов (безопасная)
+    // 2. Кэширование тегов
     if (selectedPersonality.id) {
         try {
             const { assetManagerService } = await import('./AssetManager.service.js');
@@ -55,13 +51,13 @@ export async function send(msg, db) {
                 visualService.setCharacterTagCache(characterTags.characters);
             }
         } catch (e) {
-            // Игнорируем ошибки ассетов, чтобы не блочить чат
             visualService.setCharacterTagCache([]);
         }
     } else {
         visualService.setCharacterTagCache([]);
     }
 
+    // Вставляем сообщение юзера (используем visualService внутри insertMessage)
     await insertMessage("user", msg, null, null, db);
 
     const currentChat = await chatsService.getCurrentChat(db);
@@ -75,6 +71,7 @@ export async function send(msg, db) {
 
     helpers.messageContainerScrollToBottom();
 
+    // 3. Формирование промпта
     const masterInstruction = `
         ${settingsService.getSystemPrompt()}
 
@@ -87,7 +84,6 @@ export async function send(msg, db) {
         ${selectedPersonality.prompt}
     `.trim();
 
-    // Ограничиваем историю 20 сообщениями
     const MAX_HISTORY = 20; 
     const recentMessages = currentChat.content.slice(0, -1).slice(-MAX_HISTORY);
 
@@ -109,6 +105,7 @@ export async function send(msg, db) {
         messageToSendToAI += `\n\nSYSTEM REMINDER: ${selectedPersonality.reminder}`;
     }
 
+    // 4. Отправка и стриминг
     try {
         const stream = await chat.sendMessageStream({ message: messageToSendToAI });
         
@@ -134,7 +131,6 @@ export async function send(msg, db) {
     } catch (error) {
         console.error("Gemini API Error:", error);
         
-        // Более понятное сообщение об ошибке для пользователя
         let errorMessage = error.message || error;
         if (errorMessage.includes("429")) {
             errorMessage = "Too many requests (Quota exceeded). Please wait a moment.";
@@ -142,7 +138,6 @@ export async function send(msg, db) {
         
         alert(`API Error: ${errorMessage}`);
         
-        // Удаляем сообщение пользователя, раз ответ не пришел
         currentChat.content.pop(); 
         await db.chats.put(currentChat);
         const lastMsg = document.querySelector('.message-container .message:last-child');
@@ -212,6 +207,7 @@ function setupMessageEditing(messageElement, db) {
 
             await updateMessageInDatabase(index, newRawText, db);
 
+            // Используем visualService
             messageTextDiv.innerHTML = visualService.renderTextContent(newRawText);
             hljs.highlightAll();
 
@@ -368,6 +364,8 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
             }
         }
     } else { 
+        // User message
+        // --- FIX HERE: используем visualService.renderTextContent вместо marked.parse ---
         newMessage.innerHTML = `
             <div class="message-header">
                 <h3 class="message-role">You:</h3>
@@ -379,7 +377,7 @@ export async function insertMessage(sender, msg, selectedPersonalityTitle = null
                 </div>
             </div>
             <div class="message-role-api" style="display: none;">${sender}</div>
-            <div class="message-text">${marked.parse(msg, { breaks: true })}</div>`;
+            <div class="message-text">${visualService.renderTextContent(msg)}</div>`;
     }
     
     hljs.highlightAll();
